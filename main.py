@@ -1,6 +1,7 @@
 import os
 import datetime
 import sqlite3
+import time
 import threading
 from flask import Flask, render_template_string, request, send_file, session, redirect, url_for
 from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
@@ -13,9 +14,10 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
 app = Flask(__name__)
-app.secret_key = "iz_motor_gizli_anahtar_erp_stable_v30"
+app.secret_key = "iz_motor_gizli_anahtar_erp_bakim_v35"
 
 SIFRE = "izmotor2026*"
+TELEGRAM_ADMIN_CHAT_ID = None
 
 # --- VERİTABANI KURULUMU ---
 def init_db():
@@ -33,7 +35,7 @@ def init_db():
             detaylar TEXT,
             toplam_tutar REAL,
             durum TEXT DEFAULT 'Bekliyor',
-            odeme_durumu TEXT DEFAULT 'Ödendi',
+            odeme_durumu TEXT DEFAULT 'Borçlu / Veresiye',
             pdf_dosya TEXT
         )
     ''')
@@ -51,7 +53,8 @@ def init_db():
             musteri_ad TEXT,
             tel TEXT,
             tarih_saat TEXT,
-            notlar TEXT
+            notlar TEXT,
+            hatirlatildi INTEGER DEFAULT 0
         )
     ''')
     conn.commit()
@@ -171,7 +174,6 @@ HTML_PANEL = """
         
         .card { background: rgba(22, 32, 50, 0.75); border: 1px solid var(--border-color); padding: 16px; border-radius: 14px; margin-bottom: 14px; font-size: 13px; line-height: 1.5; }
         
-        /* DURUM KONTROL ALANI (YAN YANA STABİL DROPDOWNLAR) */
         .status-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
         .status-box label { font-size: 10px; color: var(--text-muted); margin-bottom: 3px; text-transform: uppercase; font-weight: 700; }
         .status-box select { padding: 8px; font-size: 12px; background: rgba(3,7,18,0.95); border-radius: 8px; border: 1px solid var(--border-color); color: #fff; width: 100%; }
@@ -208,7 +210,7 @@ HTML_PANEL = """
     
     <div class="dashboard-grid">
         <div class="stat-card"><h3>{{ "%.2f"|format(toplam_ciro) }} TL</h3><p>Toplam Ciro</p></div>
-        <div class="stat-card"><h3>{{ tum_servisler|length }}</h3><p>Toplam Araç</p></div>
+        <div class="stat-card"><h3>{{ aktif_araclar|length }}</h3><p>Aktif Araç</p></div>
         <div class="stat-card"><h3>{{ stoklar|length }}</h3><p>Stok Çeşit</p></div>
         <div class="stat-card"><h3>{{ randevular|length }}</h3><p>Randevular</p></div>
     </div>
@@ -241,9 +243,9 @@ HTML_PANEL = """
             <div class="form-group">
                 <label>Ödeme / Borç Durumu</label>
                 <select name="odeme_durumu" style="background: rgba(3,7,18,0.9);">
-                    <option value="Ödendi">🟢 Ödendi</option>
-                    <option value="Borçlu / Veresiye">🔴 Borçlu / Veresiye</option>
+                    <option value="Borçlu / Veresiye" selected>🔴 Borçlu / Veresiye</option>
                     <option value="Parça Bekliyor">🟡 Parça Bekliyor</option>
+                    <option value="Ödendi">🟢 Ödendi (Arşive Gider)</option>
                 </select>
             </div>
 
@@ -273,7 +275,7 @@ HTML_PANEL = """
 
     <!-- 2. ARAÇLAR & DURUM -->
     <div id="araclarTab" class="tab-content">
-        <h3>Atölyedeki / Servisteki Araçlar</h3>
+        <h3>Atölyedeki / Servisteki Aktif Araçlar</h3>
         
         <div style="background: rgba(22, 32, 50, 0.5); border: 1px solid rgba(250,204,21,0.3); padding: 14px; border-radius: 12px; margin-bottom: 18px;">
             <h4 style="color: var(--accent-gold); margin-top: 0; margin-bottom: 8px; font-size: 13px; font-weight: 800;">➕ Doğrudan Servise Yeni Araç Ekle</h4>
@@ -289,16 +291,15 @@ HTML_PANEL = """
             </form>
         </div>
 
-        {% if tum_servisler %}
-            {% for ts in tum_servisler %}
-            <div class="card" style="border-left: 5px solid {% if ts[10] == 'Borçlu / Veresiye' %}#f87171{% else %}#4ade80{% endif %};">
+        {% if aktif_araclar %}
+            {% for ts in aktif_araclar %}
+            <div class="card" style="border-left: 5px solid {% if ts[10] == 'Borçlu / Veresiye' %}#f87171{% else %}#facc15{% endif %};">
                 <b>Plaka:</b> <span style="color:var(--accent-gold); font-size:15px; font-weight:800;">{{ ts[1] }}</span> | <b>Müşteri:</b> {{ ts[2] }} ({{ ts[3] }})<br>
                 <b>Model / KM:</b> {{ ts[4] }} - {{ ts[5] }} KM | <b>Tarih:</b> {{ ts[6] }}<br>
                 <b>Yapılanlar:</b> {{ ts[7] }} | <b>Toplam:</b> <span style="color:var(--accent-gold); font-weight:800;">{{ "%.2f"|format(ts[8]) }} TL</span><br>
                 
                 <hr style="border:0; border-top:1px solid rgba(51,65,85,0.5); margin: 10px 0;">
                 
-                <!-- STABİL YAN YANA DURUM VE ÖDEME GÜNCELLEME FORMU -->
                 <form action="/durum_guncelle" method="POST">
                     <input type="hidden" name="servis_id" value="{{ ts[0] }}">
                     <div class="status-controls">
@@ -315,16 +316,16 @@ HTML_PANEL = """
                         <div class="status-box">
                             <label>Ödeme Durumu</label>
                             <select name="odeme_durumu" onchange="this.form.submit()">
-                                <option value="Ödendi" {% if ts[10] == 'Ödendi' or not ts[10] %}selected{% endif %}>🟢 Ödendi</option>
                                 <option value="Borçlu / Veresiye" {% if ts[10] == 'Borçlu / Veresiye' %}selected{% endif %}>🔴 Borçlu</option>
                                 <option value="Parça Bekliyor" {% if ts[10] == 'Parça Bekliyor' %}selected{% endif %}>🟡 Parça Bekliyor</option>
+                                <option value="Ödendi">🟢 Ödendi (Arşive At)</option>
                             </select>
                         </div>
                     </div>
                 </form>
 
                 <div class="action-buttons">
-                    <a href="https://wa.me/{{ ts[3] }}?text=Sayin%20{{ ts[2] }},%20Iz%20Motorsiklet%20servis%20ucretiniz%20{{ "%.2f"|format(ts[8]) }}%20TL%20durumu:%20{{ ts[10] or 'Ödendi' }}." target="_blank" class="whatsapp-btn">💬 WhatsApp</a>
+                    <a href="https://wa.me/{{ ts[3] }}?text=Sayin%20{{ ts[2] }},%20Iz%20Motorsiklet%20servis%20ucretiniz%20{{ "%.2f"|format(ts[8]) }}%20TL%20durumu:%20{{ ts[10] or 'Borçlu' }}." target="_blank" class="whatsapp-btn">💬 WhatsApp</a>
                     {% if ts[11] %}
                     <a href="/pdf_indir/{{ ts[0] }}" class="pdf-btn">📄 Formu İndir (PDF)</a>
                     {% endif %}
@@ -332,7 +333,7 @@ HTML_PANEL = """
             </div>
             {% endfor %}
         {% else %}
-            <p style="color: var(--text-muted); text-align: center;">Kayıtlı aktif araç bulunmuyor.</p>
+            <p style="color: var(--text-muted); text-align: center;">Atölyede aktif bekleyen araç bulunmuyor.</p>
         {% endif %}
     </div>
 
@@ -341,24 +342,24 @@ HTML_PANEL = """
         <form method="GET" action="/">
             <input type="hidden" name="tab" value="history">
             <div class="form-group"><label>Plaka veya Müşteri Adı ile Sorgula</label><input type="text" name="sorgu_plaka" placeholder="Örn: 34 ABC veya Ahmet..." value="{{ sorgu_plaka or '' }}"></div>
-            <button type="submit" class="btn-action">Hızlı Arama Yap</button>
+            <button type="submit" class="btn-action">Ödenmiş Geçmişte Ara</button>
         </form>
         <hr style="margin: 18px 0; border: 0; border-top: 1px solid rgba(51,65,85,0.5);">
-        <h3>Arama Sonuçları / Geçmiş</h3>
+        <h3>Tamamlanan & Ödenen Geçmiş Servisler</h3>
         {% if kayitlar %}
             {% for k in kayitlar %}
-            <div class="card">
+            <div class="card" style="border-left: 4px solid #4ade80;">
                 <b>Plaka:</b> <span style="color:var(--accent-gold);">{{ k[1] }}</span> | <b>Tarih:</b> {{ k[6] }}<br>
                 <b>Müşteri:</b> {{ k[2] }} ({{ k[3] }})<br>
                 <b>İşlemler:</b> {{ k[7] }}<br>
-                <b>Toplam Tutar:</b> <span style="color: var(--accent-gold); font-weight: 800;">{{ "%.2f"|format(k[8]) }} TL</span> | <b>Ödeme:</b> {{ k[10] or 'Ödendi' }}
+                <b>Toplam Tutar:</b> <span style="color: var(--accent-gold); font-weight: 800;">{{ "%.2f"|format(k[8]) }} TL</span> | <b>Ödeme:</b> <span style="color: #4ade80; font-weight:800;">{{ k[10] }}</span>
                 {% if k[11] %}
                 <div style="margin-top: 8px;"><a href="/pdf_indir/{{ k[0] }}" class="pdf-btn">📄 Formu İndir (PDF)</a></div>
                 {% endif %}
             </div>
             {% endfor %}
         {% else %}
-            <p style="color: var(--text-muted); text-align: center;">Kayıt bulunamadı.</p>
+            <p style="color: var(--text-muted); text-align: center;">Geçmişte ödenmiş kayıt bulunamadı.</p>
         {% endif %}
     </div>
 
@@ -388,7 +389,7 @@ HTML_PANEL = """
         <h3>Atölye Randevu Takvimi</h3>
         <form method="POST" action="/randevu_ekle">
             <div class="form-group"><input type="text" name="musteri_ad" placeholder="Müşteri Adı Soyadı" required></div>
-            <div class="form-group"><input type="text" name="tel" placeholder="Telefon Numarası" required></div>
+            <div class="form-group"><input type="text" name="tel" placeholder="Telefon Numarası (Örn: 90532...)" required></div>
             <div class="form-group"><input type="text" name="tarih_saat" placeholder="Randevu Tarih ve Saati (Örn: 05.11.2026 - 14:30)" required></div>
             <div class="form-group"><input type="text" name="notlar" placeholder="Randevu Notu"></div>
             <button type="submit" class="btn-action">Randevu Oluştur</button>
@@ -396,20 +397,36 @@ HTML_PANEL = """
         <hr style="margin: 18px 0; border: 0; border-top: 1px solid rgba(51,65,85,0.5);">
         <h4>Aktif Randevular</h4>
         {% for r in randevular %}
-        <div class="card" style="border-left: 4px solid #0d9488;"><b>Müşteri:</b> {{ r[1] }} ({{ r[2] }})<br><b>Zaman:</b> <span style="color:var(--accent-gold); font-weight:800;">{{ r[3] }}</span></div>
+        <div class="card" style="border-left: 4px solid #0d9488;">
+            <b>Müşteri:</b> {{ r[1] }} ({{ r[2] }})<br>
+            <b>Zaman:</b> <span style="color:var(--accent-gold); font-weight:800;">{{ r[3] }}</span>
+            {% if r[4] %}<br><b>Not:</b> {{ r[4] }}{% endif %}
+            
+            <div style="margin-top: 10px;">
+                <a href="https://wa.me/{{ r[2] }}?text=Sayin%20{{ r[1] }},%20Iz%20Motorsiklet%20servisimizde%20{{ r[3] }}%20tarihli%20randevunuz%20bulunmaktadir,%20bekliyoruz." target="_blank" class="whatsapp-btn">💬 WhatsApp Hatırlat</a>
+            </div>
+        </div>
         {% endfor %}
     </div>
 
-    <!-- 6. BAKIM HATIRLAT -->
+    <!-- 6. BAKIM HATIRLAT (SADECE ÖDENMİŞ ESKİ ARAÇLAR & WHATSAPP BUTONU) -->
     <div id="reminderTab" class="tab-content">
-        <h3>Akıllı Bakım Hatırlatıcı</h3>
-        {% for b in bakim_listesi %}
-        <div class="card" style="border-left: 4px solid var(--accent-gold);">
-            <b>Plaka:</b> <span style="color:var(--accent-gold);">{{ b[1] }}</span> | <b>Müşteri:</b> {{ b[2] }} ({{ b[3] }})<br>
-            <b>Geçen Süre:</b> <span style="color:var(--accent-gold); font-weight:800;">{{ b.gecen_sure }}</span><br>
-            <div style="margin-top: 8px;"><a href="https://wa.me/{{ b[3] }}?text=Sayin%20{{ b[2] }},%20Iz%20Motorsiklet%20servisimizdeki%20bakim%20vaktiniz%20yaklasti,%20bekleriz." target="_blank" class="whatsapp-btn">💬 Bakım Hatırlatması Gönder</a></div>
-        </div>
-        {% endfor %}
+        <h3>Akıllı Bakım Hatırlatıcı (Ödenmiş Araçlar)</h3>
+        {% if bakim_listesi %}
+            {% for b in bakim_listesi %}
+            <div class="card" style="border-left: 4px solid var(--accent-gold);">
+                <b>Plaka:</b> <span style="color:var(--accent-gold); font-size:14px; font-weight:800;">{{ b[1] }}</span> | <b>Müşteri:</b> {{ b[2] }} ({{ b[3] }})<br>
+                <b>Son Servis Tarihi:</b> {{ b[6] }} | <b>Geçen Süre:</b> <span style="color:var(--accent-gold); font-weight:800;">{{ b.gecen_sure }}</span><br>
+                <b>Yapılan İşlem:</b> {{ b[7] }}
+                
+                <div style="margin-top: 12px;">
+                    <a href="https://wa.me/{{ b[3] }}?text=Sayin%20{{ b[2] }},%20Iz%20Motorsiklet%20servisimizdeki%20son%20bakiminizdan%20beri%20sure% gecti,%20yag%20ve%20genel%20bakim%20vaktiniz%20yaklasmis%20olabilir,%20bekleriz." target="_blank" class="whatsapp-btn">💬 Bakım Hatırlatması Gönder (WhatsApp)</a>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <p style="color: var(--text-muted); text-align: center;">Bakım hatırlatılacak ödenmiş eski araç bulunmuyor.</p>
+        {% endif %}
     </div>
 </div>
 
@@ -574,23 +591,33 @@ def index():
 
     sorgu_plaka = request.args.get('sorgu_plaka', '').strip()
     kayitlar = []
+    
     if sorgu_plaka:
-        cursor.execute("SELECT * FROM servisler WHERE plaka LIKE ? OR musteri_ad LIKE ? ORDER BY id DESC", ('%' + sorgu_plaka + '%', '%' + sorgu_plaka + '%'))
+        cursor.execute("SELECT * FROM servisler WHERE (plaka LIKE ? OR musteri_ad LIKE ?) AND odeme_durumu = 'Ödendi' ORDER BY id DESC", ('%' + sorgu_plaka + '%', '%' + sorgu_plaka + '%'))
         kayitlar = cursor.fetchall()
+    else:
+        cursor.execute("SELECT * FROM servisler WHERE odeme_durumu = 'Ödendi' ORDER BY id DESC")
+        kayitlar = cursor.fetchall()
+
+    cursor.execute("SELECT * FROM servisler WHERE odeme_durumu != 'Ödendi' OR odeme_durumu IS NULL ORDER BY id DESC")
+    aktif_araclar = cursor.fetchall()
 
     cursor.execute("SELECT * FROM stok")
     stoklar = cursor.fetchall()
     cursor.execute("SELECT * FROM randevular ORDER BY id DESC")
     randevular = cursor.fetchall()
-    cursor.execute("SELECT * FROM servisler ORDER BY id DESC")
-    tum_servisler = cursor.fetchall()
+    
+    # BAKIM LİSTESİ: Sadece ödeme durumu 'Ödendi' olan eski araçlar listelenir!
+    cursor.execute("SELECT * FROM servisler WHERE odeme_durumu = 'Ödendi' ORDER BY id DESC")
+    odenen_servisler = cursor.fetchall()
+
     cursor.execute("SELECT SUM(toplam_tutar) FROM servisler")
     res = cursor.fetchone()
     toplam_ciro = res[0] if res and res[0] else 0.0
 
     bugun = datetime.date.today()
     bakim_listesi = []
-    for b in tum_servisler:
+    for b in odenen_servisler:
         try:
             s_tarih = datetime.datetime.strptime(b[6], "%d.%m.%Y").date()
             gun = (bugun - s_tarih).days
@@ -601,8 +628,11 @@ def index():
         b_item.append(sure_str)
         bakim_listesi.append(b_item)
 
+    cursor.execute("SELECT * FROM servisler ORDER BY id DESC")
+    tum_servisler = cursor.fetchall()
+
     conn.close()
-    return render_template_string(HTML_PANEL, kayitlar=kayitlar, sorgu_plaka=sorgu_plaka, stoklar=stoklar, randevular=randevular, tum_servisler=tum_servisler, toplam_ciro=toplam_ciro, bakim_listesi=bakim_listesi)
+    return render_template_string(HTML_PANEL, kayitlar=kayitlar, sorgu_plaka=sorgu_plaka, stoklar=stoklar, randevular=randevular, tum_servisler=tum_servisler, aktif_araclar=aktif_araclar, bakim_listesi=bakim_listesi, toplam_ciro=toplam_ciro)
 
 @app.route('/arac_ekle_hizli', methods=['POST'])
 def arac_ekle_hizli():
@@ -618,7 +648,7 @@ def arac_ekle_hizli():
     cursor = conn.cursor()
     cursor.execute('''
         INSERT INTO servisler (plaka, musteri_ad, musteri_tel, model, km, tarih, detaylar, toplam_tutar, durum, odeme_durumu, pdf_dosya)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Bekliyor', 'Ödendi', NULL)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Bekliyor', 'Borçlu / Veresiye', NULL)
     ''', (plaka, musteri_ad, musteri_tel, model, km, tarih_str, "Hızlı Kayıt", 0.0))
     conn.commit()
     conn.close()
@@ -657,7 +687,7 @@ def randevu_ekle():
     if not session.get('giris'): return redirect(url_for('index'))
     conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
     cursor = conn.cursor()
-    cursor.execute("INSERT INTO randevular (musteri_ad, tel, tarih_saat, notlar) VALUES (?, ?, ?, ?)", (request.form.get('musteri_ad'), request.form.get('tel'), request.form.get('tarih_saat'), request.form.get('notlar', '')))
+    cursor.execute("INSERT INTO randevular (musteri_ad, tel, tarih_saat, notlar, hatirlatildi) VALUES (?, ?, ?, ?, 0)", (request.form.get('musteri_ad'), request.form.get('tel'), request.form.get('tarih_saat'), request.form.get('notlar', '')))
     conn.commit()
     conn.close()
     return redirect(url_for('index') + '?tab=randevu')
@@ -666,7 +696,7 @@ def randevu_ekle():
 def olustur():
     if not session.get('giris'): return redirect(url_for('index'))
     ad, tel, plaka, model, km = request.form.get('musteri_ad'), request.form.get('musteri_tel'), request.form.get('plaka'), request.form.get('model'), request.form.get('km')
-    odeme_durumu = request.form.get('odeme_durumu', 'Ödendi')
+    odeme_durumu = request.form.get('odeme_durumu', 'Borçlu / Veresiye')
     
     try:
         iscilik = float(request.form.get('iscilik', 0))
@@ -751,19 +781,24 @@ def cikis():
     session.pop('giris', None)
     return redirect(url_for('index'))
 
-# --- TELEGRAM BOTU ---
+# --- TELEGRAM BOTU & ARKA PLAN HATIRLATICI ---
 SIFRE_DURUMU = {}
 BOT_DURUMLARI = {}
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    global TELEGRAM_ADMIN_CHAT_ID
     user_id = update.effective_user.id
+    TELEGRAM_ADMIN_CHAT_ID = update.effective_chat.id
     SIFRE_DURUMU[user_id] = False
     BOT_DURUMLARI[user_id] = {'adim': 'sifre'}
     await update.message.reply_text("Selam kanka! İz Motorsiklet Botuna hoş geldin.\nDevam etmek için önce **yönetici şifresini** gir kanka:")
 
 async def mesaj_yoneticisi(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    global TELEGRAM_ADMIN_CHAT_ID
     user_id = update.effective_user.id
+    TELEGRAM_ADMIN_CHAT_ID = update.effective_chat.id
     text = update.message.text
+    photo = update.message.photo
     
     if not SIFRE_DURUMU.get(user_id, False):
         if text == SIFRE:
@@ -773,7 +808,7 @@ async def mesaj_yoneticisi(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 ["🛠️ Servis Formu Oluştur", "📅 Randevu Ekle"],
                 ["⚡ Hızlı Fiyat Teklifi", "🔍 Plaka Sorgula"],
                 ["📊 Günlük Özet", "📦 Stok Listesi"],
-                ["🏍️ Araçlar"]
+                ["🏍️ Aktif Araçlar"]
             ]
             await update.message.reply_text("Şifre doğru kanka! Aşağıdaki menüden seçim yapabilirsin:", reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True))
         else:
@@ -786,7 +821,7 @@ async def mesaj_yoneticisi(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if durum_bilgisi == 'plaka_sor':
         conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
         cursor = conn.cursor()
-        cursor.execute("SELECT plaka, musteri_ad, musteri_tel, model, km, tarih, detaylar, toplam_tutar, durum, odeme_durumu FROM servisler WHERE plaka LIKE ? OR musteri_ad LIKE ? ORDER BY id DESC LIMIT 3", ('%' + text + '%', '%' + text + '%'))
+        cursor.execute("SELECT plaka, musteri_ad, musteri_tel, model, km, tarih, detaylar, toplam_tutar, durum, odeme_durumu FROM servisler WHERE (plaka LIKE ? OR musteri_ad LIKE ?) AND odeme_durumu = 'Ödendi' ORDER BY id DESC LIMIT 3", ('%' + text + '%', '%' + text + '%'))
         sonuclar = cursor.fetchall()
         conn.close()
 
@@ -794,15 +829,15 @@ async def mesaj_yoneticisi(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ["🛠️ Servis Formu Oluştur", "📅 Randevu Ekle"],
             ["⚡ Hızlı Fiyat Teklifi", "🔍 Plaka Sorgula"],
             ["📊 Günlük Özet", "📦 Stok Listesi"],
-            ["🏍️ Araçlar"]
+            ["🏍️ Aktif Araçlar"]
         ]
         reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
         if not sonuclar:
-            await update.message.reply_text(f"❌ '{text}' ile eşleşen kayıt bulunamadı kanka.", reply_markup=reply_markup)
+            await update.message.reply_text(f"❌ '{text}' ile eşleşen ödenmiş geçmiş kayıt bulunamadı kanka.", reply_markup=reply_markup)
         else:
             for r in sonuclar:
-                msg = f"🔍 **Servis Geçmişi:**\n- **Plaka:** {r[0]}\n- **Müşteri:** {r[1]} ({r[2]})\n- **Model / KM:** {r[3]} - {r[4]}\n- **Tarih:** {r[5]}\n- **İşlemler:** {r[6]}\n- **Tutar:** `{r[7]:.2f} TL`\n- **Durum:** `{r[8]}`\n- **Ödeme:** `{r[9] or 'Ödendi'}`"
+                msg = f"🔍 **Geçmiş Servis (Ödendi):**\n- **Plaka:** {r[0]}\n- **Müşteri:** {r[1]} ({r[2]})\n- **Model / KM:** {r[3]} - {r[4]}\n- **Tarih:** {r[5]}\n- **İşlemler:** {r[6]}\n- **Tutar:** `{r[7]:.2f} TL`"
                 await update.message.reply_text(msg, parse_mode="Markdown")
             await update.message.reply_text("Ana menüdesin kanka:", reply_markup=reply_markup)
         
@@ -827,7 +862,7 @@ async def mesaj_yoneticisi(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
         cursor = conn.cursor()
-        cursor.execute("INSERT INTO randevular (musteri_ad, tel, tarih_saat, notlar) VALUES (?, ?, ?, ?)", (ad, tel, zaman, "Telegram Randevusu"))
+        cursor.execute("INSERT INTO randevular (musteri_ad, tel, tarih_saat, notlar, hatirlatildi) VALUES (?, ?, ?, ?, 0)", (ad, tel, zaman, "Telegram Randevusu"))
         conn.commit()
         conn.close()
 
@@ -835,14 +870,29 @@ async def mesaj_yoneticisi(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ["🛠️ Servis Formu Oluştur", "📅 Randevu Ekle"],
             ["⚡ Hızlı Fiyat Teklifi", "🔍 Plaka Sorgula"],
             ["📊 Günlük Özet", "📦 Stok Listesi"],
-            ["🏍️ Araçlar"]
+            ["🏍️ Aktif Araçlar"]
         ]
         BOT_DURUMLARI[user_id] = {'adim': 'menu'}
         await update.message.reply_text(f"✅ **Randevu Başarıyla Kaydedildi!**\n- Müşteri: {ad} ({tel})\n- Zaman: `{zaman}`", parse_mode="Markdown", reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True))
         return
 
     servis_adim = user_state.get('servis_adim')
-    if servis_adim == 'plaka_al':
+    
+    if servis_adim == 'logo_al':
+        logo_path = None
+        if photo:
+            file = await context.bot.get_file(photo[-1].file_id)
+            logo_path = f"bot_logo_{user_id}.jpg"
+            await file.download_to_drive(logo_path)
+            BOT_DURUMLARI[user_id]['s_logo'] = logo_path
+        else:
+            BOT_DURUMLARI[user_id]['s_logo'] = None
+            
+        BOT_DURUMLARI[user_id]['servis_adim'] = 'plaka_al'
+        await update.message.reply_text("Motosiklet **Plakasını** yaz kanka (Örn: 34 ABC 123):", reply_markup=ReplyKeyboardRemove())
+        return
+
+    elif servis_adim == 'plaka_al':
         BOT_DURUMLARI[user_id]['s_plaka'] = text
         BOT_DURUMLARI[user_id]['servis_adim'] = 'ad_al'
         await update.message.reply_text("Müşteri **Adı ve Soyadını** yaz kanka:")
@@ -864,43 +914,93 @@ async def mesaj_yoneticisi(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     elif servis_adim == 'km_al':
         BOT_DURUMLARI[user_id]['s_km'] = text
-        BOT_DURUMLARI[user_id]['servis_adim'] = 'islem_al'
-        await update.message.reply_text("Yapılan **İşlemi ve Tutarını** yaz kanka (Örn: Yağ Değişimi - 400 TL):")
+        BOT_DURUMLARI[user_id]['s_islemler'] = []
+        BOT_DURUMLARI[user_id]['servis_adim'] = 'islem_ad_al'
+        await update.message.reply_text("🛠️ Yapılan **İşlemi veya Parça Adını** yaz kanka (Örn: Buji Değişimi):")
         return
-    elif servis_adim == 'islem_al':
-        s_plaka = user_state['s_plaka']
-        s_ad = user_state['s_ad']
-        s_tel = user_state['s_tel']
-        s_model = user_state['s_model']
-        s_km = user_state['s_km']
-        islem_notu = text
-        tarih_str = datetime.date.today().strftime("%d.%m.%Y")
-
-        conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
-        cursor = conn.cursor()
-        cursor.execute('''
-            INSERT INTO servisler (plaka, musteri_ad, musteri_tel, model, km, tarih, detaylar, toplam_tutar, durum, odeme_durumu, pdf_dosya)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Bekliyor', 'Ödendi', NULL)
-        ''', (s_plaka, s_ad, s_tel, s_model, s_km, tarih_str, islem_notu, 0.0))
-        conn.commit()
-        conn.close()
-
-        keyboard = [
-            ["🛠️ Servis Formu Oluştur", "📅 Randevu Ekle"],
-            ["⚡ Hızlı Fiyat Teklifi", "🔍 Plaka Sorgula"],
-            ["📊 Günlük Özet", "📦 Stok Listesi"],
-            ["🏍️ Araçlar"]
-        ]
-        BOT_DURUMLARI[user_id] = {'adim': 'menu'}
-        await update.message.reply_text(
-            f"✅ **Servis Formu Kaydı Başarıyla Oluşturuldu!**\n\n- Plaka: `{s_plaka}`\n- Müşteri: {s_ad} ({s_tel})\n- Model/KM: {s_model} - {s_km}\n- İşlem: {islem_notu}",
-            parse_mode="Markdown", reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-        )
+        
+    elif servis_adim == 'islem_ad_al':
+        BOT_DURUMLARI[user_id]['temp_islem'] = text
+        BOT_DURUMLARI[user_id]['servis_adim'] = 'islem_fiyat_al'
+        await update.message.reply_text(f"💰 '{text}' için **Toplam Fiyatı (TL)** yaz kanka (Örn: 400):")
         return
+        
+    elif servis_adim == 'islem_fiyat_al':
+        try:
+            fiyat = float(text.replace(',', '.'))
+        except ValueError:
+            fiyat = 0.0
+            
+        islem_adi = user_state['temp_islem']
+        if 's_islemler' not in user_state:
+            user_state['s_islemler'] = []
+            
+        user_state['s_islemler'].append({'ad': islem_adi, 'adet': 1, 'fiyat': fiyat})
+        BOT_DURUMLARI[user_id]['servis_adim'] = 'baska_islem_sor'
+        
+        kb = [["➕ Başka İşlem Ekle", "✅ Bitti / Formu Oluştur"]]
+        await update.message.reply_text(f"✅ '{islem_adi}' ({fiyat:.2f} TL) eklendi kanka.\nBaşka bir işlem/parça eklemek istiyor musun?", reply_markup=ReplyKeyboardMarkup(kb, resize_keyboard=True))
+        return
+
+    elif servis_adim == 'baska_islem_sor':
+        if text == "➕ Başka İşlem Ekle":
+            BOT_DURUMLARI[user_id]['servis_adim'] = 'islem_ad_al'
+            await update.message.reply_text("🛠️ Sonraki **İşlemi veya Parça Adını** yaz kanka:", reply_markup=ReplyKeyboardRemove())
+            return
+        else:
+            s_plaka = user_state.get('s_plaka', '34TEST')
+            s_ad = user_state.get('s_ad', 'Müşteri')
+            s_tel = user_state.get('s_tel', '05000000000')
+            s_model = user_state.get('s_model', 'Honda')
+            s_km = user_state.get('s_km', '0')
+            s_logo = user_state.get('s_logo')
+            islemler = user_state.get('s_islemler', [])
+            
+            toplam_tutar = sum(item['fiyat'] * item['adet'] for item in islemler)
+            islem_ozeti_list = [f"{item['ad']} (x{item['adet']})" for item in islemler]
+            islem_str = ", ".join(islem_ozeti_list) if islem_ozeti_list else "Genel Bakım"
+            tarih_str = datetime.date.today().strftime("%d.%m.%Y")
+
+            pdf_filename = f"servis_formu_{s_plaka}_{int(datetime.datetime.now().timestamp())}.pdf"
+            
+            try:
+                pdf_olustur(pdf_filename, {'musteri_ad': s_ad, 'musteri_tel': s_tel, 'plaka': s_plaka, 'model': s_model, 'km': s_km, 'islemler': islemler, 'iscilik': 0.0}, s_logo, None)
+            except Exception as e:
+                print("PDF hata:", e)
+
+            conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO servisler (plaka, musteri_ad, musteri_tel, model, km, tarih, detaylar, toplam_tutar, durum, odeme_durumu, pdf_dosya)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Bekliyor', 'Borçlu / Veresiye', ?)
+            ''', (s_plaka, s_ad, s_tel, s_model, s_km, tarih_str, islem_str, toplam_tutar, pdf_filename))
+            conn.commit()
+            conn.close()
+
+            if s_logo and os.path.exists(s_logo):
+                try: os.remove(s_logo)
+                except: pass
+
+            keyboard = [
+                ["🛠️ Servis Formu Oluştur", "📅 Randevu Ekle"],
+                ["⚡ Hızlı Fiyat Teklifi", "🔍 Plaka Sorgula"],
+                ["📊 Günlük Özet", "📦 Stok Listesi"],
+                ["🏍️ Aktif Araçlar"]
+            ]
+            reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+
+            BOT_DURUMLARI[user_id] = {'adim': 'menu'}
+            
+            await update.message.reply_text(f"✅ **Servis Formu Tamamlandı ve Kaydedildi!**\n\n- Plaka: `{s_plaka}`\n- Müşteri: {s_ad}\n- Toplam Tutar: `{toplam_tutar:.2f} TL`", parse_mode="Markdown", reply_markup=reply_markup)
+            
+            if os.path.exists(pdf_filename):
+                with open(pdf_filename, 'rb') as f:
+                    await context.bot.send_document(chat_id=update.effective_chat.id, document=f, filename=f"Servis_Formu_{s_plaka}.pdf", caption="📄 **İz Motorsiklet Resmi Servis Formu**")
+            return
 
     if text == "🛠️ Servis Formu Oluştur":
-        BOT_DURUMLARI[user_id] = {'adim': 'servis_formu', 'servis_adim': 'plaka_al'}
-        await update.message.reply_text("Servis formu için motosiklet **Plakasını** yaz kanka:", reply_markup=ReplyKeyboardRemove())
+        BOT_DURUMLARI[user_id] = {'adim': 'servis_formu', 'servis_adim': 'logo_al'}
+        await update.message.reply_text("📸 Dükkanınızın **Logosunu (Fotoğraf olarak)** gönderin kanka.\n*(Eğer logo göndermek istemiyorsanız doğrudan herhangi bir yazı yazıp atlayabilirsiniz)*", reply_markup=ReplyKeyboardRemove())
         
     elif text == "🔍 Plaka Sorgula":
         BOT_DURUMLARI[user_id] = {'adim': 'plaka_sor'}
@@ -944,25 +1044,69 @@ async def mesaj_yoneticisi(update: Update, context: ContextTypes.DEFAULT_TYPE):
             msg += f"- {s[1]} adet {s[0]} ({s[2]} TL){kritik}\n"
         await update.message.reply_text(msg or "Stok boş.", parse_mode="Markdown")
 
-    elif text == "🏍️ Araçlar":
+    elif text == "🏍️ Aktif Araçlar":
         conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
         cursor = conn.cursor()
-        cursor.execute("SELECT plaka, musteri_ad, model, durum, odeme_durumu FROM servisler ORDER BY id DESC LIMIT 5")
+        cursor.execute("SELECT plaka, musteri_ad, model, durum, odeme_durumu FROM servisler WHERE odeme_durumu != 'Ödendi' OR odeme_durumu IS NULL ORDER BY id DESC LIMIT 5")
         araclar = cursor.fetchall()
         conn.close()
-        msg = "🏍️ **Son Giren Araçlar:**\n\n"
+        msg = "🏍️ **Atölyedeki Aktif Araçlar:**\n\n"
         for a in araclar:
-            msg += f"- {a[0]} | {a[1]} | {a[2]} (`{a[3]}` - {a[4] or 'Ödendi'})\n"
-        await update.message.reply_text(msg or "Kayıtlı araç yok.", parse_mode="Markdown")
+            msg += f"- {a[0]} | {a[1]} | {a[2]} (`{a[3]}` - {a[4] or 'Borçlu'})\n"
+        await update.message.reply_text(msg or "Atölyede aktif araç yok kanka.", parse_mode="Markdown")
     else:
         await update.message.reply_text("Kanka menüden bir seçenek seçebilir veya /start yazabilirsin.")
+
+# --- ARKA PLANDA ÇALIŞAN 30 DAKİKA KALA BİLDİRİM KONTROLÜ ---
+def randevu_hatirlatici_thread(bot_token):
+    from telegram import Bot
+    bot = Bot(token=bot_token)
+    while True:
+        try:
+            time.sleep(30)
+            if not TELEGRAM_ADMIN_CHAT_ID:
+                continue
+                
+            conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
+            cursor = conn.cursor()
+            cursor.execute("SELECT id, musteri_ad, tel, tarih_saat FROM randevular WHERE hatirlatildi = 0")
+            randevular = cursor.fetchall()
+            
+            simdi = datetime.datetime.now()
+            
+            for r in randevular:
+                r_id, ad, tel, tarih_saat_str = r[0], r[1], r[2], r[3]
+                try:
+                    r_zaman = datetime.datetime.strptime(tarih_saat_str.strip(), "%d.%m.%Y - %H:%M")
+                    fark_dakika = (r_zaman - simdi).total_seconds() / 60.0
+                    
+                    if 0 <= fark_dakika <= 30:
+                        import asyncio
+                        loop = asyncio.new_event_loop()
+                        asyncio.set_event_loop(loop)
+                        
+                        mesaj = f"⏰ **RANDEVU HATIRLATMASI!**\n\n- Müşteri: **{ad}**\n- Telefon: `{tel}`\n- Randevu Saati: `{tarih_saat_str}`\n\n⚠️ Yaklaşık 30 dakika içinde randevusu var kanka, dükkana haberin olsun!"
+                        loop.run_until_complete(bot.send_message(chat_id=TELEGRAM_ADMIN_CHAT_ID, text=mesaj, parse_mode="Markdown"))
+                        loop.close()
+                        
+                        cursor.execute("UPDATE randevular SET hatirlatildi = 1 WHERE id = ?", (r_id,))
+                        conn.commit()
+                except Exception as ex:
+                    print("Zaman parse hatası:", ex)
+            conn.close()
+        except Exception as e:
+            print("Hatırlatıcı thread hata:", e)
 
 def run_telegram_bot():
     TOKEN = os.getenv("BOT_TOKEN")
     if not TOKEN: return
+    
+    threading.Thread(target=randevu_hatirlatici_thread, args=(TOKEN,), daemon=True).start()
+    
     bot_app = Application.builder().token(TOKEN).build()
     bot_app.add_handler(CommandHandler("start", start))
     bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, mesaj_yoneticisi))
+    bot_app.add_handler(MessageHandler(filters.PHOTO, mesaj_yoneticisi))
     bot_app.run_polling(stop_signals=None)
 
 if __name__ == '__main__':
