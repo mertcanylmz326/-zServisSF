@@ -1,6 +1,13 @@
 import os
 import datetime
+import threading
+import asyncio
 from flask import Flask, render_template_string, request, send_file
+from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
+from telegram.ext import (
+    Application, CommandHandler, MessageHandler, 
+    filters, ConversationHandler, ContextTypes
+)
 from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -10,7 +17,7 @@ from reportlab.pdfbase.ttfonts import TTFont
 
 app = Flask(__name__)
 
-# Türkçe Font Tanımlaması
+# --- TÜRKÇE FONT TANIMLAMASI ---
 try:
     pdfmetrics.registerFont(TTFont('DejaVu', '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'))
     pdfmetrics.registerFont(TTFont('DejaVu-Bold', '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'))
@@ -20,14 +27,14 @@ except Exception:
     FONT_NAME = 'Helvetica'
     FONT_BOLD = 'Helvetica-Bold'
 
-# HTML Arayüzü Doğrudan Python İçinde (Embedded)
+# --- HTML WEB ARAYÜZÜ ---
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>İz Motorsiklet Servis Formu</title>
+    <title>İz Motorsiklet Servis Paneli</title>
     <style>
         body { font-family: sans-serif; background: #f4f6f9; margin: 0; padding: 20px; color: #333; }
         .container { max-width: 600px; margin: 0 auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
@@ -115,6 +122,7 @@ HTML_TEMPLATE = """
 </html>
 """
 
+# --- ORTAK PDF ÜRETME MOTORU ---
 def pdf_olustur(filename, veri, logo_yolu):
     doc = SimpleDocTemplate(
         filename, 
@@ -242,6 +250,7 @@ def pdf_olustur(filename, veri, logo_yolu):
 
     doc.build(story)
 
+# --- WEB PANEL ROUTE İŞLEMLERİ ---
 @app.route('/')
 def index():
     return render_template_string(HTML_TEMPLATE)
@@ -275,36 +284,192 @@ def olustur():
                 continue
 
     veri = {
-        'musteri_ad': musteri_ad,
-        'musteri_tel': musteri_tel,
-        'plaka': plaka,
-        'model': model,
-        'km': km,
-        'notlar': notlar,
-        'iscilik': iscilik,
-        'islemler': islemler
+        'musteri_ad': musteri_ad, 'musteri_tel': musteri_tel, 'plaka': plaka,
+        'model': model, 'km': km, 'notlar': notlar, 'iscilik': iscilik, 'islemler': islemler
     }
 
     logo_file = request.files.get('logo')
     logo_path = None
     if logo_file and logo_file.filename != '':
-        logo_path = f"temp_logo_{plaka}.jpg"
+        logo_path = f"temp_logo_web_{plaka}.jpg"
         logo_file.save(logo_path)
 
     pdf_path = f"servis_formu_{plaka}.pdf"
     pdf_olustur(pdf_path, veri, logo_path)
 
     response = send_file(pdf_path, as_attachment=True)
-    
     @response.call_on_close
     def cleanup():
-        if os.path.exists(pdf_path):
-            os.remove(pdf_path)
-        if logo_path and os.path.exists(logo_path):
-            os.remove(logo_path)
+        if os.path.exists(pdf_path): os.remove(pdf_path)
+        if logo_path and os.path.exists(logo_path): os.remove(logo_path)
 
     return response
 
+
+# --- TELEGRAM BOTU AKIŞI ---
+LOGO_AL, MUSTERI_AD, MUSTERI_TEL, ARAÇ_PLAKA, ARAÇ_MODEL, ARAÇ_KM, ISLEM_EKLE, ISLEM_ADET, ISLEM_FIYAT, ISCILIK, NOTLAR = range(11)
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Selam kanka! Bot aktif. Yeni servis formu için /yeni_servis yazabilirsin.")
+
+async def yeni_servis(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data['islemler'] = []
+    await update.message.reply_text("Önce dükkanın logosunu veya fotoğrafını **fotoğraf olarak** gönder kanka:")
+    return LOGO_AL
+
+async def logo_al(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    photo_file = await update.message.photo[-1].get_file()
+    logo_path = f"temp_logo_tg_{update.effective_user.id}.jpg"
+    await photo_file.download_to_drive(logo_path)
+    context.user_data['logo_path'] = logo_path
+    
+    await update.message.reply_text("Logo alındı! Şimdi Müşteri Adı ve Soyadını gir kanka:")
+    return MUSTERI_AD
+
+async def musteri_ad_al(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data['musteri_ad'] = update.message.text
+    await update.message.reply_text("Müşteri Telefon Numarasını gir kanka:")
+    return MUSTERI_TEL
+
+async def musteri_tel_al(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data['musteri_tel'] = update.message.text
+    await update.message.reply_text("Motosiklet Plakasını gir kanka:")
+    return ARAÇ_PLAKA
+
+async def arac_plaka_al(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data['plaka'] = update.message.text
+    await update.message.reply_text("Marka / Model bilgisini gir kanka (Örn: Honda Dio):")
+    return ARAÇ_MODEL
+
+async def arac_model_al(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data['model'] = update.message.text
+    await update.message.reply_text("Motosiklet KM bilgisini gir kanka (Örn: 86.000 KM):")
+    return ARAÇ_KM
+
+async def arac_km_al(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data['km'] = update.message.text
+    await update.message.reply_text("1. Yapılan İşlem veya Değişen Parça adını gir kanka:")
+    return ISLEM_EKLE
+
+async def islem_ad_al(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data['gecici_islem'] = update.message.text
+    await update.message.reply_text(f"'{update.message.text}' için Adet/Miktar gir (Örn: 1):")
+    return ISLEM_ADET
+
+async def islem_adet_al(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        context.user_data['gecici_adet'] = int(update.message.text)
+        await update.message.reply_text("Birim Fiyatını (TL) gir kanka (Örn: 450):")
+        return ISLEM_FIYAT
+    except ValueError:
+        await update.message.reply_text("Lütfen adet miktarını sayı olarak gir kanka (Örn: 1):")
+        return ISLEM_ADET
+
+async def islem_fiyat_al(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        fiyat = float(update.message.text.replace(',', '.'))
+        context.user_data['islemler'].append({
+            'ad': context.user_data['gecici_islem'],
+            'adet': context.user_data['gecici_adet'],
+            'fiyat': fiyat
+        })
+        
+        reply_keyboard = [['+ Başka Parça/İşlem Ekle', 'Parçalar Bitti / İşçiliğe Geç']]
+        await update.message.reply_text(
+            "Eklendi! Başka parça/işlem ekleyecek misin?",
+            reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True, resize_keyboard=True)
+        )
+        return ISLEM_EKLE
+    except ValueError:
+        await update.message.reply_text("Lütfen geçerli bir fiyat gir kanka (Örn: 450 veya 450.50):")
+        return ISLEM_FIYAT
+
+async def islem_karar(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text
+    if text == '+ Başka Parça/İşlem Ekle':
+        await update.message.reply_text("Diğer yapılan işlemi/parçayı yaz kanka:", reply_markup=ReplyKeyboardRemove())
+        return ISLEM_EKLE
+    else:
+        await update.message.reply_text("Toplam İşçilik Tutarını (TL) gir kanka (Yoksa 0 yaz):", reply_markup=ReplyKeyboardRemove())
+        return ISCILIK
+
+async def iscilik_al(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        context.user_data['iscilik'] = float(update.message.text.replace(',', '.'))
+        await update.message.reply_text("Forma eklemek istediğin 'Notlar ve Tespitler' var mı? (Yoksa 'Yok' yazabilirsin):")
+        return NOTLAR
+    except ValueError:
+        await update.message.reply_text("Lütfen sayı olarak işçilik tutarını gir kanka (Örn: 200 veya 0):")
+        return ISCILIK
+
+async def notlar_ve_bitis(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text
+    context.user_data['notlar'] = "" if text.lower() == "yok" else text
+    
+    await update.message.reply_text("Servis formu hazırlanıyor...", reply_markup=ReplyKeyboardRemove())
+    
+    pdf_path = f"servis_formu_{context.user_data['plaka']}.pdf"
+    logo_yolu = context.user_data.get('logo_path')
+    
+    pdf_olustur(pdf_path, context.user_data, logo_yolu)
+    
+    with open(pdf_path, 'rb') as doc:
+        await update.message.reply_document(document=doc, caption="İşte Telegram üzerinden hazırladığın servis formu kanka!")
+        
+    if os.path.exists(pdf_path): os.remove(pdf_path)
+    if logo_yolu and os.path.exists(logo_yolu): os.remove(logo_yolu)
+        
+    return ConversationHandler.END
+
+async def iptal(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    logo_yolu = context.user_data.get('logo_path')
+    if logo_yolu and os.path.exists(logo_yolu): os.remove(logo_yolu)
+    await update.message.reply_text("İşlem iptal edildi kanka.", reply_markup=ReplyKeyboardRemove())
+    return ConversationHandler.END
+
+def run_telegram_bot():
+    TOKEN = os.getenv("BOT_TOKEN")
+    if not TOKEN:
+        print("UYARI: BOT_TOKEN bulunamadı, Telegram botu başlatılamadı!")
+        return
+    
+    bot_app = Application.builder().token(TOKEN).build()
+
+    conv_handler = ConversationHandler(
+        entry_points=[CommandHandler('yeni_servis', yeni_servis)],
+        states={
+            LOGO_AL: [MessageHandler(filters.PHOTO, logo_al)],
+            MUSTERI_AD: [MessageHandler(filters.TEXT & ~filters.COMMAND, musteri_ad_al)],
+            MUSTERI_TEL: [MessageHandler(filters.TEXT & ~filters.COMMAND, musteri_tel_al)],
+            ARAÇ_PLAKA: [MessageHandler(filters.TEXT & ~filters.COMMAND, arac_plaka_al)],
+            ARAÇ_MODEL: [MessageHandler(filters.TEXT & ~filters.COMMAND, arac_model_al)],
+            ARAÇ_KM: [MessageHandler(filters.TEXT & ~filters.COMMAND, arac_km_al)],
+            ISLEM_EKLE: [
+                MessageHandler(filters.Regex(r'^\+ Başka Parça/İşlem Ekle$'), islem_karar),
+                MessageHandler(filters.Regex(r'^Parçalar Bitti / İşçiliğe Geç$'), islem_karar),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, islem_ad_al)
+            ],
+            ISLEM_ADET: [MessageHandler(filters.TEXT & ~filters.COMMAND, islem_adet_al)],
+            ISLEM_FIYAT: [MessageHandler(filters.TEXT & ~filters.COMMAND, islem_fiyat_al)],
+            ISCILIK: [MessageHandler(filters.TEXT & ~filters.COMMAND, iscilik_al)],
+            NOTLAR: [MessageHandler(filters.TEXT & ~filters.COMMAND, notlar_ve_bitis)],
+        },
+        fallbacks=[CommandHandler('iptal', iptal)]
+    )
+
+    bot_app.add_handler(CommandHandler("start", start))
+    bot_app.add_handler(conv_handler)
+
+    print("Telegram botu arka planda çalıştırılıyor...")
+    
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    bot_app.run_polling()
+
 if __name__ == '__main__':
+    # Telegram botunu ayrı bir thread içinde başlatıyoruz
+    threading.Thread(target=run_telegram_bot, daemon=True).start()
+
+    # Flask web sunucusunu ana thread'de başlatıyoruz
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
