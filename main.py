@@ -17,7 +17,7 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
 app = Flask(__name__)
-app.secret_key = "iz_motor_gizli_anahtar_erp_v14"
+app.secret_key = "iz_motor_gizli_anahtar_erp_v15"
 
 SIFRE = "izmotor2026*"
 
@@ -820,7 +820,7 @@ def olustur():
     return response
 
 
-# --- TELEGRAM BOTU ---
+# --- TELEGRAM BOTu ---
 SIFRE_DURUMU = {}
 LOGO_AL, HASAR_AL, MUSTERI_AD, MUSTERI_TEL, ARAÇ_PLAKA, ARAÇ_MODEL, ARAÇ_KM, ISLEM_EKLE, ISLEM_FIYAT, ISLEM_ADET, ISCILIK, NOTLAR = range(100, 112)
 STOK_AD, STOK_ADET, STOK_FIYAT = range(200, 203)
@@ -830,13 +830,11 @@ PLAKA_SORGU = range(400, 401)
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     SIFRE_DURUMU[user_id] = False
-    print(f"DEBUG: /start komutu alındı. Kullanıcı ID: {user_id}")
     await update.message.reply_text("Selam kanka! İz Motorsiklet Botuna hoş geldin.\nDevam etmek için önce **yönetici şifresini** gir kanka:")
 
 async def sifre_kontrol(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     text = update.message.text
-    print(text)
     
     if SIFRE_DURUMU.get(user_id, False):
         return
@@ -854,6 +852,10 @@ async def sifre_kontrol(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Şifre doğru kanka! Aşağıdaki butonlardan yapmak istediğin işlemi seçebilirsin:", reply_markup=reply_markup)
     else:
         await update.message.reply_text("Hatalı şifre kanka! Tekrar dene:")
+
+async def logo_uyari(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Kanka yazı değil, **logo fotoğrafı** göndermen gerekiyor:")
+    return LOGO_AL
 
 async def hizli_fiyat_teklifi(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not SIFRE_DURUMU.get(update.effective_user.id, False):
