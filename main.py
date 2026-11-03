@@ -4,10 +4,10 @@ import sqlite3
 import threading
 import asyncio
 from flask import Flask, render_template_string, request, send_file, session, redirect, url_for
-from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
+from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     Application, CommandHandler, MessageHandler, 
-    filters, ConversationHandler, ContextTypes
+    filters, ConversationHandler, ContextTypes, CallbackQueryHandler
 )
 from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
@@ -17,7 +17,7 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
 app = Flask(__name__)
-app.secret_key = "iz_motor_gizli_anahtar_erp_v3"
+app.secret_key = "iz_motor_gizli_anahtar_erp_v5"
 
 SIFRE = "izmotor2026*"
 
@@ -35,7 +35,8 @@ def init_db():
             km TEXT,
             tarih TEXT,
             detaylar TEXT,
-            toplam_tutar REAL
+            toplam_tutar REAL,
+            durum TEXT DEFAULT 'Bekliyor'
         )
     ''')
     cursor.execute('''
@@ -44,17 +45,6 @@ def init_db():
             parca_adi TEXT,
             adet INTEGER,
             fiyat REAL
-        )
-    ''')
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS bakimlar (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            plaka TEXT,
-            musteri_ad TEXT,
-            telefon TEXT,
-            son_km TEXT,
-            hedef_km TEXT,
-            servis_tarihi TEXT
         )
     ''')
     conn.commit()
@@ -119,8 +109,8 @@ HTML_PANEL = """
         .logout { text-align: right; margin-bottom: 10px; }
         .logout a { color: #f87171; text-decoration: none; font-size: 13px; font-weight: bold; padding: 5px 10px; background: rgba(248,113,113,0.1); border-radius: 6px; border: 1px solid rgba(248,113,113,0.3); }
 
-        .tabs { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-bottom: 25px; }
-        .tab-btn { background: #1f2937; color: #9ca3af; border: 1px solid #374151; padding: 10px 14px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 13px; transition: 0.3s; }
+        .tabs { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin-bottom: 25px; }
+        .tab-btn { background: #1f2937; color: #9ca3af; border: 1px solid #374151; padding: 9px 12px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 12px; transition: 0.3s; }
         .tab-btn.active { background: linear-gradient(135deg, #facc15, #ca8a04); color: #0b0f19; border-color: #facc15; box-shadow: 0 0 15px rgba(250,204,21,0.4); }
         .tab-content { display: none; }
         .tab-content.active { display: block; animation: fadeIn 0.4s ease-in-out; }
@@ -161,8 +151,9 @@ HTML_PANEL = """
     <!-- SEKMELER -->
     <div class="tabs">
         <button class="tab-btn active" onclick="switchTab('formTab', this)">Servis Formu</button>
-        <button class="tab-btn" onclick="switchTab('historyTab', this)">Plaka Geçmişi</button>
-        <button class="tab-btn" onclick="switchTab('stockTab', this)">Stoktan Seç</button>
+        <button class="tab-btn" onclick="switchTab('araclarTab', this)">Araçlar (Durum)</button>
+        <button class="tab-btn" onclick="switchTab('historyTab', this)">Müşteri & Plaka</button>
+        <button class="tab-btn" onclick="switchTab('stockTab', this)">Stok Takibi</button>
         <button class="tab-btn" onclick="switchTab('financeTab', this)">Ciro Raporu</button>
         <button class="tab-btn" onclick="switchTab('reminderTab', this)">Bakım Hatırlat</button>
     </div>
@@ -197,8 +188,7 @@ HTML_PANEL = """
 
             <hr style="margin: 20px 0; border: 0; border-top: 1px solid #374151;">
             
-            <!-- BİRLEŞTİRİLMİŞ İŞLEM / PARÇA SATIRLARI -->
-            <label><b>🛠️ Yapılan İşlemler ve Parçalar</b> <span style="font-size:11px; color:#9ca3af;">(Stoktan düşmesini istediklerini yandaki listeden seçebilirsin)</span></label>
+            <label><b>🛠️ Yapılan İşlemler ve Parçalar</b></label>
             <div id="items-container">
                 <div class="item-row">
                     <input type="text" name="islem_ad[]" class="name-input" placeholder="İşlem / Parça Adı" required>
@@ -221,26 +211,55 @@ HTML_PANEL = """
             </div>
 
             <div class="form-group">
-                <label>Notlar ve Sonraki Bakım Hedef KM</label>
-                <textarea name="notlar" rows="2" placeholder="Örn: 20000 km'de yağ değişimi yapılacak."></textarea>
+                <label>Notlar ve Tespitler</label>
+                <textarea name="notlar" rows="2" placeholder="Örn: Genel bakım yapıldı."></textarea>
             </div>
 
             <button type="submit" id="submitBtn">Servis Formu PDF İndir & Kaydet</button>
         </form>
     </div>
 
-    <!-- 2. SEKME: PLAKA GEÇMİŞİ -->
+    <!-- ARAÇLAR (SERVİS DURUM TAKİBİ) -->
+    <div id="araclarTab" class="tab-content">
+        <h3>Atölyedeki / Servisteki Araçlar</h3>
+        <p style="font-size: 13px; color: #9ca3af; margin-bottom: 15px;">Motorların anlık servis durumlarını buradan güncelleyebilirsin:</p>
+        {% if tum_servisler %}
+            {% for ts in tum_servisler %}
+            <div class="card">
+                <b>Plaka:</b> <span style="color:#facc15;">{{ ts[1] }}</span> | <b>Müşteri:</b> {{ ts[2] }} ({{ ts[3] }})<br>
+                <b>Model / KM:</b> {{ ts[4] }} - {{ ts[5] }} | <b>Tarih:</b> {{ ts[6] }}<br>
+                <b>Yapılanlar:</b> {{ ts[7] }}<br>
+                <hr style="border:0; border-top:1px solid #334155; margin: 10px 0;">
+                <form action="/durum_guncelle" method="POST" style="display: flex; gap: 8px; align-items: center;">
+                    <input type="hidden" name="servis_id" value="{{ ts[0] }}">
+                    <label style="font-size:12px; margin:0;">Durum:</label>
+                    <select name="durum" style="padding: 6px; font-size: 12px; background: #0f172a;" onchange="this.form.submit()">
+                        <option value="Bekliyor" {% if ts[9] == 'Bekliyor' %}selected{% endif %}>Bekliyor</option>
+                        <option value="İşlemde" {% if ts[9] == 'İşlemde' %}selected{% endif %}>İşlemde</option>
+                        <option value="Hazır" {% if ts[9] == 'Hazır' %}selected{% endif %}>Hazır</option>
+                        <option value="Teslime Hazır" {% if ts[9] == 'Teslime Hazır' %}selected{% endif %}>Teslime Hazır</option>
+                        <option value="Parça Bekliyor" {% if ts[9] == 'Parça Bekliyor' %}selected{% endif %}>Parça Bekliyor</option>
+                    </select>
+                </form>
+            </div>
+            {% endfor %}
+        {% else %}
+            <p style="color: #9ca3af; text-align: center;">Kayıtlı aktif araç bulunmuyor.</p>
+        {% endif %}
+    </div>
+
+    <!-- MÜŞTERİ & PLAKA GEÇMİŞİ -->
     <div id="historyTab" class="tab-content">
         <form method="GET" action="/">
             <input type="hidden" name="tab" value="history">
             <div class="form-group">
-                <label>Plaka ile Sorgula</label>
-                <input type="text" name="sorgu_plaka" placeholder="Örn: 34 ABC 123" value="{{ sorgu_plaka or '' }}">
+                <label>Plaka, Müşteri Adı veya Telefon ile Sorgula</label>
+                <input type="text" name="sorgu_plaka" placeholder="Örn: 34 ABC veya Ahmet..." value="{{ sorgu_plaka or '' }}">
             </div>
-            <button type="submit" class="btn-action">Geçmişi Ara</button>
+            <button type="submit" class="btn-action">Hızlı Arama Yap</button>
         </form>
         <hr style="margin: 20px 0; border: 0; border-top: 1px solid #374151;">
-        <h3>Kayıtlar</h3>
+        <h3>Arama Sonuçları / Geçmiş</h3>
         {% if kayitlar %}
             {% for k in kayitlar %}
             <div class="card">
@@ -257,7 +276,7 @@ HTML_PANEL = """
         {% endif %}
     </div>
 
-    <!-- 3. SEKME: STOK TAKİBİ -->
+    <!-- STOK TAKİBİ -->
     <div id="stockTab" class="tab-content">
         <h3>Parça / Ürün Stok Yönetimi</h3>
         <form method="POST" action="/stok_ekle">
@@ -279,7 +298,7 @@ HTML_PANEL = """
         {% endif %}
     </div>
 
-    <!-- 4. SEKME: CİRO / FİNANS RAPORU -->
+    <!-- CİRO / FİNANS RAPORU -->
     <div id="financeTab" class="tab-content">
         <h3>Finansal Özet ve Ciro</h3>
         <div class="stats-box">
@@ -296,21 +315,21 @@ HTML_PANEL = """
         {% endif %}
     </div>
 
-    <!-- 5. SEKME: VİZYONER BAKIM HATIRLATMA -->
+    <!-- AKILLI BAKIM HATIRLATMA -->
     <div id="reminderTab" class="tab-content">
-        <h3>Akıllı Bakım & Randevu Takibi</h3>
-        <p style="font-size: 13px; color: #9ca3af; margin-bottom: 15px;">Müşterilerin servis KM takipleri ve zamanı gelen bakımları:</p>
-        {% if randevular %}
-            {% for r in randevular %}
+        <h3>Akıllı Bakım Hatırlatıcı</h3>
+        <p style="font-size: 13px; color: #9ca3af; margin-bottom: 15px;">Daha önce gelen motorların üzerinden geçen süreler:</p>
+        {% if bakim_listesi %}
+            {% for b in bakim_listesi %}
             <div class="card" style="border-left: 4px solid #facc15;">
-                <b>Plaka:</b> {{ r[1] }} | <b>Müşteri:</b> {{ r[2] }} ({{ r[3] }})<br>
-                <b>Son Servis KM:</b> {{ r[4] }} KM | <b>Öngörülen Bakım KM:</b> <span style="color:#facc15; font-weight:bold;">{{ r[5] }} KM</span><br>
-                <b>Son Servis Tarihi:</b> {{ r[6] }}<br>
-                <a href="https://wa.me/{{ r[3] }}?text=Sayin%20{{ r[2] }},%20Iz%20Motorsiklet%20bakim%20vaktiniz%20yaklasmistir.%20Sizi%20servisimize%20bekleriz." target="_blank" class="whatsapp-btn">💬 Bakım Hatırlatması Gönder</a>
+                <b>Plaka:</b> {{ b[1] }} | <b>Müşteri:</b> {{ b[2] }} ({{ b[3] }})<br>
+                <b>Son Servis Tarihi:</b> {{ b[6] }} <span style="color:#facc15; font-weight:bold;">({{ b.gecen_sure }})</span><br>
+                <b>Model / KM:</b> {{ b[4] }} - {{ b[5] }}<br>
+                <a href="https://wa.me/{{ b[3] }}?text=Sayin%20{{ b[2] }},%20Iz%20Motorsiklet%20servisimizdeki%20son%20bakiminizin%20uzerinden%20sure%20gecti.%20Motorunuzun%20bakim%20vakti%20yaklasti,%20bekleriz.%20Iyi%20gunler%20dileriz." target="_blank" class="whatsapp-btn">💬 Bakım Hatırlatması Gönder</a>
             </div>
             {% endfor %}
         {% else %}
-            <p style="color: #9ca3af; text-align: center;">Aktif bakım kaydı bulunmuyor.</p>
+            <p style="color: #9ca3af; text-align: center;">Kayıtlı bakım geçmişi bulunmuyor.</p>
         {% endif %}
     </div>
 
@@ -367,10 +386,11 @@ function handleFormSubmit(e) {
 
 const urlParams = new URLSearchParams(window.location.search);
 const tab = urlParams.get('tab');
-if(tab === 'history') switchTab('historyTab', document.querySelectorAll('.tab-btn')[1]);
-else if(tab === 'stock') switchTab('stockTab', document.querySelectorAll('.tab-btn')[2]);
-else if(tab === 'finance') switchTab('financeTab', document.querySelectorAll('.tab-btn')[3]);
-else if(tab === 'reminder') switchTab('reminderTab', document.querySelectorAll('.tab-btn')[4]);
+if(tab === 'araclar') switchTab('araclarTab', document.querySelectorAll('.tab-btn')[1]);
+else if(tab === 'history') switchTab('historyTab', document.querySelectorAll('.tab-btn')[2]);
+else if(tab === 'stock') switchTab('stockTab', document.querySelectorAll('.tab-btn')[3]);
+else if(tab === 'finance') switchTab('financeTab', document.querySelectorAll('.tab-btn')[4]);
+else if(tab === 'reminder') switchTab('reminderTab', document.querySelectorAll('.tab-btn')[5]);
 </script>
 
 </body>
@@ -520,7 +540,8 @@ def index():
     sorgu_plaka = request.args.get('sorgu_plaka', '').strip()
     kayitlar = []
     if sorgu_plaka:
-        cursor.execute("SELECT * FROM servisler WHERE plaka LIKE ? ORDER BY id DESC", ('%' + sorgu_plaka + '%',))
+        cursor.execute("SELECT * FROM servisler WHERE plaka LIKE ? OR musteri_ad LIKE ? OR musteri_tel LIKE ? ORDER BY id DESC", 
+                       ('%' + sorgu_plaka + '%', '%' + sorgu_plaka + '%', '%' + sorgu_plaka + '%'))
         kayitlar = cursor.fetchall()
 
     cursor.execute("SELECT * FROM stok")
@@ -533,12 +554,50 @@ def index():
     res = cursor.fetchone()
     toplam_ciro = res[0] if res and res[0] else 0.0
 
-    cursor.execute("SELECT * FROM bakimlar ORDER BY id DESC")
-    randevular = cursor.fetchall()
+    cursor.execute("SELECT * FROM servisler ORDER BY id DESC")
+    ham_bakimlar = cursor.fetchall()
+    bakim_listesi = []
+    
+    bugun = datetime.date.today()
+    for b in ham_bakimlar:
+        tarih_str = b[6]
+        gecen_sure_str = "Yeni kayıt"
+        try:
+            servis_tarihi = datetime.datetime.strptime(tarih_str, "%d.%m.%Y").date()
+            fark_gun = (bugun - servis_tarihi).days
+            if fark_gun == 0:
+                gecen_sure_str = "Bugün geldi"
+            elif fark_gun < 30:
+                gecen_sure_str = f"{fark_gun} gün önce geldi"
+            elif fark_gun < 365:
+                ay = fark_gun // 30
+                gecen_sure_str = f"{ay} ay önce geldi"
+            else:
+                yil = fark_gun // 365
+                gecen_sure_str = f"{yil} yıl önce geldi"
+        except Exception:
+            pass
+        
+        b_item = list(b)
+        b_item.append(gecen_sure_str)
+        bakim_listesi.append(b_item)
 
     conn.close()
         
-    return render_template_string(HTML_PANEL, kayitlar=kayitlar, sorgu_plaka=sorgu_plaka, stoklar=stoklar, tum_servisler=tum_servisler, toplam_ciro=toplam_ciro, randevular=randevular)
+    return render_template_string(HTML_PANEL, kayitlar=kayitlar, sorgu_plaka=sorgu_plaka, stoklar=stoklar, tum_servisler=tum_servisler, toplam_ciro=toplam_ciro, bakim_listesi=bakim_listesi)
+
+@app.route('/durum_guncelle', methods=['POST'])
+def durum_guncelle():
+    if not session.get('giris'): return redirect(url_for('index'))
+    servis_id = request.form.get('servis_id')
+    yeni_durum = request.form.get('durum')
+
+    conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
+    cursor = conn.cursor()
+    cursor.execute("UPDATE servisler SET durum = ? WHERE id = ?", (yeni_durum, servis_id))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('index') + '?tab=araclar')
 
 @app.route('/stok_ekle', methods=['POST'])
 def stok_ekle():
@@ -601,7 +660,6 @@ def olustur():
                 islemler.append({'ad': ad, 'adet': adt, 'fiyat': fyt})
                 islem_ozeti_list.append(f"{ad} (x{adt})")
 
-                # Eğer bu satır için bir stok seçilmişse stoktan otomatik düş
                 if s_id:
                     cursor.execute("SELECT adet FROM stok WHERE id = ?", (s_id,))
                     stok_item = cursor.fetchone()
@@ -617,18 +675,9 @@ def olustur():
     tarih_str = datetime.date.today().strftime("%d.%m.%Y")
 
     cursor.execute('''
-        INSERT INTO servisler (plaka, musteri_ad, musteri_tel, model, km, tarih, detaylar, toplam_tutar)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO servisler (plaka, musteri_ad, musteri_tel, model, km, tarih, detaylar, toplam_tutar, durum)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Bekliyor')
     ''', (plaka, musteri_ad, musteri_tel, model, km, tarih_str, islem_str, genel_toplam))
-
-    try:
-        clean_km = int(''.join(filter(str.isdigit, km))) if any(c.isdigit() for c in km) else 0
-        hedef_km = str(clean_km + 3000) + " KM"
-    except Exception:
-        hedef_km = "Bakım Vakti"
-
-    cursor.execute("INSERT INTO bakimlar (plaka, musteri_ad, telefon, son_km, hedef_km, servis_tarihi) VALUES (?, ?, ?, ?, ?, ?)", 
-                   (plaka, musteri_ad, musteri_tel, km, hedef_km, tarih_str))
     
     conn.commit()
     conn.close()
@@ -658,12 +707,21 @@ def olustur():
 
 # --- TELEGRAM BOTU ---
 SIFRE_DURUMU = {}
-LOGO_AL, MUSTERI_AD, MUSTERI_TEL, ARAÇ_PLAKA, ARAÇ_MODEL, ARAÇ_KM, ISLEM_EKLE, ISLEM_ADET, ISLEM_FIYAT, ISCILIK, NOTLAR = range(11)
+LOGO_AL, MUSTERI_AD, MUSTERI_TEL, ARAÇ_PLAKA, ARAÇ_MODEL, ARAÇ_KM, ISLEM_EKLE, ISLEM_FIYAT, ISLEM_ADET, ISCILIK, NOTLAR = range(11)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     SIFRE_DURUMU[user_id] = False
-    await update.message.reply_text("Selam kanka! İz Motorsiklet Botuna hoş geldin.\nDevam etmek için lütfen **şifreyi** gir kanka:")
+    keyboard = [
+        ["/yeni_servis", "/araclar"],
+        ["/stok", "/ciro"]
+    ]
+    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+    await update.message.reply_text(
+        "Selam kanka! İz Motorsiklet Botuna hoş geldin.\n"
+        "Devam etmek için önce **şifreyi** gir kanka:",
+        reply_markup=reply_markup
+    )
 
 async def sifre_kontrol(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -671,9 +729,91 @@ async def sifre_kontrol(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if SIFRE_DURUMU.get(user_id, False): return
     if text == SIFRE:
         SIFRE_DURUMU[user_id] = True
-        await update.message.reply_text("Şifre doğru kanka! Yeni servis formu için `/yeni_servis` yazabilirsin.")
+        await update.message.reply_text("Şifre doğru kanka! Yeni servis formu için `/yeni_servis` yazabilir, araç durumları için `/araclar` diyebilirsin.")
     else:
         await update.message.reply_text("Hatalı şifre kanka! Tekrar dene:")
+
+async def bot_araclar(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if not SIFRE_DURUMU.get(user_id, False):
+        await update.message.reply_text("Önce şifreyi girmen gerekiyor kanka! /start yaz.")
+        return
+    
+    conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, plaka, musteri_ad, model, durum FROM servisler ORDER BY id DESC LIMIT 5")
+    araclar = cursor.fetchall()
+    conn.close()
+
+    if not araclar:
+        await update.message.reply_text("Atölyede kayıtlı araç bulunmuyor kanka.")
+        return
+
+    for a in araclar:
+        a_id, plaka, musteri, model, durum = a
+        keyboard = [
+            [
+                InlineKeyboardButton("Bekliyor", callback_data=f"durum_{a_id}_Bekliyor"),
+                InlineKeyboardButton("İşlemde", callback_data=f"durum_{a_id}_İşlemde"),
+                InlineKeyboardButton("Hazır", callback_data=f"durum_{a_id}_Hazır")
+            ],
+            [
+                InlineKeyboardButton("Teslime Hazır", callback_data=f"durum_{a_id}_Teslime Hazır"),
+                InlineKeyboardButton("Parça Bekliyor", callback_data=f"durum_{a_id}_Parça Bekliyor")
+            ]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await update.message.reply_text(
+            f"🏍️ **Plaka:** {plaka}\n"
+            f"👤 **Müşteri:** {musteri}\n"
+            f"🛵 **Model:** {model}\n"
+            f"📌 **Durum:** `{durum}`",
+            parse_mode="Markdown",
+            reply_markup=reply_markup
+        )
+
+async def durum_degistir_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    data = query.data.split("_")
+    servis_id = data[1]
+    yeni_durum = data[2]
+
+    conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
+    cursor = conn.cursor()
+    cursor.execute("UPDATE servisler SET durum = ? WHERE id = ?", (yeni_durum, servis_id))
+    conn.commit()
+    conn.close()
+
+    await query.edit_message_text(text=f"✅ Araç durumu güncellendi: *{yeni_durum}*", parse_mode="Markdown")
+
+async def bot_stok(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if not SIFRE_DURUMU.get(user_id, False): return
+    conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
+    cursor = conn.cursor()
+    cursor.execute("SELECT parca_adi, adet, fiyat FROM stok")
+    stoklar = cursor.fetchall()
+    conn.close()
+
+    msg = "📦 **Mevcut Stok Listesi:**\n\n"
+    if stoklar:
+        for s in stoklar:
+            msg += f"- {s[0]}: **{s[1]} adet** ({s[2]} TL)\n"
+    else:
+        msg += "Stokta ürün bulunmuyor."
+    await update.message.reply_text(msg, parse_mode="Markdown")
+
+async def bot_ciro(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if not SIFRE_DURUMU.get(user_id, False): return
+    conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
+    cursor = conn.cursor()
+    cursor.execute("SELECT SUM(toplam_tutar) FROM servisler")
+    res = cursor.fetchone()
+    toplam = res[0] if res and res[0] else 0.0
+    conn.close()
+    await update.message.reply_text(f"💰 **Toplam Servis Cirosu:** `{toplam:.2f} TL`", parse_mode="Markdown")
 
 async def yeni_servis(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -718,42 +858,43 @@ async def arac_model_al(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def arac_km_al(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['km'] = update.message.text
-    await update.message.reply_text("1. Yapılan İşlem veya Değişen Parça adını gir kanka:")
+    await update.message.reply_text("1. Yapılan İşlem veya Parça adını gir kanka:")
     return ISLEM_EKLE
 
 async def islem_ad_al(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['gecici_islem'] = update.message.text
-    await update.message.reply_text(f"'{update.message.text}' için Adet/Miktar gir:")
-    return ISLEM_ADET
-
-async def islem_adet_al(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    try:
-        context.user_data['gecici_adet'] = int(update.message.text)
-        await update.message.reply_text("Birim Fiyatını (TL) gir kanka:")
-        return ISLEM_FIYAT
-    except ValueError:
-        await update.message.reply_text("Lütfen sayı gir kanka:")
-        return ISLEM_ADET
+    await update.message.reply_text("Bu işlem/parça için Birim Fiyat (TL) gir kanka:")
+    return ISLEM_FIYAT
 
 async def islem_fiyat_al(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         fiyat = float(update.message.text.replace(',', '.'))
-        context.user_data['islemler'].append({
-            'ad': context.user_data['gecici_islem'],
-            'adet': context.user_data['gecici_adet'],
-            'fiyat': fiyat
-        })
-        reply_keyboard = [['+ Başka Parça/İşlem Ekle', 'Parçalar Bitti / İşçiliğe Geç']]
-        await update.message.reply_text("Eklendi! Başka parça ekleyecek misin?", reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True, resize_keyboard=True))
-        return ISLEM_EKLE
+        context.user_data['gecici_fiyat'] = fiyat
+        await update.message.reply_text("Adet / Miktar gir kanka:")
+        return ISLEM_ADET
     except ValueError:
         await update.message.reply_text("Geçerli bir fiyat gir kanka:")
         return ISLEM_FIYAT
 
+async def islem_adet_al(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        adet = int(update.message.text)
+        context.user_data['islemler'].append({
+            'ad': context.user_data['gecici_islem'],
+            'adet': adet,
+            'fiyat': context.user_data['gecici_fiyat']
+        })
+        reply_keyboard = [['+ Başka İşlem/Parça Ekle', 'İşlemler Bitti / İşçiliğe Geç']]
+        await update.message.reply_text("Eklendi! Başka ekleyecek misin?", reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True, resize_keyboard=True))
+        return ISLEM_EKLE
+    except ValueError:
+        await update.message.reply_text("Lütfen geçerli bir sayı gir kanka:")
+        return ISLEM_ADET
+
 async def islem_karar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
-    if text == '+ Başka Parça/İşlem Ekle':
-        await update.message.reply_text("Diğer yapılan işlemi yaz kanka:", reply_markup=ReplyKeyboardRemove())
+    if text == '+ Başka İşlem/Parça Ekle':
+        await update.message.reply_text("Sonraki işlem veya parça adını yaz kanka:", reply_markup=ReplyKeyboardRemove())
         return ISLEM_EKLE
     else:
         await update.message.reply_text("Toplam İşçilik Tutarını (TL) gir kanka (Yoksa 0 yaz):", reply_markup=ReplyKeyboardRemove())
@@ -789,8 +930,8 @@ async def notlar_ve_bitis(update: Update, context: ContextTypes.DEFAULT_TYPE):
     conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
     cursor = conn.cursor()
     cursor.execute('''
-        INSERT INTO servisler (plaka, musteri_ad, musteri_tel, model, km, tarih, detaylar, toplam_tutar)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO servisler (plaka, musteri_ad, musteri_tel, model, km, tarih, detaylar, toplam_tutar, durum)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Bekliyor')
     ''', (plaka, context.user_data['musteri_ad'], context.user_data['musteri_tel'], context.user_data['model'], context.user_data['km'], tarih_str, islem_str, genel_toplam))
     conn.commit()
     conn.close()
@@ -826,12 +967,12 @@ def run_telegram_bot():
             ARAÇ_MODEL: [MessageHandler(filters.TEXT & ~filters.COMMAND, arac_model_al)],
             ARAÇ_KM: [MessageHandler(filters.TEXT & ~filters.COMMAND, arac_km_al)],
             ISLEM_EKLE: [
-                MessageHandler(filters.Regex(r'^\+ Başka Parça/İşlem Ekle$'), islem_karar),
-                MessageHandler(filters.Regex(r'^Parçalar Bitti / İşçiliğe Geç$'), islem_karar),
+                MessageHandler(filters.Regex(r'^\+ Başka İşlem/Parça Ekle$'), islem_karar),
+                MessageHandler(filters.Regex(r'^İşlemler Bitti / İşçiliğe Geç$'), islem_karar),
                 MessageHandler(filters.TEXT & ~filters.COMMAND, islem_ad_al)
             ],
-            ISLEM_ADET: [MessageHandler(filters.TEXT & ~filters.COMMAND, islem_adet_al)],
             ISLEM_FIYAT: [MessageHandler(filters.TEXT & ~filters.COMMAND, islem_fiyat_al)],
+            ISLEM_ADET: [MessageHandler(filters.TEXT & ~filters.COMMAND, islem_adet_al)],
             ISCILIK: [MessageHandler(filters.TEXT & ~filters.COMMAND, iscilik_al)],
             NOTLAR: [MessageHandler(filters.TEXT & ~filters.COMMAND, notlar_ve_bitis)],
         },
@@ -839,6 +980,10 @@ def run_telegram_bot():
     )
 
     bot_app.add_handler(CommandHandler("start", start))
+    bot_app.add_handler(CommandHandler("araclar", bot_araclar))
+    bot_app.add_handler(CommandHandler("stok", bot_stok))
+    bot_app.add_handler(CommandHandler("ciro", bot_ciro))
+    bot_app.add_handler(CallbackQueryHandler(durum_degistir_callback, pattern="^durum_"))
     bot_app.add_handler(conv_handler)
     bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, sifre_kontrol))
 
