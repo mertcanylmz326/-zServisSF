@@ -2,7 +2,7 @@ import os
 import datetime
 import threading
 import asyncio
-from flask import Flask, render_template_string, request, send_file
+from flask import Flask, render_template_string, request, send_file, session, redirect, url_for
 from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import (
     Application, CommandHandler, MessageHandler, 
@@ -16,6 +16,9 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
 app = Flask(__name__)
+app.secret_key = "iz_motor_gizli_anahtar"  # Flask oturumu (şifreleme) için gerekli
+
+SIFRE = "izmotor2026*"
 
 # --- TÜRKÇE FONT TANIMLAMASI ---
 try:
@@ -27,8 +30,38 @@ except Exception:
     FONT_NAME = 'Helvetica'
     FONT_BOLD = 'Helvetica-Bold'
 
-# --- HTML WEB ARAYÜZÜ ---
-HTML_TEMPLATE = """
+# --- HTML WEB ARAYÜZÜ (ŞİFRE + DİNAMİK SATIR EKLEME) ---
+HTML_LOGIN = """
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>İz Motorsiklet - Giriş</title>
+    <style>
+        body { font-family: sans-serif; background: #f4f6f9; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .login-box { background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 100%; max-width: 350px; text-align: center; }
+        h2 { color: #1a365d; margin-bottom: 20px; }
+        input { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #cbd5e0; border-radius: 4px; box-sizing: border-box; font-size: 16px; }
+        button { background: #1a365d; color: #fff; border: none; padding: 12px; border-radius: 4px; width: 100%; font-size: 16px; font-weight: bold; cursor: pointer; }
+        button:hover { background: #2c5282; }
+        .error { color: #e53e3e; margin-bottom: 10px; font-size: 14px; }
+    </style>
+</head>
+<body>
+<div class="login-box">
+    <h2>İZ MOTORSİKLET</h2>
+    {% if error %}<div class="error">{{ error }}</div>{% endif %}
+    <form method="POST">
+        <input type="password" name="sifre" placeholder="Şifreyi girin..." required autofocus>
+        <button type="submit">Giriş Yap</button>
+    </form>
+</div>
+</body>
+</html>
+"""
+
+HTML_PANEL = """
 <!DOCTYPE html>
 <html lang="tr">
 <head>
@@ -42,17 +75,24 @@ HTML_TEMPLATE = """
         .form-group { margin-bottom: 15px; }
         label { display: block; font-weight: bold; margin-bottom: 5px; }
         input, textarea { width: 100%; padding: 10px; border: 1px solid #cbd5e0; border-radius: 4px; box-sizing: border-box; }
-        .item-row { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; }
+        .item-row { display: flex; gap: 8px; margin-bottom: 8px; align-items: center; }
         .item-row input { flex: 2; }
         .item-row input.small { flex: 1; }
-        button { background: #1a365d; color: #fff; border: none; padding: 12px 20px; border-radius: 4px; cursor: pointer; width: 100%; font-size: 16px; font-weight: bold; margin-top: 10px; }
-        button:hover { background: #2c5282; }
+        .btn-add { background: #319795; color: #white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; margin-bottom: 15px; width: 100%; color: #fff;}
+        .btn-add:hover { background: #285e61; }
+        .btn-remove { background: #e53e3e; color: #fff; border: none; padding: 10px; border-radius: 4px; cursor: pointer; }
+        button[type="submit"] { background: #1a365d; color: #fff; border: none; padding: 12px 20px; border-radius: 4px; cursor: pointer; width: 100%; font-size: 16px; font-weight: bold; margin-top: 10px; }
+        button[type="submit"]:hover { background: #2c5282; }
+        .logout { text-align: right; margin-bottom: 10px; }
+        .logout a { color: #e53e3e; text-decoration: none; font-size: 14px; font-weight: bold; }
     </style>
 </head>
 <body>
 <div class="container">
+    <div class="logout"><a href="/cikis">Çıkış Yap</a></div>
     <h2>İZ MOTORSİKLET SERVİS PANELİ</h2>
     <form action="/olustur" method="POST" enctype="multipart/form-data">
+        
         <div class="form-group">
             <label>Dükkan Logosu (Fotoğraf)</label>
             <input type="file" name="logo" accept="image/*" required>
@@ -77,33 +117,59 @@ HTML_TEMPLATE = """
             <label>Kilometre (KM)</label>
             <input type="text" name="km" placeholder="Örn: 15.000 KM" required>
         </div>
+
         <hr style="margin: 20px 0; border: 0; border-top: 1px solid #e2e8f0;">
         <label><b>Yapılan İşlemler / Parçalar</b></label>
-        <div class="item-row">
-            <input type="text" name="islem[]" placeholder="İşlem / Parça Adı">
-            <input type="number" name="adet[]" class="small" placeholder="Adet" value="1">
-            <input type="number" step="0.01" name="fiyat[]" class="small" placeholder="Fiyat (TL)">
+        
+        <div id="items-container">
+            <div class="item-row">
+                <input type="text" name="islem[]" placeholder="İşlem / Parça Adı">
+                <input type="number" name="adet[]" class="small" placeholder="Adet" value="1">
+                <input type="number" step="0.01" name="fiyat[]" class="small" placeholder="Fiyat (TL)">
+            </div>
+            <div class="item-row">
+                <input type="text" name="islem[]" placeholder="İşlem / Parça Adı">
+                <input type="number" name="adet[]" class="small" placeholder="Adet" value="1">
+                <input type="number" step="0.01" name="fiyat[]" class="small" placeholder="Fiyat (TL)">
+            </div>
         </div>
-        <div class="item-row">
-            <input type="text" name="islem[]" placeholder="İşlem / Parça Adı">
-            <input type="number" name="adet[]" class="small" placeholder="Adet" value="1">
-            <input type="number" step="0.01" name="fiyat[]" class="small" placeholder="Fiyat (TL)">
-        </div>
+        
+        <button type="button" class="btn-add" onclick="addItem()">+ Yeni İşlem / Parça Satırı Ekle</button>
+
         <div class="form-group" style="margin-top: 15px;">
             <label>İşçilik Tutarı (TL)</label>
             <input type="number" step="0.01" name="iscilik" placeholder="Örn: 500" value="0">
         </div>
+
         <div class="form-group">
             <label>Notlar ve Tespitler</label>
             <textarea name="notlar" rows="2" placeholder="Örn: 1.000 km sonra yağ bakımı yapılacak."></textarea>
         </div>
+
         <button type="submit">Servis Formu PDF İndir</button>
     </form>
 </div>
+
+<script>
+function addItem() {
+    const container = document.getElementById('items-container');
+    const row = document.createElement('div');
+    row.className = 'item-row';
+    row.innerHTML = `
+        <input type="text" name="islem[]" placeholder="İşlem / Parça Adı">
+        <input type="number" name="adet[]" class="small" placeholder="Adet" value="1">
+        <input type="number" step="0.01" name="fiyat[]" class="small" placeholder="Fiyat (TL)">
+        <button type="button" class="btn-remove" onclick="this.parentElement.remove()">X</button>
+    `;
+    container.appendChild(row);
+}
+</script>
+
 </body>
 </html>
 """
 
+# --- PDF ÜRETME MOTORU ---
 def pdf_olustur(filename, veri, logo_yolu):
     doc = SimpleDocTemplate(filename, pagesize=A4, rightMargin=15, leftMargin=15, topMargin=12, bottomMargin=12)
     story = []
@@ -140,7 +206,10 @@ def pdf_olustur(filename, veri, logo_yolu):
     islemler = veri.get('islemler', [])
     yedek_parca_toplam = 0.0
 
-    for idx in range(10):
+    # Dinamik satır sayısı (en az 8 satırlık şablon görünümü korunsun)
+    toplam_satir_sayisi = max(10, len(islemler))
+
+    for idx in range(toplam_satir_sayisi):
         if idx < len(islemler):
             item = islemler[idx]
             no = str(idx + 1)
@@ -224,12 +293,32 @@ def pdf_olustur(filename, veri, logo_yolu):
 
     doc.build(story)
 
-@app.route('/')
+# --- WEB ROUTES (ŞİFRE KONTROLÜ) ---
+@app.route('/', methods=['GET', 'POST'])
 def index():
-    return render_template_string(HTML_TEMPLATE)
+    if request.method == 'POST':
+        girilen_sifre = request.form.get('sifre')
+        if girilen_sifre == SIFRE:
+            session['giris'] = True
+            return redirect(url_for('index'))
+        else:
+            return render_template_string(HTML_LOGIN, error="Hatalı Şifre Kanka!")
+            
+    if not session.get('giris'):
+        return render_template_string(HTML_LOGIN)
+        
+    return render_template_string(HTML_PANEL)
+
+@app.route('/cikis')
+def cikis():
+    session.pop('giris', None)
+    return redirect(url_for('index'))
 
 @app.route('/olustur', methods=['POST'])
 def olustur():
+    if not session.get('giris'):
+        return redirect(url_for('index'))
+
     musteri_ad = request.form.get('musteri_ad')
     musteri_tel = request.form.get('musteri_tel')
     plaka = request.form.get('plaka')
@@ -278,13 +367,36 @@ def olustur():
 
     return response
 
-# --- TELEGRAM BOTU ---
+
+# --- TELEGRAM BOTU (ŞİFRE KORUMALI) ---
+SIFRE_DURUMU = {} # Kullanıcı şifre girdi mi kontrolü
+
 LOGO_AL, MUSTERI_AD, MUSTERI_TEL, ARAÇ_PLAKA, ARAÇ_MODEL, ARAÇ_KM, ISLEM_EKLE, ISLEM_ADET, ISLEM_FIYAT, ISCILIK, NOTLAR = range(11)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Selam kanka! Bot aktif. Yeni servis formu için /yeni_servis yazabilirsin.")
+    user_id = update.effective_user.id
+    SIFRE_DURUMU[user_id] = False
+    await update.message.reply_text("Selam kanka! İz Motorsiklet Botuna hoş geldin.\nDevam etmek için lütfen **şifreyi** gir kanka:")
+
+async def sifre_kontrol(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    text = update.message.text
+    
+    if SIFRE_DURUMU.get(user_id, False):
+        return # Şifre zaten doğrulanmışsa bu handler karışmaz
+        
+    if text == SIFRE:
+        SIFRE_DURUMU[user_id] = True
+        await update.message.reply_text("Şifre doğru kanka! Yeni servis formu başlatmak için `/yeni_servis` yazabilirsin.")
+    else:
+        await update.message.reply_text("Hatalı şifre kanka! Tekrar dene:")
 
 async def yeni_servis(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if not SIFRE_DURUMU.get(user_id, False):
+        await update.message.reply_text("Önce şifreyi girmen gerekiyor kanka! /start yazıp şifreyi gir.")
+        return ConversationHandler.END
+        
     context.user_data['islemler'] = []
     await update.message.reply_text("Önce dükkanın logosunu veya fotoğrafını **fotoğraf olarak** gönder kanka:")
     return LOGO_AL
@@ -298,7 +410,6 @@ async def logo_al(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Logo alındı! Şimdi Müşteri Adı ve Soyadını gir kanka:")
     return MUSTERI_AD
 
-# Metin gönderildiğinde uyarı veren fonksiyon
 async def logo_uyari(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Kanka yazı değil, **dükkanın logosunu fotoğraf olarak** göndermen gerekiyor! Hadi bekliyorum:")
     return LOGO_AL
@@ -439,6 +550,8 @@ def run_telegram_bot():
 
     bot_app.add_handler(CommandHandler("start", start))
     bot_app.add_handler(conv_handler)
+    # Şifre yakalayıcı metin mesajı
+    bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, sifre_kontrol))
 
     print("Telegram botu thread içinde başlatılıyor...")
     bot_app.run_polling(stop_signals=None)
