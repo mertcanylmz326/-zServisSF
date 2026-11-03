@@ -17,7 +17,7 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
 app = Flask(__name__)
-app.secret_key = "iz_motor_gizli_anahtar_erp_v15"
+app.secret_key = "iz_motor_gizli_anahtar_erp_v16"
 
 SIFRE = "izmotor2026*"
 
@@ -820,25 +820,22 @@ def olustur():
     return response
 
 
-# --- TELEGRAM BOTu ---
+# --- TELEGRAM BOTU (DÜZELTİLMİŞ AKIŞ VE ŞİFRE YÖNETİMİ) ---
 SIFRE_DURUMU = {}
 LOGO_AL, HASAR_AL, MUSTERI_AD, MUSTERI_TEL, ARAÇ_PLAKA, ARAÇ_MODEL, ARAÇ_KM, ISLEM_EKLE, ISLEM_FIYAT, ISLEM_ADET, ISCILIK, NOTLAR = range(100, 112)
 STOK_AD, STOK_ADET, STOK_FIYAT = range(200, 203)
-RANDEVU_AD, RANDEVU_TEL, RANDEVU_ZAMAN, RANDEVU_NOT = range(300, 304)
-PLAKA_SORGU = range(400, 401)
+SIFRE_BEKLE = range(500, 501)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     SIFRE_DURUMU[user_id] = False
     await update.message.reply_text("Selam kanka! İz Motorsiklet Botuna hoş geldin.\nDevam etmek için önce **yönetici şifresini** gir kanka:")
+    return SIFRE_BEKLE
 
-async def sifre_kontrol(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def sifre_giris_kontrol(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     text = update.message.text
     
-    if SIFRE_DURUMU.get(user_id, False):
-        return
-        
     if text == SIFRE:
         SIFRE_DURUMU[user_id] = True
         keyboard = [
@@ -850,8 +847,10 @@ async def sifre_kontrol(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ]
         reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
         await update.message.reply_text("Şifre doğru kanka! Aşağıdaki butonlardan yapmak istediğin işlemi seçebilirsin:", reply_markup=reply_markup)
+        return ConversationHandler.END
     else:
         await update.message.reply_text("Hatalı şifre kanka! Tekrar dene:")
+        return SIFRE_BEKLE
 
 async def logo_uyari(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Kanka yazı değil, **logo fotoğrafı** göndermen gerekiyor:")
@@ -1391,6 +1390,15 @@ def run_telegram_bot():
     print("Telegram bot başlatılıyor...")
     bot_app = Application.builder().token(TOKEN).build()
 
+    # Şifre doğrulama akışı (ConversationHandler içine alındı)
+    sifre_conv = ConversationHandler(
+        entry_points=[CommandHandler("start", start)],
+        states={
+            SIFRE_BEKLE: [MessageHandler(filters.TEXT & ~filters.COMMAND, sifre_giris_kontrol)],
+        },
+        fallbacks=[CommandHandler('iptal', iptal)]
+    )
+
     stok_conv = ConversationHandler(
         entry_points=[MessageHandler(filters.Regex('^📦 Stok Ekle$'), stok_baslat)],
         states={
@@ -1446,7 +1454,7 @@ def run_telegram_bot():
         fallbacks=[CommandHandler('iptal', iptal)]
     )
 
-    bot_app.add_handler(CommandHandler("start", start))
+    bot_app.add_handler(sifre_conv)
     bot_app.add_handler(stok_conv)
     bot_app.add_handler(randevu_conv)
     bot_app.add_handler(plaka_sorgu_conv)
@@ -1457,7 +1465,6 @@ def run_telegram_bot():
     bot_app.add_handler(MessageHandler(filters.Regex('^🔔 Günün Randevuları$'), gunun_randevulari))
     bot_app.add_handler(MessageHandler(filters.Regex('^🏍️ Araçlar$'), bot_araclar))
     bot_app.add_handler(MessageHandler(filters.Regex('^📦 Stok Listesi$'), bot_stok))
-    bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, sifre_kontrol))
 
     bot_app.run_polling(stop_signals=None)
 
