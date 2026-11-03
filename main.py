@@ -17,7 +17,7 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
 app = Flask(__name__)
-app.secret_key = "iz_motor_gizli_anahtar_erp_v2"
+app.secret_key = "iz_motor_gizli_anahtar_erp_v3"
 
 SIFRE = "izmotor2026*"
 
@@ -131,14 +131,15 @@ HTML_PANEL = """
         input, textarea, select { width: 100%; padding: 12px; background: #0f172a; border: 1px solid #374151; border-radius: 8px; color: #fff; box-sizing: border-box; font-size: 14px; transition: 0.3s; outline: none; }
         input:focus, textarea:focus, select:focus { border-color: #facc15; box-shadow: 0 0 8px rgba(250,204,21,0.3); }
         
-        .item-row { display: flex; gap: 8px; margin-bottom: 10px; align-items: center; background: #1e293b; padding: 8px; border-radius: 8px; border: 1px solid #334155; }
-        .item-row select, .item-row input { flex: 2; background: #0f172a; }
-        .item-row input.small { flex: 1; }
+        .item-row { display: flex; gap: 6px; margin-bottom: 10px; align-items: center; background: #1e293b; padding: 8px; border-radius: 8px; border: 1px solid #334155; }
+        .item-row input.name-input { flex: 2; }
+        .item-row select { flex: 1.5; background: #0f172a; font-size: 12px; }
+        .item-row input.small { flex: 0.8; }
         
         .btn-add { background: #0d9488; color: #fff; border: none; padding: 10px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; margin-bottom: 15px; transition: 0.3s; }
         .btn-add:hover { background: #0f766e; }
         
-        .btn-remove { background: #dc2626; color: #fff; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        .btn-remove { background: #dc2626; color: #fff; border: none; padding: 8px 10px; border-radius: 6px; cursor: pointer; font-weight: bold; }
         
         button[type="submit"], .btn-action { background: linear-gradient(135deg, #facc15, #ca8a04); color: #0b0f19; border: none; padding: 14px; border-radius: 8px; cursor: pointer; width: 100%; font-size: 15px; font-weight: bold; margin-top: 15px; transition: 0.3s; box-shadow: 0 4px 15px rgba(250,204,21,0.3); }
         button[type="submit"]:hover, .btn-action:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(250,204,21,0.5); }
@@ -161,7 +162,7 @@ HTML_PANEL = """
     <div class="tabs">
         <button class="tab-btn active" onclick="switchTab('formTab', this)">Servis Formu</button>
         <button class="tab-btn" onclick="switchTab('historyTab', this)">Plaka Geçmişi</button>
-        <button class="tab-btn" onclick="switchTab('stockTab', this)">Stok Takibi</button>
+        <button class="tab-btn" onclick="switchTab('stockTab', this)">Stoktan Seç</button>
         <button class="tab-btn" onclick="switchTab('financeTab', this)">Ciro Raporu</button>
         <button class="tab-btn" onclick="switchTab('reminderTab', this)">Bakım Hatırlat</button>
     </div>
@@ -196,31 +197,23 @@ HTML_PANEL = """
 
             <hr style="margin: 20px 0; border: 0; border-top: 1px solid #374151;">
             
-            <!-- PARÇA SEÇİMİ (STOKTAN DÜŞER) -->
-            <label><b>📦 Stoktan Düşecek Parçalar</b></label>
-            <div id="parts-container">
+            <!-- BİRLEŞTİRİLMİŞ İŞLEM / PARÇA SATIRLARI -->
+            <label><b>🛠️ Yapılan İşlemler ve Parçalar</b> <span style="font-size:11px; color:#9ca3af;">(Stoktan düşmesini istediklerini yandaki listeden seçebilirsin)</span></label>
+            <div id="items-container">
                 <div class="item-row">
-                    <select name="stok_parca_id[]">
-                        <option value="">-- Stoktan Parça Seç --</option>
+                    <input type="text" name="islem_ad[]" class="name-input" placeholder="İşlem / Parça Adı" required>
+                    <select name="stok_id[]">
+                        <option value="">-- Stoktan Düş (İsteğe Bağlı) --</option>
                         {% for s in stoklar %}
-                        <option value="{{ s[0] }}">{{ s[1] }} (Stok: {{ s[2] }} - {{ s[3] }} TL)</option>
+                        <option value="{{ s[0] }}">{{ s[1] }} (Stok: {{ s[2] }} | {{ s[3] }} TL)</option>
                         {% endfor %}
                     </select>
-                    <input type="number" name="stok_adet[]" class="small" placeholder="Adet" value="1" min="1">
+                    <input type="number" name="adet[]" class="small" placeholder="Adet" value="1" min="1">
+                    <input type="number" step="0.01" name="fiyat[]" class="small" placeholder="Fiyat" required>
                 </div>
             </div>
-            <button type="button" class="btn-add" style="background:#2563eb;" onclick="addPartRow()">+ Başka Parça Ekle</button>
-
-            <!-- MANUEL İŞLEM / EKSTRA HİZMET -->
-            <label style="margin-top:15px;"><b>🛠️ Ekstra İşçilik / Özel İşlemler</b></label>
-            <div id="manual-items-container">
-                <div class="item-row">
-                    <input type="text" name="manuel_islem[]" placeholder="İşlem / Hizmet Adı">
-                    <input type="number" name="manuel_adet[]" class="small" placeholder="Adet" value="1">
-                    <input type="number" step="0.01" name="manuel_fiyat[]" class="small" placeholder="Fiyat (TL)">
-                </div>
-            </div>
-            <button type="button" class="btn-add" onclick="addManualRow()">+ Manuel İşlem Ekle</button>
+            
+            <button type="button" class="btn-add" onclick="addItemRow()">+ Yeni İşlem / Parça Satırı Ekle</button>
 
             <div class="form-group">
                 <label>Ek İşçilik Tutarı (TL)</label>
@@ -333,31 +326,20 @@ function switchTab(tabId, btn) {
     btn.classList.add('active');
 }
 
-function addPartRow() {
-    const container = document.getElementById('parts-container');
+function addItemRow() {
+    const container = document.getElementById('items-container');
     const row = document.createElement('div');
     row.className = 'item-row';
     row.innerHTML = `
-        <select name="stok_parca_id[]">
-            <option value="">-- Stoktan Parça Seç --</option>
+        <input type="text" name="islem_ad[]" class="name-input" placeholder="İşlem / Parça Adı" required>
+        <select name="stok_id[]">
+            <option value="">-- Stoktan Düş (İsteğe Bağlı) --</option>
             {% for s in stoklar %}
-            <option value="{{ s[0] }}">{{ s[1] }} (Stok: {{ s[2] }} - {{ s[3] }} TL)</option>
+            <option value="{{ s[0] }}">{{ s[1] }} (Stok: {{ s[2] }} | {{ s[3] }} TL)</option>
             {% endfor %}
         </select>
-        <input type="number" name="stok_adet[]" class="small" placeholder="Adet" value="1" min="1">
-        <button type="button" class="btn-remove" onclick="this.parentElement.remove()">X</button>
-    `;
-    container.appendChild(row);
-}
-
-function addManualRow() {
-    const container = document.getElementById('manual-items-container');
-    const row = document.createElement('div');
-    row.className = 'item-row';
-    row.innerHTML = `
-        <input type="text" name="manuel_islem[]" placeholder="İşlem / Hizmet Adı">
-        <input type="number" name="manuel_adet[]" class="small" placeholder="Adet" value="1">
-        <input type="number" step="0.01" name="manuel_fiyat[]" class="small" placeholder="Fiyat (TL)">
+        <input type="number" name="adet[]" class="small" placeholder="Adet" value="1" min="1">
+        <input type="number" step="0.01" name="fiyat[]" class="small" placeholder="Fiyat" required>
         <button type="button" class="btn-remove" onclick="this.parentElement.remove()">X</button>
     `;
     container.appendChild(row);
@@ -376,7 +358,6 @@ function handleFormSubmit(e) {
     btn.innerText = "Form Kaydediliyor & İndiriliyor...";
     btn.disabled = true;
     
-    // 5 saniye sonra butonu tekrar aktif et ki yeni form basılabilsin ama spam engellenmiş olsun
     setTimeout(() => {
         isSubmitted = false;
         btn.innerText = "Servis Formu PDF İndir & Kaydet";
@@ -598,64 +579,50 @@ def olustur():
     conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
     cursor = conn.cursor()
 
+    islem_adlari = request.form.getlist('islem_ad[]')
+    stok_idler = request.form.getlist('stok_id[]')
+    adetler = request.form.getlist('adet[]')
+    fiyatlar = request.form.getlist('fiyat[]')
+
     islemler = []
     yedek_parca_toplam = 0.0
     islem_ozeti_list = []
 
-    # 1. Stoktan seçilen parçaları işle ve stoktan düş
-    stok_parca_ids = request.form.getlist('stok_parca_id[]')
-    stok_adetleri = request.form.getlist('stok_adet[]')
-
-    for i in range(len(stok_parca_ids)):
-        p_id = stok_parca_ids[i]
-        if p_id:
+    for i in range(len(islem_adlari)):
+        if islem_adlari[i].strip():
             try:
-                p_adet = int(stok_adetleri[i]) if stok_adetleri[i] else 1
-                cursor.execute("SELECT parca_adi, adet, fiyat FROM stok WHERE id = ?", (p_id,))
-                stok_item = cursor.fetchone()
-                if stok_item:
-                    p_adi, mevcut_adet, p_fiyat = stok_item
-                    tutar = p_adet * p_fiyat
-                    yedek_parca_toplam += tutar
-                    islemler.append({'ad': p_adi, 'adet': p_adet, 'fiyat': p_fiyat})
-                    islem_ozeti_list.append(f"{p_adi} (x{p_adet})")
-                    
-                    # Stoktan düşür
-                    yeni_adet = max(0, mevcut_adet - p_adet)
-                    cursor.execute("UPDATE stok SET adet = ? WHERE id = ?", (yeni_adet, p_id))
-            except Exception:
-                continue
-
-    # 2. Manuel girilen işlemleri işle
-    manuel_adlar = request.form.getlist('manuel_islem[]')
-    manuel_adetler = request.form.getlist('manuel_adet[]')
-    manuel_fiyatlar = request.form.getlist('manuel_fiyat[]')
-
-    for i in range(len(manuel_adlar)):
-        if manuel_adlar[i].strip():
-            try:
-                adt = int(manuel_adetler[i]) if manuel_adetler[i] else 1
-                fyt = float(manuel_fiyatlar[i]) if manuel_fiyatlar[i] else 0.0
+                ad = islem_adlari[i]
+                s_id = stok_idler[i] if i < len(stok_idler) else ""
+                adt = int(adetler[i]) if i < len(adetler) and adetler[i] else 1
+                fyt = float(fiyatlar[i]) if i < len(fiyatlar) and fiyatlar[i] else 0.0
                 tutar = adt * fyt
                 yedek_parca_toplam += tutar
-                islemler.append({'ad': manuel_adlar[i], 'adet': adt, 'fiyat': fyt})
-                islem_ozeti_list.append(f"{manuel_adlar[i]} (x{adt})")
-            except ValueError:
+                
+                islemler.append({'ad': ad, 'adet': adt, 'fiyat': fyt})
+                islem_ozeti_list.append(f"{ad} (x{adt})")
+
+                # Eğer bu satır için bir stok seçilmişse stoktan otomatik düş
+                if s_id:
+                    cursor.execute("SELECT adet FROM stok WHERE id = ?", (s_id,))
+                    stok_item = cursor.fetchone()
+                    if stok_item:
+                        mevcut_adet = stok_item[0]
+                        yeni_adet = max(0, mevcut_adet - adt)
+                        cursor.execute("UPDATE stok SET adet = ? WHERE id = ?", (yeni_adet, s_id))
+            except Exception:
                 continue
 
     genel_toplam = yedek_parca_toplam + iscilik
     islem_str = ", ".join(islem_ozeti_list) if islem_ozeti_list else "İşlem belirtilmedi"
     tarih_str = datetime.date.today().strftime("%d.%m.%Y")
 
-    # Servis geçmişine kaydet
     cursor.execute('''
         INSERT INTO servisler (plaka, musteri_ad, musteri_tel, model, km, tarih, detaylar, toplam_tutar)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     ''', (plaka, musteri_ad, musteri_tel, model, km, tarih_str, islem_str, genel_toplam))
 
-    # Bakım hatırlatması için hedef KM hesapla (Örn: Mevcut KM + 3000 KM sonra)
     try:
-        clean_km = int(''.filter(str.isdigit, km)) if any(c.isdigit() for c in km) else 0
+        clean_km = int(''.join(filter(str.isdigit, km))) if any(c.isdigit() for c in km) else 0
         hedef_km = str(clean_km + 3000) + " KM"
     except Exception:
         hedef_km = "Bakım Vakti"
