@@ -27,10 +27,10 @@ def init_db():
     conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
     cursor = conn.cursor()
     
-    # 1. Servis Geçmişi
+    # 1. Servis Geçmişi (Çift INTEGER hatası giderildi)
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS servisler (
-            id INTEGER INTEGER PRIMARY KEY AUTOINCREMENT,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
             plaka TEXT,
             musteri_ad TEXT,
             musteri_tel TEXT,
@@ -237,7 +237,7 @@ HTML_PANEL = """
                 <b>Model / KM:</b> {{ k[4] }} - {{ k[5] }}<br>
                 <b>Yapılanlar:</b> {{ k[7] }}<br>
                 <b>Toplam Tutar:</b> <span style="color: #2b6cb0; font-weight: bold;">{{ "%.2f"|format(k[8]) }} TL</span><br>
-                <a href="https://wa.me/{{ k[3] }}?text=Sayin%20{{ k[2] }},%20Iz%20Motorsiklet%20servis%20formunuz%20hazirdir.%20Iyi%20gunler%20dileriz." target="_blank" style="display:inline-block; margin-top:5px; background:#25d366; color:#white; padding:4px 8px; border-radius:4px; text-decoration:none; font-size:12px; font-weight:bold;">💬 WhatsApp Mesajı Gönder</a>
+                <a href="https://wa.me/{{ k[3] }}?text=Sayin%20{{ k[2] }},%20Iz%20Motorsiklet%20servis%20formunuz%20hazirdir.%20Iyi%20gunler%20dileriz." target="_blank" style="display:inline-block; margin-top:5px; background:#25d366; color:#fff; padding:4px 8px; border-radius:4px; text-decoration:none; font-size:12px; font-weight:bold;">💬 WhatsApp Mesajı Gönder</a>
             </div>
             {% endfor %}
         {% else %}
@@ -292,7 +292,7 @@ HTML_PANEL = """
             <div class="card" style="border-left: 4px solid #319795;">
                 <b>Plaka:</b> {{ r[1] }} | <b>Müşteri:</b> {{ r[2] }}<br>
                 <b>Hedef Bakım KM:</b> {{ r[4] }}<br>
-                <a href="https://wa.me/{{ r[3] }}?text=Sayin%20{{ r[2] }},%20Iz%20Motorsiklet%20bakim%20vaktiniz%20yaklasmistir.%20Bekleriz." target="_blank" style="display:inline-block; margin-top:5px; background:#25d366; color:#white; padding:4px 8px; border-radius:4px; text-decoration:none; font-size:12px; font-weight:bold;">💬 Bakım Hatırlatması Gönder</a>
+                <a href="https://wa.me/{{ r[3] }}?text=Sayin%20{{ r[2] }},%20Iz%20Motorsiklet%20bakim%20vaktiniz%20yaklasmistir.%20Bekleriz." target="_blank" style="display:inline-block; margin-top:5px; background:#25d366; color:#fff; padding:4px 8px; border-radius:4px; text-decoration:none; font-size:12px; font-weight:bold;">💬 Bakım Hatırlatması Gönder</a>
             </div>
             {% endfor %}
         {% else %}
@@ -475,7 +475,6 @@ def index():
     conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
     cursor = conn.cursor()
 
-    # Sorgular
     sorgu_plaka = request.args.get('sorgu_plaka', '').strip()
     kayitlar = []
     if sorgu_plaka:
@@ -566,7 +565,6 @@ def olustur():
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     ''', (plaka, musteri_ad, musteri_tel, model, km, tarih_str, islem_str, genel_toplam))
     
-    # Bakım hatırlatmasına ekle
     cursor.execute("INSERT INTO bakimlar (plaka, musteri_ad, telefon, sonraki_bakim_km, hatirlatma_tarihi) VALUES (?, ?, ?, ?, ?)", 
                    (plaka, musteri_ad, musteri_tel, "5000 km sonra", "3 Ay Sonra"))
     
