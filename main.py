@@ -12,8 +12,20 @@ from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 
-# --- FLASK MINI SUNUCU (Render Web Service İçin) ---
+# --- TÜRKÇE KARAKTER DESTEĞİ ---
+try:
+    pdfmetrics.registerFont(TTFont('DejaVu', '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'))
+    pdfmetrics.registerFont(TTFont('DejaVu-Bold', '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'))
+    FONT_NAME = 'DejaVu'
+    FONT_BOLD = 'DejaVu-Bold'
+except Exception:
+    FONT_NAME = 'Helvetica'
+    FONT_BOLD = 'Helvetica-Bold'
+
+# --- FLASK MINI SUNUCU ---
 app_flask = Flask(__name__)
 
 @app_flask.route('/')
@@ -34,31 +46,47 @@ def pdf_olustur(filename, veri):
         pagesize=A4, 
         rightMargin=15, 
         leftMargin=15, 
-        topMargin=15, 
-        bottomMargin=15
+        topMargin=12, 
+        bottomMargin=12
     )
     story = []
     styles = getSampleStyleSheet()
 
-    # --- LOGO (Eğer proje dizininde logo.png varsa otomatik ekler) ---
-    if os.path.exists("logo.png"):
+    style_normal = ParagraphStyle(
+        'CustomNormal',
+        parent=styles['Normal'],
+        fontName=FONT_NAME,
+        fontSize=8.5,
+        leading=10
+    )
+    
+    style_bold_title = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=13,
+        leading=16,
+        textColor=colors.HexColor("#1A1A1A"),
+        alignment=1,
+        spaceAfter=4,
+        fontName=FONT_BOLD
+    )
+
+    # --- LOGO EKLEME ---
+    logo_dosyasi = None
+    for uzanti in ["logo.jpg", "logo.png", "LOGO.JPG", "LOGO.PNG"]:
+        if os.path.exists(uzanti):
+            logo_dosyasi = uzanti
+            break
+
+    if logo_dosyasi:
         try:
-            story.append(Image("logo.png", width=320, height=80))
+            # Genişlik 565pt (A4 sayfa içi tam oturur), yükseklik orantılı
+            story.append(Image(logo_dosyasi, width=540, height=65))
             story.append(Spacer(1, 4))
         except Exception:
             pass
 
-    title_style = ParagraphStyle(
-        'TitleStyle',
-        parent=styles['Heading1'],
-        fontSize=15,
-        leading=18,
-        textColor=colors.HexColor("#1A1A1A"),
-        alignment=1,
-        spaceAfter=8,
-        fontName="Helvetica-Bold"
-    )
-    story.append(Paragraph("MÜŞTERİ SERVİS FORMU", title_style))
+    story.append(Paragraph("MÜŞTERİ SERVİS FORMU", style_bold_title))
 
     # --- MÜŞTERİ VE ARAÇ BİLGİLERİ ---
     tarih_str = datetime.date.today().strftime("%d.%m.%Y")
@@ -73,21 +101,21 @@ def pdf_olustur(filename, veri):
              f"<b>Marka / Model :</b> {veri.get('model', '')}<br/>" \
              f"<b>Kilometre :</b> {veri.get('km', '')}"
 
-    p_m = Paragraph(m_text, styles['Normal'])
-    p_a = Paragraph(a_text, styles['Normal'])
+    p_m = Paragraph(m_text, style_normal)
+    p_a = Paragraph(a_text, style_normal)
 
-    t_bilgi = Table([[p_m, p_a]], colWidths=[280, 280])
+    t_bilgi = Table([[p_m, p_a]], colWidths=[275, 275])
     t_bilgi.setStyle(TableStyle([
         ('BOX', (0,0), (-1,-1), 0.8, colors.HexColor("#CBD5E0")),
         ('INNERGRID', (0,0), (-1,-1), 0.8, colors.HexColor("#CBD5E0")),
-        ('PADDING', (0,0), (-1,-1), 8),
+        ('PADDING', (0,0), (-1,-1), 6),
         ('VALIGN', (0,0), (-1,-1), 'TOP'),
         ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#FAFAFA")),
     ]))
     story.append(t_bilgi)
-    story.append(Spacer(1, 8))
+    story.append(Spacer(1, 6))
 
-    # --- YAPIŞAN İŞLEMLER TABLOSU (10 Satırlı Birebir Şablon) ---
+    # --- YAPIŞAN İŞLEMLER TABLOSU (10 Satırlı Şablon) ---
     hizmet_table_data = [["No", "Yapılan İşlem / Değişen Parça", "Adet / Miktar", "Tutar (TL)"]]
     
     islemler = veri.get('islemler', [])
@@ -117,44 +145,58 @@ def pdf_olustur(filename, veri):
     hizmet_table_data.append(["", "Yedek Parça Tutarı", "", f"{yedek_parca_toplam:.2f} TL"])
     hizmet_table_data.append(["", "GENEL TOPLAM", "", f"{genel_toplam:.2f} TL"])
 
-    t_hizmet = Table(hizmet_table_data, colWidths=[30, 320, 90, 120])
+    formatted_table_data = []
+    for r_idx, row in enumerate(hizmet_table_data):
+        new_row = []
+        for c_idx, cell in enumerate(row):
+            if r_idx == 0:
+                p = Paragraph(f"<b>{cell}</b>", style_normal)
+            elif r_idx >= len(hizmet_table_data) - 3 and c_idx == 1:
+                p = Paragraph(f"<b>{cell}</b>", style_normal)
+            elif r_idx >= len(hizmet_table_data) - 3 and c_idx == 3:
+                p = Paragraph(f"<b>{cell}</b>", style_normal)
+            else:
+                p = Paragraph(str(cell), style_normal)
+            new_row.append(p)
+        formatted_table_data.append(new_row)
+
+    t_hizmet = Table(formatted_table_data, colWidths=[30, 315, 90, 115])
     t_hizmet.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#F2F2F2")),
-        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
         ('ALIGN', (0,0), (0,-1), 'CENTER'),
         ('ALIGN', (2,0), (2,-4), 'CENTER'),
         ('ALIGN', (3,0), (3,-1), 'RIGHT'),
         ('GRID', (0,0), (-1,-4), 0.5, colors.HexColor("#CBD5E0")),
         ('LINEBELOW', (0,-4), (-1,-1), 0.5, colors.HexColor("#CBD5E0")),
-        ('FONTNAME', (1,-3), (-1,-1), 'Helvetica-Bold'),
         ('SPAN', (1,-3), (2,-3)),
         ('SPAN', (1,-2), (2,-2)),
         ('SPAN', (1,-1), (2,-1)),
         ('BACKGROUND', (1,-1), (-1,-1), colors.HexColor("#E2E8F0")),
-        ('PADDING', (0,0), (-1,-1), 4.5),
+        ('PADDING', (0,0), (-1,-1), 3.5),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
     ]))
     story.append(t_hizmet)
-    story.append(Spacer(1, 8))
+    story.append(Spacer(1, 6))
 
     # --- NOTLAR VE TESPİTLER ---
     notlar_text = veri.get('notlar', '')
-    p_notlar = Paragraph(f"<b>Notlar ve Tespitler</b><br/>{notlar_text}<br/><br/>", styles['Normal'])
-    t_notlar = Table([[p_notlar]], colWidths=[560])
+    p_notlar = Paragraph(f"<b>Notlar ve Tespitler</b><br/>{notlar_text}<br/><br/>", style_normal)
+    t_notlar = Table([[p_notlar]], colWidths=[550])
     t_notlar.setStyle(TableStyle([
         ('LINEBELOW', (0,0), (-1,-1), 0.5, colors.HexColor("#CBD5E0")),
-        ('PADDING', (0,0), (-1,-1), 4),
+        ('PADDING', (0,0), (-1,-1), 3),
     ]))
     story.append(t_notlar)
-    story.append(Spacer(1, 15))
+    story.append(Spacer(1, 10))
 
     # --- İMZA VE ALT BİLGİ ---
     imza_data = [
-        [Paragraph("<b>Müşteri Onayı</b>", styles['Normal']), Paragraph("<b>Servis Yetkilisi</b>", styles['Normal'])],
+        [Paragraph("<b>Müşteri Onayı</b>", style_normal), Paragraph("<b>Servis Yetkilisi</b>", style_normal)],
         ["", ""],
-        [Paragraph("<font size=8 color='#666666'>Ad / Soyad / İmza</font>", styles['Normal']),
-         Paragraph("<font size=8 color='#666666'>Kaşe / İmza</font>", styles['Normal'])]
+        [Paragraph("<font size=7.5 color='#666666'>Ad / Soyad / İmza</font>", style_normal),
+         Paragraph("<font size=7.5 color='#666666'>Kaşe / İmza</font>", style_normal)]
     ]
-    t_imza = Table(imza_data, colWidths=[280, 280])
+    t_imza = Table(imza_data, colWidths=[275, 275])
     t_imza.setStyle(TableStyle([
         ('ALIGN', (0,0), (-1,-1), 'CENTER'),
         ('LINEBELOW', (0,0), (0,0), 0.5, colors.HexColor("#A0AEC0")),
@@ -162,14 +204,14 @@ def pdf_olustur(filename, veri):
         ('PADDING', (0,0), (-1,-1), 2),
     ]))
     story.append(t_imza)
-    story.append(Spacer(1, 20))
+    story.append(Spacer(1, 10))
 
     # Sayfa Alt Bilgisi
     footer_data = [[
-        Paragraph("<font size=8 color='#888888'>İz Motorsiklet Çekmeköy</font>", styles['Normal']),
-        Paragraph("<font size=8 color='#888888'>Sayfa 1 / 1</font>", styles['Normal'])
+        Paragraph("<font size=7.5 color='#888888'>İz Motorsiklet Çekmeköy</font>", style_normal),
+        Paragraph("<font size=7.5 color='#888888'>Sayfa 1 / 1</font>", style_normal)
     ]]
-    t_footer = Table(footer_data, colWidths=[280, 280])
+    t_footer = Table(footer_data, colWidths=[275, 275])
     t_footer.setStyle(TableStyle([
         ('ALIGN', (0,0), (0,0), 'LEFT'),
         ('ALIGN', (1,0), (1,0), 'RIGHT'),
@@ -181,7 +223,7 @@ def pdf_olustur(filename, veri):
 
 # --- BOT KOMUTLARI & AKIŞI ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Selam kanka! Servis formu oluşturmak için /yeni_servis yazabilirsin.")
+    await update.message.reply_text("Selam kanka! Logolu ve Türkçe karakter destekli servis formu için /yeni_servis yazabilirsin.")
 
 async def yeni_servis(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['islemler'] = []
@@ -200,12 +242,12 @@ async def musteri_tel_al(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def arac_plaka_al(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['plaka'] = update.message.text
-    await update.message.reply_text("Marka / Model bilgisini gir kanka (Örn: Honda PCX 125):")
+    await update.message.reply_text("Marka / Model bilgisini gir kanka (Örn: Honda Dio):")
     return ARAÇ_MODEL
 
 async def arac_model_al(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['model'] = update.message.text
-    await update.message.reply_text("Motosiklet KM bilgisini gir kanka (Örn: 14.500 KM):")
+    await update.message.reply_text("Motosiklet KM bilgisini gir kanka (Örn: 86.000 KM):")
     return ARAÇ_KM
 
 async def arac_km_al(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -274,7 +316,7 @@ async def notlar_ve_bitis(update: Update, context: ContextTypes.DEFAULT_TYPE):
     pdf_olustur(pdf_path, context.user_data)
     
     with open(pdf_path, 'rb') as doc:
-        await update.message.reply_document(document=doc, caption="İşte hazır servis formu kanka!")
+        await update.message.reply_document(document=doc, caption="İşte logolu ve tertemiz servis formu kanka!")
         
     if os.path.exists(pdf_path):
         os.remove(pdf_path)
