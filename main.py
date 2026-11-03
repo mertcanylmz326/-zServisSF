@@ -17,7 +17,7 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
 app = Flask(__name__)
-app.secret_key = "iz_motor_gizli_anahtar_erp_v9"
+app.secret_key = "iz_motor_gizli_anahtar_erp_v10"
 
 SIFRE = "izmotor2026*"
 
@@ -786,6 +786,7 @@ SIFRE_DURUMU = {}
 LOGO_AL, HASAR_AL, MUSTERI_AD, MUSTERI_TEL, ARAÇ_PLAKA, ARAÇ_MODEL, ARAÇ_KM, ISLEM_EKLE, ISLEM_FIYAT, ISLEM_ADET, ISCILIK, NOTLAR = range(100, 112)
 STOK_AD, STOK_ADET, STOK_FIYAT = range(200, 203)
 RANDEVU_AD, RANDEVU_TEL, RANDEVU_ZAMAN, RANDEVU_NOT = range(300, 304)
+PLAKA_SORGU = range(400, 401)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -800,6 +801,8 @@ async def sifre_kontrol(update: Update, context: ContextTypes.DEFAULT_TYPE):
         SIFRE_DURUMU[user_id] = True
         keyboard = [
             ["🛠️ Servis Formu Oluştur", "📅 Randevu Ekle"],
+            ["⚡ Hızlı Fiyat Teklifi", "🔍 Plaka Sorgula"],
+            ["📊 Günlük / Haftalık Özet", "🔔 Günün Randevuları"],
             ["🏍️ Araçlar", "📦 Stok Ekle"],
             ["💰 Ciro Raporu", "📦 Stok Listesi"]
         ]
@@ -808,6 +811,170 @@ async def sifre_kontrol(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("Hatalı şifre kanka! Tekrar dene:")
 
+# --- HIZLI FİYAT TEKLİFİ SİHİRBAZI ---
+async def hizli_fiyat_teklifi(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
+    cursor = conn.cursor()
+    cursor.execute("SELECT parca_adi, fiyat FROM stok")
+    stoklar = cursor.fetchall()
+    conn.close()
+
+    fiyatlar_sozlugu = {s[0].lower(): s[1] for s in stoklar}
+
+    def bul_fiyat(anahtar_kelimeler):
+        for k, f in fiyatlar_sozlugu.items():
+            if any(kelime in k for kelime in anahtar_kelimeler):
+                return f
+        return None
+
+    yag_fiyat = bul_fiyat(["yağ", "motor yağı", "oil"])
+    buji_fiyat = bul_fiyat(["buji", "ngk"])
+    kayis_fiyat = bul_fiyat(["kayış", "varyatör", "kayis"])
+    far_fiyat = bul_fiyat(["far", "ampul", "led", "lamba"])
+
+    msg = "⚡ **İZ MOTORSİKLET - HIZLI FİYAT TEKLİFİ**\n\n"
+    msg += f"🛢️ **Yağ Değişimi:** {fiyat_str(yag_fiyat)}\n"
+    msg += f"⚡ **Buji Değişimi:** {fiyat_str(buji_fiyat)}\n"
+    msg += f"⚙️ **Kayış Değişimi:** {fiyat_str(kayis_fiyat)}\n"
+    msg += f"💡 **Far / Ampul Değişimi:** {fiyat_str(far_fiyat)}\n\n"
+    
+    genel_toplam_tahmin = (yag_fiyat or 0) + (buji_fiyat or 0) + (kayis_fiyat or 0) + (far_fiyat or 0) + 500 # 500 TL işçilik varsayımı
+    if genel_toplam_tahmin > 500:
+        msg += f"🛠️ **Ortalama Genel Bakım (Parçalar + İşçilik):** `~{genel_toplam_tahmin:.2f} TL`\n"
+    else:
+        msg += f"🛠️ **Genel Bakım:** Stoklarda bazı temel parçalar eksik, fiyat tam hesaplanamadı.\n"
+    
+    msg += "\n_(Not: Fiyatlar stoktaki güncel birim fiyatlarına göre otomatik hesaplanmıştır.)_"
+
+    keyboard = [
+        ["🛠️ Servis Formu Oluştur", "📅 Randevu Ekle"],
+        ["⚡ Hızlı Fiyat Teklifi", "🔍 Plaka Sorgula"],
+        ["📊 Günlük / Haftalık Özet", "🔔 Günün Randevuları"],
+        ["🏍️ Araçlar", "📦 Stok Ekle"],
+        ["💰 Ciro Raporu", "📦 Stok Listesi"]
+    ]
+    await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True))
+
+def fiyat_str(val):
+    if val is not None:
+        return f"`{val:.2f} TL`"
+    return "_Stokta yok / Tanımsız_"
+
+# --- PLAKA İLE GEÇMİŞ SORGULAMA ---
+async def plaka_sorgu_baslat(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Sorgulamak istediğin **Plakayı veya Müşteri Adını** yaz kanka:", reply_markup=ReplyKeyboardRemove())
+    return PLAKA_SORGU
+
+async def plaka_sorgu_yap(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    sorgu = update.message.text.strip()
+    conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
+    cursor = conn.cursor()
+    cursor.execute("SELECT plaka, musteri_ad, musteri_tel, model, km, tarih, detaylar, toplam_tutar, durum FROM servisler WHERE plaka LIKE ? OR musteri_ad LIKE ? ORDER BY id DESC", 
+                   ('%' + sorgu + '%', '%' + sorgu + '%'))
+    sonuclar = cursor.fetchall()
+    conn.close()
+
+    keyboard = [
+        ["🛠️ Servis Formu Oluştur", "📅 Randevu Ekle"],
+        ["⚡ Hızlı Fiyat Teklifi", "🔍 Plaka Sorgula"],
+        ["📊 Günlük / Haftalık Özet", "🔔 Günün Randevuları"],
+        ["🏍️ Araçlar", "📦 Stok Ekle"],
+        ["💰 Ciro Raporu", "📦 Stok Listesi"]
+    ]
+    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+
+    if not sonuclar:
+        await update.message.reply_text(f"❌ '{sorgu}' ile eşleşen geçmiş servis kaydı bulunamadı kanka.", reply_markup=reply_markup)
+        return ConversationHandler.END
+
+    for r in sonuclar[:3]: # En son 3 kaydı göster
+        plaka, ad, tel, model, km, tarih, detay, tutar, durum = r
+        msg = f"🔍 **Servis Geçmişi Bulundu:**\n\n"
+        msg += f"🏍️ **Plaka:** {plaka}\n"
+        msg += f"👤 **Müşteri:** {ad} ({tel})\n"
+        msg += f"🛵 **Model / KM:** {model} - {km} KM\n"
+        msg += f"📅 **Tarih:** {tarih}\n"
+        msg += f"🛠️ **Yapılanlar:** {detay}\n"
+        msg += f"💵 **Toplam Tutar:** `{tutar:.2f} TL`\n"
+        msg += f"📌 **Son Durum:** `{durum}`"
+        await update.message.reply_text(msg, parse_mode="Markdown")
+
+    await update.message.reply_text("Ana menüdesin kanka:", reply_markup=reply_markup)
+    return ConversationHandler.END
+
+# --- GÜNLÜK / HAFTALIK ÖZET RAPORU ---
+async def gunluk_haftalik_ozet(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    bugun_str = datetime.date.today().strftime("%d.%m.%Y")
+    
+    conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
+    cursor = conn.cursor()
+    
+    # Bugün gelenler
+    cursor.execute("SELECT SUM(toplam_tutar), COUNT(id) FROM servisler WHERE tarih = ?", (bugun_str,))
+    bugun_res = cursor.fetchone()
+    bugun_ciro = bugun_res[0] if bugun_res and bugun_res[0] else 0.0
+    bugun_adet = bugun_res[1] if bugun_res and bugun_res[1] else 0
+
+    # Toplam ciro
+    cursor.execute("SELECT SUM(toplam_tutar), COUNT(id) FROM servisler")
+    toplam_res = cursor.fetchone()
+    toplam_ciro = toplam_res[0] if toplam_res and toplam_res[0] else 0.0
+    toplam_adet = toplam_res[1] if toplam_res and toplam_res[1] else 0
+
+    # Kritik stoklar (<3 adet)
+    cursor.execute("SELECT COUNT(id) FROM stok WHERE adet < 3")
+    kritik_res = cursor.fetchone()
+    kritik_adet = kritik_res[0] if kritik_res else 0
+
+    conn.close()
+
+    msg = "📊 **İZ MOTORSİKLET - ÖZET RAPORU**\n\n"
+    msg += f"📅 **Bugünkü Tarih:** {bugun_str}\n"
+    msg += f"🟢 **Bugün Giren Araç:** {bugun_adet} adet\n"
+    msg += f"💵 **Bugünkü Ciro:** `{bugun_ciro:.2f} TL`\n\n"
+    msg += f"───────────────────\n"
+    msg += f"📈 **Toplam Servis Sayısı:** {toplam_adet} adet\n"
+    msg += f"💰 **Tüm Zamanlar Cirosu:** `{toplam_ciro:.2f} TL`\n"
+    msg += f"⚠️ **Kritik Stok (Azalan Ürün):** {kritik_adet} parça\n"
+
+    keyboard = [
+        ["🛠️ Servis Formu Oluştur", "📅 Randevu Ekle"],
+        ["⚡ Hızlı Fiyat Teklifi", "🔍 Plaka Sorgula"],
+        ["📊 Günlük / Haftalık Özet", "🔔 Günün Randevuları"],
+        ["🏍️ Araçlar", "📦 Stok Ekle"],
+        ["💰 Ciro Raporu", "📦 Stok Listesi"]
+    ]
+    await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True))
+
+# --- GÜNÜN RANDEVULARI & BİLDİRİMİ ---
+async def gunun_randevulari(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
+    cursor = conn.cursor()
+    cursor.execute("SELECT musteri_ad, tel, tarih_saat, notlar FROM randevular ORDER BY id DESC")
+    randevular = cursor.fetchall()
+    conn.close()
+
+    msg = "🔔 **KAYITLI RANDEVULAR LİSTESİ**\n\n"
+    if randevular:
+        for r in randevular:
+            ad, tel, zaman, notlar = r
+            msg += f"👤 **Müşteri:** {ad} ({tel})\n"
+            msg += f"⏰ **Zaman:** `{zaman}`\n"
+            msg += f"📝 **Not:** {notlar or 'Belirtilmemiş'}\n"
+            msg += f"───────────────────\n"
+    else:
+        msg += "Aktif kayıtlı randevu bulunmuyor kanka."
+
+    keyboard = [
+        ["🛠️ Servis Formu Oluştur", "📅 Randevu Ekle"],
+        ["⚡ Hızlı Fiyat Teklifi", "🔍 Plaka Sorgula"],
+        ["📊 Günlük / Haftalık Özet", "🔔 Günün Randevuları"],
+        ["🏍️ Araçlar", "📦 Stok Ekle"],
+        ["💰 Ciro Raporu", "📦 Stok Listesi"]
+    ]
+    await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True))
+
+# --- SERVİS FORMU OLUŞTURMA AKIŞI ---
 async def yeni_servis_baslat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['islemler'] = []
     context.user_data['hasar_path'] = None
@@ -952,6 +1119,8 @@ async def notlar_ve_bitis(update: Update, context: ContextTypes.DEFAULT_TYPE):
     with open(pdf_path, 'rb') as doc:
         keyboard = [
             ["🛠️ Servis Formu Oluştur", "📅 Randevu Ekle"],
+            ["⚡ Hızlı Fiyat Teklifi", "🔍 Plaka Sorgula"],
+            ["📊 Günlük / Haftalık Özet", "🔔 Günün Randevuları"],
             ["🏍️ Araçlar", "📦 Stok Ekle"],
             ["💰 Ciro Raporu", "📦 Stok Listesi"]
         ]
@@ -1001,11 +1170,15 @@ async def randevu_not_al(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     keyboard = [
         ["🛠️ Servis Formu Oluştur", "📅 Randevu Ekle"],
+        ["⚡ Hızlı Fiyat Teklifi", "🔍 Plaka Sorgula"],
+        ["📊 Günlük / Haftalık Özet", "🔔 Günün Randevuları"],
         ["🏍️ Araçlar", "📦 Stok Ekle"],
         ["💰 Ciro Raporu", "📦 Stok Listesi"]
     ]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-    await update.message.reply_text(f"✅ Randevu başarıyla oluşturuldu kanka!\n- **Müşteri:** {ad}\n- **Zaman:** {zaman}", parse_mode="Markdown", reply_markup=reply_markup)
+    
+    # Anında bildirim bot sohbetine düşer
+    await update.message.reply_text(f"🚨 **YENİ RANDEVU BİLDİRİMİ!**\n- **Müşteri:** {ad} ({tel})\n- **Zaman:** `{zaman}`\n- **Not:** {notlar or 'Yok'}", parse_mode="Markdown", reply_markup=reply_markup)
     return ConversationHandler.END
 
 async def stok_ad_al(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1036,6 +1209,8 @@ async def stok_fiyat_al(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         keyboard = [
             ["🛠️ Servis Formu Oluştur", "📅 Randevu Ekle"],
+            ["⚡ Hızlı Fiyat Teklifi", "🔍 Plaka Sorgula"],
+            ["📊 Günlük / Haftalık Özet", "🔔 Günün Randevuları"],
             ["🏍️ Araçlar", "📦 Stok Ekle"],
             ["💰 Ciro Raporu", "📦 Stok Listesi"]
         ]
@@ -1130,6 +1305,8 @@ async def iptal(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     keyboard = [
         ["🛠️ Servis Formu Oluştur", "📅 Randevu Ekle"],
+        ["⚡ Hızlı Fiyat Teklifi", "🔍 Plaka Sorgula"],
+        ["📊 Günlük / Haftalık Özet", "🔔 Günün Randevuları"],
         ["🏍️ Araçlar", "📦 Stok Ekle"],
         ["💰 Ciro Raporu", "📦 Stok Listesi"]
     ]
@@ -1163,6 +1340,14 @@ def run_telegram_bot():
         fallbacks=[CommandHandler('iptal', iptal)]
     )
 
+    plaka_sorgu_conv = ConversationHandler(
+        entry_points=[MessageHandler(filters.Regex('^🔍 Plaka Sorgula$'), plaka_sorgu_baslat)],
+        states={
+            PLAKA_SORGU: [MessageHandler(filters.TEXT & ~filters.COMMAND, plaka_sorgu_yap)],
+        },
+        fallbacks=[CommandHandler('iptal', iptal)]
+    )
+
     servis_conv = ConversationHandler(
         entry_points=[MessageHandler(filters.Regex('^🛠️ Servis Formu Oluştur$'), yeni_servis_baslat)],
         states={
@@ -1192,8 +1377,12 @@ def run_telegram_bot():
     bot_app.add_handler(CommandHandler("start", start))
     bot_app.add_handler(stok_conv)
     bot_app.add_handler(randevu_conv)
+    bot_app.add_handler(plaka_sorgu_conv)
     bot_app.add_handler(servis_conv)
     bot_app.add_handler(CallbackQueryHandler(durum_degistir_callback, pattern="^durum_"))
+    bot_app.add_handler(MessageHandler(filters.Regex('^⚡ Hızlı Fiyat Teklifi$'), hizli_fiyat_teklifi))
+    bot_app.add_handler(MessageHandler(filters.Regex('^📊 Günlük / Haftalık Özet$'), gunluk_haftalik_ozet))
+    bot_app.add_handler(MessageHandler(filters.Regex('^🔔 Günün Randevuları$'), gunun_randevulari))
     bot_app.add_handler(MessageHandler(filters.Regex('^🏍️ Araçlar$'), bot_araclar))
     bot_app.add_handler(MessageHandler(filters.Regex('^📦 Stok Listesi$'), bot_stok))
     bot_app.add_handler(MessageHandler(filters.Regex('^💰 Ciro Raporu$'), bot_ciro))
