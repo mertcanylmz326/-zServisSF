@@ -16,7 +16,7 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
 app = Flask(__name__)
-app.secret_key = "iz_motor_gizli_anahtar_erp_full_v20"
+app.secret_key = "iz_motor_gizli_anahtar_erp_full_v22"
 
 SIFRE = "izmotor2026*"
 
@@ -178,22 +178,35 @@ HTML_PANEL = """
         <button class="tab-btn" onclick="switchTab('reminderTab', this)">⏰ Bakım Hatırlat</button>
     </div>
 
-    <!-- 1. SERVİS FORMU -->
+    <!-- 1. SERVİS FORMU (AKILLI ARAÇ SEÇİCİ EKLENDİ) -->
     <div id="formTab" class="tab-content active">
+        <!-- KAYITLI ARAÇLARDAN OTOMATİK DOLDURMA KUTUSU -->
+        <div style="background: #162032; border: 1px solid #facc15; padding: 15px; border-radius: 12px; margin-bottom: 20px;">
+            <label style="color: #facc15; margin-bottom: 8px;">⚡ Kayıtlı Araçlardan Seç (Otomatik Doldur)</label>
+            <select id="aracSecici" onchange="aracBilgileriniDoldur(this)" style="background: #07090e; font-size: 14px; padding: 10px;">
+                <option value="">-- Listeden Araç Seç (İsteğe Bağlı) --</option>
+                {% for ts in tum_servisler %}
+                <option value="{{ ts[1] }}" data-ad="{{ ts[2] }}" data-tel="{{ ts[3] }}" data-model="{{ ts[4] }}" data-km="{{ ts[5] }}">
+                    {{ ts[1] }} - {{ ts[2] }} ({{ ts[4] }})
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
         <form id="serviceForm" action="/olustur" method="POST" enctype="multipart/form-data" onsubmit="handleFormSubmit(event)">
             <div class="form-group"><label>Dükkan Logosu <span style="color:#facc15;">(Zorunlu)</span></label><input type="file" name="logo" accept="image/*" required></div>
             <div class="form-group"><label>Hasar / Durum Fotoğrafı <span style="color:#94a3af;">(İsteğe Bağlı)</span></label><input type="file" name="hasar_foto" accept="image/*"></div>
-            <div class="form-group"><label>Müşteri Adı Soyadı</label><input type="text" name="musteri_ad" placeholder="Örn: Ahmet Yılmaz" required></div>
-            <div class="form-group"><label>Müşteri Telefon (WhatsApp)</label><input type="text" name="musteri_tel" placeholder="Örn: 905320000000" required></div>
-            <div class="form-group"><label>Motosiklet Plaka</label><input type="text" name="plaka" placeholder="Örn: 34 ABC 123" required></div>
-            <div class="form-group"><label>Marka / Model</label><input type="text" name="model" placeholder="Örn: Honda PCX 125" required></div>
-            <div class="form-group"><label>Kilometre (KM)</label><input type="text" name="km" placeholder="Örn: 15000" required></div>
+            <div class="form-group"><label>Müşteri Adı Soyadı</label><input type="text" id="musteri_ad" name="musteri_ad" placeholder="Örn: Ahmet Yılmaz" required></div>
+            <div class="form-group"><label>Müşteri Telefon (WhatsApp)</label><input type="text" id="musteri_tel" name="musteri_tel" placeholder="Örn: 905320000000" required></div>
+            <div class="form-group"><label>Motosiklet Plaka</label><input type="text" id="plaka" name="plaka" placeholder="Örn: 34 ABC 123" required></div>
+            <div class="form-group"><label>Marka / Model</label><input type="text" id="model" name="model" placeholder="Örn: Honda PCX 125" required></div>
+            <div class="form-group"><label>Kilometre (KM)</label><input type="text" id="km" name="km" placeholder="Örn: 15000" required></div>
 
             <hr style="margin: 20px 0; border: 0; border-top: 1px solid #1e293b;">
             <label><b>🛠️ Yapılan İşlemler ve Parçalar</b></label>
             <div id="items-container">
                 <div class="item-row">
-                    <input type="text" name="islem_ad[]" class="name-input" placeholder="İşlem / Parça Adı" required>
+                    <input type="text" name="islem_ad[]" class="name-input" placeholder="İşlem / Parça Adı (Örn: Motor Yağı Değişti)" required>
                     <select name="stok_id[]">
                         <option value="">-- Stoktan Düş (İsteğe Bağlı) --</option>
                         {% for s in stoklar %}
@@ -207,21 +220,36 @@ HTML_PANEL = """
             <button type="button" class="btn-add" onclick="addItemRow()">+ Yeni İşlem / Parça Satırı Ekle</button>
 
             <div class="form-group"><label>Ek İşçilik Tutarı (TL)</label><input type="number" step="0.01" name="iscilik" placeholder="Örn: 500" value="0"></div>
-            <div class="form-group"><label>Notlar ve Tespitler</label><textarea name="notlar" rows="2" placeholder="Örn: Genel bakım yapıldı."></textarea></div>
+            <div class="form-group"><label>Notlar ve Tespitler</label><textarea name="notlar" rows="2" placeholder="Örn: Genel bakım yapıldı, buji değiştirildi."></textarea></div>
 
             <button type="submit" id="submitBtn">Servis Formu PDF İndir & Kaydet</button>
         </form>
     </div>
 
-    <!-- 2. ARAÇLAR & DURUM -->
+    <!-- 2. ARAÇLAR & DURUM (YENİ ARAÇ EKLEME FORMU İLE) -->
     <div id="araclarTab" class="tab-content">
         <h3>Atölyedeki / Servisteki Araçlar</h3>
+        
+        <div style="background: #162032; border: 1px solid #facc15; padding: 18px; border-radius: 12px; margin-bottom: 25px;">
+            <h4 style="color: #facc15; margin-top: 0; margin-bottom: 12px;">➕ Doğrudan Servise Yeni Araç Ekle</h4>
+            <form action="/arac_ekle_hizli" method="POST">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px;">
+                    <input type="text" name="plaka" placeholder="Plaka (Örn: 34 ABC)" required>
+                    <input type="text" name="musteri_ad" placeholder="Müşteri Ad Soyad" required>
+                    <input type="text" name="musteri_tel" placeholder="Telefon (90532...)" required>
+                    <input type="text" name="model" placeholder="Model (Örn: Honda Dio)" required>
+                    <input type="text" name="km" placeholder="KM (Örn: 12000)" required>
+                </div>
+                <button type="submit" class="btn-action" style="margin-top: 12px; padding: 10px;">Aracı Listeye Ekle</button>
+            </form>
+        </div>
+
         {% if tum_servisler %}
             {% for ts in tum_servisler %}
             <div class="card">
                 <b>Plaka:</b> <span style="color:#facc15;">{{ ts[1] }}</span> | <b>Müşteri:</b> {{ ts[2] }} ({{ ts[3] }})<br>
                 <b>Model / KM:</b> {{ ts[4] }} - {{ ts[5] }} | <b>Tarih:</b> {{ ts[6] }}<br>
-                <b>Yapılanlar:</b> {{ ts[7] }} | <b>Toplam:</b> {{ "%.2f"|format(ts[8]) }} TL<br>
+                <b>Yapılanlar / Detay:</b> {{ ts[7] }} | <b>Toplam:</b> {{ "%.2f"|format(ts[8]) }} TL<br>
                 <hr style="border:0; border-top:1px solid #1e293b; margin: 10px 0;">
                 <form action="/durum_guncelle" method="POST" style="display: flex; gap: 8px; align-items: center;">
                     <input type="hidden" name="servis_id" value="{{ ts[0] }}">
@@ -309,12 +337,31 @@ HTML_PANEL = """
 
 <script>
 let isSubmitted = false;
+
 function switchTab(tabId, btn) {
     document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
     document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
     document.getElementById(tabId).classList.add('active');
     btn.classList.add('active');
 }
+
+function aracBilgileriniDoldur(selectObj) {
+    const opt = selectObj.options[selectObj.selectedIndex];
+    if (opt.value) {
+        document.getElementById('plaka').value = opt.value;
+        document.getElementById('musteri_ad').value = opt.getAttribute('data-ad') || '';
+        document.getElementById('musteri_tel').value = opt.getAttribute('data-tel') || '';
+        document.getElementById('model').value = opt.getAttribute('data-model') || '';
+        document.getElementById('km').value = opt.getAttribute('data-km') || '';
+    } else {
+        document.getElementById('plaka').value = '';
+        document.getElementById('musteri_ad').value = '';
+        document.getElementById('musteri_tel').value = '';
+        document.getElementById('model').value = '';
+        document.getElementById('km').value = '';
+    }
+}
+
 function addItemRow() {
     const container = document.getElementById('items-container');
     const row = document.createElement('div');
@@ -333,6 +380,7 @@ function addItemRow() {
     `;
     container.appendChild(row);
 }
+
 function handleFormSubmit(e) {
     if (isSubmitted) {
         e.preventDefault();
@@ -347,6 +395,7 @@ function handleFormSubmit(e) {
     btn.disabled = true;
     setTimeout(() => { isSubmitted = false; btn.innerText = "Servis Formu PDF İndir & Kaydet"; btn.disabled = false; }, 5000);
 }
+
 const urlParams = new URLSearchParams(window.location.search);
 const tab = urlParams.get('tab');
 if(tab === 'araclar') switchTab('araclarTab', document.querySelectorAll('.tab-btn')[1]);
@@ -488,6 +537,26 @@ def index():
     conn.close()
     return render_template_string(HTML_PANEL, kayitlar=kayitlar, sorgu_plaka=sorgu_plaka, stoklar=stoklar, randevular=randevular, tum_servisler=tum_servisler, toplam_ciro=toplam_ciro, bakim_listesi=bakim_listesi)
 
+@app.route('/arac_ekle_hizli', methods=['POST'])
+def arac_ekle_hizli():
+    if not session.get('giris'): return redirect(url_for('index'))
+    plaka = request.form.get('plaka')
+    musteri_ad = request.form.get('musteri_ad')
+    musteri_tel = request.form.get('musteri_tel')
+    model = request.form.get('model')
+    km = request.form.get('km', '0')
+    tarih_str = datetime.date.today().strftime("%d.%m.%Y")
+
+    conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
+    cursor = conn.cursor()
+    cursor.execute('''
+        INSERT INTO servisler (plaka, musteri_ad, musteri_tel, model, km, tarih, detaylar, toplam_tutar, durum)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Bekliyor')
+    ''', (plaka, musteri_ad, musteri_tel, model, km, tarih_str, "Hızlı Kayıt", 0.0))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('index') + '?tab=araclar')
+
 @app.route('/durum_guncelle', methods=['POST'])
 def durum_guncelle():
     if not session.get('giris'): return redirect(url_for('index'))
@@ -597,7 +666,7 @@ def cikis():
     session.pop('giris', None)
     return redirect(url_for('index'))
 
-# --- TELEGRAM BOTU (TÜM BUTONLAR AKTİF) ---
+# --- TELEGRAM BOTU ---
 SIFRE_DURUMU = {}
 BOT_DURUMLARI = {}
 
@@ -628,7 +697,6 @@ async def mesaj_yoneticisi(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     durum_bilgisi = BOT_DURUMLARI.get(user_id, {}).get('adim', 'menu')
 
-    # 1. PLAKA SORGU AKIŞI
     if durum_bilgisi == 'plaka_sor':
         conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
         cursor = conn.cursor()
@@ -655,7 +723,6 @@ async def mesaj_yoneticisi(update: Update, context: ContextTypes.DEFAULT_TYPE):
         BOT_DURUMLARI[user_id] = {'adim': 'menu'}
         return
 
-    # 2. RANDEVU EKLEME AKIŞI
     rand_adim = BOT_DURUMLARI.get(user_id, {}).get('randevu_adim')
     if rand_adim == 'ad_al':
         BOT_DURUMLARI[user_id]['rand_ad'] = text
@@ -688,55 +755,6 @@ async def mesaj_yoneticisi(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"✅ **Randevu Başarıyla Kaydedildi!**\n- Müşteri: {ad} ({tel})\n- Zaman: `{zaman}`", parse_mode="Markdown", reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True))
         return
 
-    # 3. SERVİS FORMU OLUŞTURMA AKIŞI (TELEGRAM ÜZERİNDEN ÖZET)
-    servis_adim = BOT_DURUMLARI.get(user_id, {}).get('servis_adim')
-    if servis_adim == 'musteri_ad':
-        BOT_DURUMLARI[user_id]['s_ad'] = text
-        BOT_DURUMLARI[user_id]['servis_adim'] = 'tel'
-        await update.message.reply_text("Müşteri **telefon numarasını** yaz kanka:")
-        return
-    elif servis_adim == 'tel':
-        BOT_DURUMLARI[user_id]['s_tel'] = text
-        BOT_DURUMLARI[user_id]['servis_adim'] = 'plaka'
-        await update.message.reply_text("Motosiklet **plakasını** yaz kanka:")
-        return
-    elif servis_adim == 'plaka':
-        BOT_DURUMLARI[user_id]['s_plaka'] = text
-        BOT_DURUMLARI[user_id]['servis_adim'] = 'model'
-        await update.message.reply_text("Marka / Model bilgisini yaz kanka:")
-        return
-    elif servis_adim == 'model':
-        BOT_DURUMLARI[user_id]['s_model'] = text
-        BOT_DURUMLARI[user_id]['servis_adim'] = 'tutar'
-        await update.message.reply_text("Toplam servis ücretini (TL) yaz kanka:")
-        return
-    elif servis_adim == 'tutar':
-        try:
-            tutar = float(text.replace(',', '.'))
-            d = BOT_DURUMLARI[user_id]
-            tarih_str = datetime.date.today().strftime("%d.%m.%Y")
-
-            conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
-            cursor = conn.cursor()
-            cursor.execute("INSERT INTO servisler (plaka, musteri_ad, musteri_tel, model, km, tarih, detaylar, toplam_tutar, durum) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Bekliyor')", 
-                           (d['s_plaka'], d['s_ad'], d['s_tel'], d['s_model'], "1000", tarih_str, "Genel Bakım", tutar))
-            conn.commit()
-            conn.close()
-
-            keyboard = [
-                ["🛠️ Servis Formu Oluştur", "📅 Randevu Ekle"],
-                ["⚡ Hızlı Fiyat Teklifi", "🔍 Plaka Sorgula"],
-                ["📊 Günlük Özet", "📦 Stok Listesi"],
-                ["🏍️ Araçlar"]
-            ]
-            BOT_DURUMLARI[user_id] = {'adim': 'menu'}
-            wa_link = f"https://wa.me/{d['s_tel']}?text=Sayin%20{d['s_ad']},%20servis%20ucretiniz%20{tutar:.2f}%20TL%20olarak%20kaydedilmistir."
-            await update.message.reply_text(f"✅ **Servis Kaydı Tamamlandı!**\n- Plaka: {d['s_plaka']}\n- Tutar: `{tutar:.2f} TL`\n\n[WhatsApp Bildirimi Gönder]({wa_link})", parse_mode="Markdown", reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True))
-        except ValueError:
-            await update.message.reply_text("Lütfen geçerli bir sayı gir kanka:")
-        return
-
-    # ANA MENÜ BUTONLARI TETİKLEYİCİLERİ
     if text == "🔍 Plaka Sorgula":
         BOT_DURUMLARI[user_id] = {'adim': 'plaka_sor'}
         await update.message.reply_text("Sorgulamak istediğin **Plakayı veya Müşteri Adını** yaz kanka:", reply_markup=ReplyKeyboardRemove())
@@ -744,10 +762,6 @@ async def mesaj_yoneticisi(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif text == "📅 Randevu Ekle":
         BOT_DURUMLARI[user_id] = {'adim': 'randevu', 'randevu_adim': 'ad_al'}
         await update.message.reply_text("Randevu vereceğin **Müşteri Adı Soyadını** yaz kanka:", reply_markup=ReplyKeyboardRemove())
-
-    elif text == "🛠️ Servis Formu Oluştur":
-        BOT_DURUMLARI[user_id] = {'adim': 'servis', 'servis_adim': 'musteri_ad'}
-        await update.message.reply_text("Servis formu için **Müşteri Adı Soyadını** yaz kanka:", reply_markup=ReplyKeyboardRemove())
 
     elif text == "⚡ Hızlı Fiyat Teklifi":
         conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
