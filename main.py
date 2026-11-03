@@ -89,11 +89,6 @@ HTML_TEMPLATE = """
             <input type="number" name="adet[]" class="small" placeholder="Adet" value="1">
             <input type="number" step="0.01" name="fiyat[]" class="small" placeholder="Fiyat (TL)">
         </div>
-        <div class="item-row">
-            <input type="text" name="islem[]" placeholder="İşlem / Parça Adı">
-            <input type="number" name="adet[]" class="small" placeholder="Adet" value="1">
-            <input type="number" step="0.01" name="fiyat[]" class="small" placeholder="Fiyat (TL)">
-        </div>
         <div class="form-group" style="margin-top: 15px;">
             <label>İşçilik Tutarı (TL)</label>
             <input type="number" step="0.01" name="iscilik" placeholder="Örn: 500" value="0">
@@ -109,7 +104,6 @@ HTML_TEMPLATE = """
 </html>
 """
 
-# --- ORTAK PDF ÜRETME MOTORU ---
 def pdf_olustur(filename, veri, logo_yolu):
     doc = SimpleDocTemplate(filename, pagesize=A4, rightMargin=15, leftMargin=15, topMargin=12, bottomMargin=12)
     story = []
@@ -230,7 +224,6 @@ def pdf_olustur(filename, veri, logo_yolu):
 
     doc.build(story)
 
-# --- WEB PANEL ROUTE ---
 @app.route('/')
 def index():
     return render_template_string(HTML_TEMPLATE)
@@ -285,7 +278,7 @@ def olustur():
 
     return response
 
-# --- TELEGRAM BOTU AKSİYONLARI ---
+# --- TELEGRAM BOTU ---
 LOGO_AL, MUSTERI_AD, MUSTERI_TEL, ARAÇ_PLAKA, ARAÇ_MODEL, ARAÇ_KM, ISLEM_EKLE, ISLEM_ADET, ISLEM_FIYAT, ISCILIK, NOTLAR = range(11)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -439,17 +432,12 @@ def run_telegram_bot():
     bot_app.add_handler(CommandHandler("start", start))
     bot_app.add_handler(conv_handler)
 
-    print("Telegram botu arka planda başlatılıyor...")
-    
-    # Asenkron event loop çakışmasını önleyen kesin çözüm:
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    bot_app.run_polling()
+    print("Telegram botu thread içinde başlatılıyor...")
+    # Python 3.14 çakışmasını önlemek için stop_signals=None ekledik
+    bot_app.run_polling(stop_signals=None)
 
 if __name__ == '__main__':
-    # 1. Telegram botunu arka planda thread olarak çalıştırıyoruz
     threading.Thread(target=run_telegram_bot, daemon=True).start()
 
-    # 2. Flask web sunucusunu ana thread'de başlatıyoruz (Böylece port açık kalır, Render hata vermez)
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
