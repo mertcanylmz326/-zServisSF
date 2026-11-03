@@ -1,8 +1,6 @@
 import os
 import datetime
-import threading
-import asyncio
-from flask import Flask, render_template_string, request, send_file
+import logging
 from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import (
     Application, CommandHandler, MessageHandler, 
@@ -15,9 +13,9 @@ from reportlab.lib import colors
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
-app = Flask(__name__)
+# Loglama ayarı (Hataları görmek için)
+logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 
-# --- TÜRKÇE FONT TANIMLAMASI ---
 try:
     pdfmetrics.registerFont(TTFont('DejaVu', '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'))
     pdfmetrics.registerFont(TTFont('DejaVu-Bold', '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'))
@@ -27,111 +25,10 @@ except Exception:
     FONT_NAME = 'Helvetica'
     FONT_BOLD = 'Helvetica-Bold'
 
-# --- HTML WEB ARAYÜZÜ ---
-HTML_TEMPLATE = """
-<!DOCTYPE html>
-<html lang="tr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>İz Motorsiklet Servis Paneli</title>
-    <style>
-        body { font-family: sans-serif; background: #f4f6f9; margin: 0; padding: 20px; color: #333; }
-        .container { max-width: 600px; margin: 0 auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        h2 { text-align: center; color: #1a365d; margin-bottom: 20px; }
-        .form-group { margin-bottom: 15px; }
-        label { display: block; font-weight: bold; margin-bottom: 5px; }
-        input, textarea { width: 100%; padding: 10px; border: 1px solid #cbd5e0; border-radius: 4px; box-sizing: border-box; }
-        .item-row { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; }
-        .item-row input { flex: 2; }
-        .item-row input.small { flex: 1; }
-        button { background: #1a365d; color: #fff; border: none; padding: 12px 20px; border-radius: 4px; cursor: pointer; width: 100%; font-size: 16px; font-weight: bold; margin-top: 10px; }
-        button:hover { background: #2c5282; }
-    </style>
-</head>
-<body>
+LOGO_AL, MUSTERI_AD, MUSTERI_TEL, ARAÇ_PLAKA, ARAÇ_MODEL, ARAÇ_KM, ISLEM_EKLE, ISLEM_ADET, ISLEM_FIYAT, ISCILIK, NOTLAR = range(11)
 
-<div class="container">
-    <h2>İZ MOTORSİKLET SERVİS PANELİ</h2>
-    <form action="/olustur" method="POST" enctype="multipart/form-data">
-        
-        <div class="form-group">
-            <label>Dükkan Logosu (Fotoğraf)</label>
-            <input type="file" name="logo" accept="image/*" required>
-        </div>
-
-        <div class="form-group">
-            <label>Müşteri Adı Soyadı</label>
-            <input type="text" name="musteri_ad" placeholder="Örn: Ahmet Yılmaz" required>
-        </div>
-
-        <div class="form-group">
-            <label>Müşteri Telefon</label>
-            <input type="text" name="musteri_tel" placeholder="Örn: 0532 000 00 00" required>
-        </div>
-
-        <div class="form-group">
-            <label>Motosiklet Plaka</label>
-            <input type="text" name="plaka" placeholder="Örn: 34 ABC 123" required>
-        </div>
-
-        <div class="form-group">
-            <label>Marka / Model</label>
-            <input type="text" name="model" placeholder="Örn: Honda PCX 125" required>
-        </div>
-
-        <div class="form-group">
-            <label>Kilometre (KM)</label>
-            <input type="text" name="km" placeholder="Örn: 15.000 KM" required>
-        </div>
-
-        <hr style="margin: 20px 0; border: 0; border-top: 1px solid #e2e8f0;">
-        <label><b>Yapılan İşlemler / Parçalar</b></label>
-        
-        <div class="item-row">
-            <input type="text" name="islem[]" placeholder="İşlem / Parça Adı">
-            <input type="number" name="adet[]" class="small" placeholder="Adet" value="1">
-            <input type="number" step="0.01" name="fiyat[]" class="small" placeholder="Fiyat (TL)">
-        </div>
-        <div class="item-row">
-            <input type="text" name="islem[]" placeholder="İşlem / Parça Adı">
-            <input type="number" name="adet[]" class="small" placeholder="Adet" value="1">
-            <input type="number" step="0.01" name="fiyat[]" class="small" placeholder="Fiyat (TL)">
-        </div>
-        <div class="item-row">
-            <input type="text" name="islem[]" placeholder="İşlem / Parça Adı">
-            <input type="number" name="adet[]" class="small" placeholder="Adet" value="1">
-            <input type="number" step="0.01" name="fiyat[]" class="small" placeholder="Fiyat (TL)">
-        </div>
-
-        <div class="form-group" style="margin-top: 15px;">
-            <label>İşçilik Tutarı (TL)</label>
-            <input type="number" step="0.01" name="iscilik" placeholder="Örn: 500" value="0">
-        </div>
-
-        <div class="form-group">
-            <label>Notlar ve Tespitler</label>
-            <textarea name="notlar" rows="2" placeholder="Örn: 1.000 km sonra yağ bakımı yapılacak."></textarea>
-        </div>
-
-        <button type="submit">Servis Formu PDF İndir</button>
-    </form>
-</div>
-
-</body>
-</html>
-"""
-
-# --- ORTAK PDF ÜRETME MOTORU ---
 def pdf_olustur(filename, veri, logo_yolu):
-    doc = SimpleDocTemplate(
-        filename, 
-        pagesize=A4, 
-        rightMargin=15, 
-        leftMargin=15, 
-        topMargin=12, 
-        bottomMargin=12
-    )
+    doc = SimpleDocTemplate(filename, pagesize=A4, rightMargin=15, leftMargin=15, topMargin=12, bottomMargin=12)
     story = []
     
     style_normal = ParagraphStyle('Norm', fontName=FONT_NAME, fontSize=8.5, leading=10, textColor=colors.HexColor("#111111"))
@@ -249,65 +146,6 @@ def pdf_olustur(filename, veri, logo_yolu):
     story.append(t_footer)
 
     doc.build(story)
-
-# --- WEB PANEL ROUTE İŞLEMLERİ ---
-@app.route('/')
-def index():
-    return render_template_string(HTML_TEMPLATE)
-
-@app.route('/olustur', methods=['POST'])
-def olustur():
-    musteri_ad = request.form.get('musteri_ad')
-    musteri_tel = request.form.get('musteri_tel')
-    plaka = request.form.get('plaka')
-    model = request.form.get('model')
-    km = request.form.get('km')
-    notlar = request.form.get('notlar', '')
-    
-    try:
-        iscilik = float(request.form.get('iscilik', 0))
-    except ValueError:
-        iscilik = 0.0
-
-    islem_adlari = request.form.getlist('islem[]')
-    adet_listesi = request.form.getlist('adet[]')
-    fiyat_listesi = request.form.getlist('fiyat[]')
-    
-    islemler = []
-    for i in range(len(islem_adlari)):
-        if islem_adlari[i].strip():
-            try:
-                adt = int(adet_listesi[i]) if adet_listesi[i] else 1
-                fyt = float(fiyat_listesi[i]) if fiyat_listesi[i] else 0.0
-                islemler.append({'ad': islem_adlari[i], 'adet': adt, 'fiyat': fyt})
-            except ValueError:
-                continue
-
-    veri = {
-        'musteri_ad': musteri_ad, 'musteri_tel': musteri_tel, 'plaka': plaka,
-        'model': model, 'km': km, 'notlar': notlar, 'iscilik': iscilik, 'islemler': islemler
-    }
-
-    logo_file = request.files.get('logo')
-    logo_path = None
-    if logo_file and logo_file.filename != '':
-        logo_path = f"temp_logo_web_{plaka}.jpg"
-        logo_file.save(logo_path)
-
-    pdf_path = f"servis_formu_{plaka}.pdf"
-    pdf_olustur(pdf_path, veri, logo_path)
-
-    response = send_file(pdf_path, as_attachment=True)
-    @response.call_on_close
-    def cleanup():
-        if os.path.exists(pdf_path): os.remove(pdf_path)
-        if logo_path and os.path.exists(logo_path): os.remove(logo_path)
-
-    return response
-
-
-# --- TELEGRAM BOTU AKIŞI ---
-LOGO_AL, MUSTERI_AD, MUSTERI_TEL, ARAÇ_PLAKA, ARAÇ_MODEL, ARAÇ_KM, ISLEM_EKLE, ISLEM_ADET, ISLEM_FIYAT, ISCILIK, NOTLAR = range(11)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Selam kanka! Bot aktif. Yeni servis formu için /yeni_servis yazabilirsin.")
@@ -427,13 +265,12 @@ async def iptal(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("İşlem iptal edildi kanka.", reply_markup=ReplyKeyboardRemove())
     return ConversationHandler.END
 
-def run_telegram_bot():
+def main():
     TOKEN = os.getenv("BOT_TOKEN")
     if not TOKEN:
-        print("UYARI: BOT_TOKEN bulunamadı, Telegram botu başlatılamadı!")
-        return
+        raise ValueError("BOT_TOKEN ortam değişkeni bulunamadı!")
     
-    bot_app = Application.builder().token(TOKEN).build()
+    app = Application.builder().token(TOKEN).build()
 
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler('yeni_servis', yeni_servis)],
@@ -457,19 +294,11 @@ def run_telegram_bot():
         fallbacks=[CommandHandler('iptal', iptal)]
     )
 
-    bot_app.add_handler(CommandHandler("start", start))
-    bot_app.add_handler(conv_handler)
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(conv_handler)
 
-    print("Telegram botu arka planda çalıştırılıyor...")
-    
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    bot_app.run_polling()
+    print("Bot çalışıyor...")
+    app.run_polling()
 
 if __name__ == '__main__':
-    # Telegram botunu ayrı bir thread içinde başlatıyoruz
-    threading.Thread(target=run_telegram_bot, daemon=True).start()
-
-    # Flask web sunucusunu ana thread'de başlatıyoruz
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host='0.0.0.0', port=port)
+    main()
