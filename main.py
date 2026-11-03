@@ -17,7 +17,7 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
 app = Flask(__name__)
-app.secret_key = "iz_motor_gizli_anahtar_erp_v7"
+app.secret_key = "iz_motor_gizli_anahtar_erp_v9"
 
 SIFRE = "izmotor2026*"
 
@@ -45,6 +45,15 @@ def init_db():
             parca_adi TEXT,
             adet INTEGER,
             fiyat REAL
+        )
+    ''')
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS randevular (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            musteri_ad TEXT,
+            tel TEXT,
+            tarih_saat TEXT,
+            notlar TEXT
         )
     ''')
     conn.commit()
@@ -154,7 +163,8 @@ HTML_PANEL = """
         <button class="tab-btn" onclick="switchTab('araclarTab', this)">Araçlar (Durum)</button>
         <button class="tab-btn" onclick="switchTab('historyTab', this)">Müşteri & Plaka</button>
         <button class="tab-btn" onclick="switchTab('stockTab', this)">Stok Takibi</button>
-        <button class="tab-btn" onclick="switchTab('financeTab', this)">Ciro Raporu</button>
+        <button class="tab-btn" onclick="switchTab('randevuTab', this)">Randevular</button>
+        <button class="tab-btn" onclick="switchTab('financeTab', this)">Ciro</button>
         <button class="tab-btn" onclick="switchTab('reminderTab', this)">Bakım Hatırlat</button>
     </div>
 
@@ -232,7 +242,7 @@ HTML_PANEL = """
             <div class="card">
                 <b>Plaka:</b> <span style="color:#facc15;">{{ ts[1] }}</span> | <b>Müşteri:</b> {{ ts[2] }} ({{ ts[3] }})<br>
                 <b>Model / KM:</b> {{ ts[4] }} - {{ ts[5] }} | <b>Tarih:</b> {{ ts[6] }}<br>
-                <b>Yapılanlar:</b> {{ ts[7] }}<br>
+                <b>Yapılanlar:</b> {{ ts[7] }} | <b>Toplam:</b> {{ "%.2f"|format(ts[8]) }} TL<br>
                 <hr style="border:0; border-top:1px solid #334155; margin: 10px 0;">
                 <form action="/durum_guncelle" method="POST" style="display: flex; gap: 8px; align-items: center;">
                     <input type="hidden" name="servis_id" value="{{ ts[0] }}">
@@ -245,6 +255,7 @@ HTML_PANEL = """
                         <option value="Parça Bekliyor" {% if ts[9] == 'Parça Bekliyor' %}selected{% endif %}>Parça Bekliyor</option>
                     </select>
                 </form>
+                <a href="https://wa.me/{{ ts[3] }}?text=Sayin%20{{ ts[2] }},%20Iz%20Motorsiklet%20servisindeki%20motosikletinizin%20durumu:%20{{ ts[9] }}.%20Detaylar%20icin%20bekleriz." target="_blank" class="whatsapp-btn">💬 Müşteriye Durum Mesajı Gönder</a>
             </div>
             {% endfor %}
         {% else %}
@@ -272,7 +283,7 @@ HTML_PANEL = """
                 <b>Model / KM:</b> {{ k[4] }} - {{ k[5] }}<br>
                 <b>Yapılanlar:</b> {{ k[7] }}<br>
                 <b>Toplam Tutar:</b> <span style="color: #facc15; font-weight: bold;">{{ "%.2f"|format(k[8]) }} TL</span><br>
-                <a href="https://wa.me/{{ k[3] }}?text=Sayin%20{{ k[2] }},%20Iz%20Motorsiklet%20servis%20formunuz%20hazirdir.%20Iyi%20gunler%20dileriz." target="_blank" class="whatsapp-btn">💬 WhatsApp Mesajı Gönder</a>
+                <a href="https://wa.me/{{ k[3] }}?text=Sayin%20{{ k[2] }},%20Iz%20Motorsiklet%20servis%20formunuz%20hazirdir.%20Toplam%20Tutar:%20{{ "%.2f"|format(k[8]) }}%20TL.%20Iyi%20gunler%20dileriz." target="_blank" class="whatsapp-btn">💬 Fatura / Form Bilgisi Gönder</a>
             </div>
             {% endfor %}
         {% else %}
@@ -299,6 +310,32 @@ HTML_PANEL = """
             {% endfor %}
         {% else %}
             <p style="color: #9ca3af; text-align: center;">Stokta ürün bulunmuyor.</p>
+        {% endif %}
+    </div>
+
+    <!-- RANDEVULAR -->
+    <div id="randevuTab" class="tab-content">
+        <h3>Atölye Randevu Takvimi</h3>
+        <form method="POST" action="/randevu_ekle">
+            <div class="form-group"><input type="text" name="musteri_ad" placeholder="Müşteri Adı Soyadı" required></div>
+            <div class="form-group"><input type="text" name="tel" placeholder="Telefon Numarası" required></div>
+            <div class="form-group"><input type="text" name="tarih_saat" placeholder="Randevu Tarih ve Saati (Örn: 05.11.2026 - 14:30)" required></div>
+            <div class="form-group"><input type="text" name="notlar" placeholder="Randevu Notu (Örn: Periyodik bakım)"></div>
+            <button type="submit" class="btn-action">Randevu Oluştur</button>
+        </form>
+        <hr style="margin: 20px 0; border: 0; border-top: 1px solid #374151;">
+        <h4>Aktif Randevular</h4>
+        {% if randevular %}
+            {% for r in randevular %}
+            <div class="card" style="border-left: 4px solid #0d9488;">
+                <b>Müşteri:</b> {{ r[1] }} ({{ r[2] }})<br>
+                <b>Zaman:</b> <span style="color:#facc15;">{{ r[3] }}</span><br>
+                <b>Not:</b> {{ r[4] }}<br>
+                <a href="https://wa.me/{{ r[2] }}?text=Sayin%20{{ r[1] }},%20Iz%20Motorsiklet%20icin%20{{ r[3] }}%20tarihli%20randevunuzu%20bekliyoruz." target="_blank" class="whatsapp-btn">💬 Randevu Hatırlat</a>
+            </div>
+            {% endfor %}
+        {% else %}
+            <p style="color: #9ca3af; text-align: center;">Kayıtlı randevu bulunmuyor.</p>
         {% endif %}
     </div>
 
@@ -393,8 +430,9 @@ const tab = urlParams.get('tab');
 if(tab === 'araclar') switchTab('araclarTab', document.querySelectorAll('.tab-btn')[1]);
 else if(tab === 'history') switchTab('historyTab', document.querySelectorAll('.tab-btn')[2]);
 else if(tab === 'stock') switchTab('stockTab', document.querySelectorAll('.tab-btn')[3]);
-else if(tab === 'finance') switchTab('financeTab', document.querySelectorAll('.tab-btn')[4]);
-else if(tab === 'reminder') switchTab('reminderTab', document.querySelectorAll('.tab-btn')[5]);
+else if(tab === 'randevu') switchTab('randevuTab', document.querySelectorAll('.tab-btn')[4]);
+else if(tab === 'finance') switchTab('financeTab', document.querySelectorAll('.tab-btn')[5]);
+else if(tab === 'reminder') switchTab('reminderTab', document.querySelectorAll('.tab-btn')[6]);
 </script>
 
 </body>
@@ -560,6 +598,9 @@ def index():
     cursor.execute("SELECT * FROM stok")
     stoklar = cursor.fetchall()
 
+    cursor.execute("SELECT * FROM randevular ORDER BY id DESC")
+    randevular = cursor.fetchall()
+
     cursor.execute("SELECT * FROM servisler ORDER BY id DESC")
     tum_servisler = cursor.fetchall()
 
@@ -597,7 +638,7 @@ def index():
 
     conn.close()
         
-    return render_template_string(HTML_PANEL, kayitlar=kayitlar, sorgu_plaka=sorgu_plaka, stoklar=stoklar, tum_servisler=tum_servisler, toplam_ciro=toplam_ciro, bakim_listesi=bakim_listesi)
+    return render_template_string(HTML_PANEL, kayitlar=kayitlar, sorgu_plaka=sorgu_plaka, stoklar=stoklar, randevular=randevular, tum_servisler=tum_servisler, toplam_ciro=toplam_ciro, bakim_listesi=bakim_listesi)
 
 @app.route('/durum_guncelle', methods=['POST'])
 def durum_guncelle():
@@ -625,6 +666,21 @@ def stok_ekle():
     conn.commit()
     conn.close()
     return redirect(url_for('index') + '?tab=stock')
+
+@app.route('/randevu_ekle', methods=['POST'])
+def randevu_ekle():
+    if not session.get('giris'): return redirect(url_for('index'))
+    musteri_ad = request.form.get('musteri_ad')
+    tel = request.form.get('tel')
+    tarih_saat = request.form.get('tarih_saat')
+    notlar = request.form.get('notlar', '')
+
+    conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO randevular (musteri_ad, tel, tarih_saat, notlar) VALUES (?, ?, ?, ?)", (musteri_ad, tel, tarih_saat, notlar))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('index') + '?tab=randevu')
 
 @app.route('/cikis')
 def cikis():
@@ -727,9 +783,9 @@ def olustur():
 
 # --- TELEGRAM BOTU ---
 SIFRE_DURUMU = {}
-STOK_EKLE_AD = range(1, 4) # Stok ekleme conversation adımları için
 LOGO_AL, HASAR_AL, MUSTERI_AD, MUSTERI_TEL, ARAÇ_PLAKA, ARAÇ_MODEL, ARAÇ_KM, ISLEM_EKLE, ISLEM_FIYAT, ISLEM_ADET, ISCILIK, NOTLAR = range(100, 112)
 STOK_AD, STOK_ADET, STOK_FIYAT = range(200, 203)
+RANDEVU_AD, RANDEVU_TEL, RANDEVU_ZAMAN, RANDEVU_NOT = range(300, 304)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -743,7 +799,7 @@ async def sifre_kontrol(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if text == SIFRE:
         SIFRE_DURUMU[user_id] = True
         keyboard = [
-            ["🛠️ Servis Formu Oluştur"],
+            ["🛠️ Servis Formu Oluştur", "📅 Randevu Ekle"],
             ["🏍️ Araçlar", "📦 Stok Ekle"],
             ["💰 Ciro Raporu", "📦 Stok Listesi"]
         ]
@@ -752,141 +808,6 @@ async def sifre_kontrol(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("Hatalı şifre kanka! Tekrar dene:")
 
-# Buton Yönlendiricileri
-async def ana_menu_yoneticisi(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    if not SIFRE_DURUMU.get(user_id, False):
-        await update.message.reply_text("Önce şifreyi girmen gerekiyor kanka! /start yaz.")
-        return
-    
-    text = update.message.text
-    if text == "🛠️ Servis Formu Oluştur":
-        # /yeni_servis komutunu tetikler gibi akışı başlatıyoruz
-        return await yeni_servis_baslat(update, context)
-    elif text == "🏍️ Araçlar":
-        return await bot_araclar(update, context)
-    elif text == "📦 Stok Ekle":
-        await update.message.reply_text("Eklenecek **Parça Adını** yaz kanka:", reply_markup=ReplyKeyboardRemove())
-        return STOK_AD
-    elif text == "💰 Ciro Raporu":
-        return await bot_ciro(update, context)
-    elif text == "📦 Stok Listesi":
-        return await bot_stok(update, context)
-
-# --- STOK EKLEME CONVERSATION ---
-async def stok_ad_al(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data['stok_parca'] = update.message.text
-    await update.message.reply_text("Stok **adet miktarını** gir kanka (Örn: 10):")
-    return STOK_ADET
-
-async def stok_adet_al(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    try:
-        context.user_data['stok_adet'] = int(update.message.text)
-        await update.message.reply_text("Birim **satış fiyatını (TL)** gir kanka (Örn: 250):")
-        return STOK_FIYAT
-    except ValueError:
-        await update.message.reply_text("Geçerli bir sayı gir kanka:")
-        return STOK_ADET
-
-async def stok_fiyat_al(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    try:
-        fiyat = float(update.message.text.replace(',', '.'))
-        parca = context.user_data['stok_parca']
-        adet = context.user_data['stok_adet']
-
-        conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
-        cursor = conn.cursor()
-        cursor.execute("INSERT INTO stok (parca_adi, adet, fiyat) VALUES (?, ?, ?)", (parca, adet, fiyat))
-        conn.commit()
-        conn.close()
-
-        keyboard = [
-            ["🛠️ Servis Formu Oluştur"],
-            ["🏍️ Araçlar", "📦 Stok Ekle"],
-            ["💰 Ciro Raporu", "📦 Stok Listesi"]
-        ]
-        reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-        await update.message.reply_text(f"✅ Başarıyla eklendi kanka!\n- **{parca}**: {adet} adet ({fiyat} TL)", parse_mode="Markdown", reply_markup=reply_markup)
-        return ConversationHandler.END
-    except ValueError:
-        await update.message.reply_text("Geçerli bir fiyat gir kanka:")
-        return STOK_FIYAT
-
-# --- ARAÇLAR LİSTESİ (BOT) ---
-async def bot_araclar(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
-    cursor = conn.cursor()
-    cursor.execute("SELECT id, plaka, musteri_ad, model, durum FROM servisler ORDER BY id DESC LIMIT 5")
-    araclar = cursor.fetchall()
-    conn.close()
-
-    if not araclar:
-        await update.message.reply_text("Atölyede kayıtlı araç bulunmuyor kanka.")
-        return
-
-    for a in araclar:
-        a_id, plaka, musteri, model, durum = a
-        keyboard = [
-            [
-                InlineKeyboardButton("Bekliyor", callback_data=f"durum_{a_id}_Bekliyor"),
-                InlineKeyboardButton("İşlemde", callback_data=f"durum_{a_id}_İşlemde"),
-                InlineKeyboardButton("Hazır", callback_data=f"durum_{a_id}_Hazır")
-            ],
-            [
-                InlineKeyboardButton("Teslime Hazır", callback_data=f"durum_{a_id}_Teslime Hazır"),
-                InlineKeyboardButton("Parça Bekliyor", callback_data=f"durum_{a_id}_Parça Bekliyor")
-            ]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        await update.message.reply_text(
-            f"🏍️ **Plaka:** {plaka}\n"
-            f"👤 **Müşteri:** {musteri}\n"
-            f"🛵 **Model:** {model}\n"
-            f"📌 **Durum:** `{durum}`",
-            parse_mode="Markdown",
-            reply_markup=reply_markup
-        )
-
-async def durum_degistir_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    data = query.data.split("_")
-    servis_id = data[1]
-    yeni_durum = data[2]
-
-    conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
-    cursor = conn.cursor()
-    cursor.execute("UPDATE servisler SET durum = ? WHERE id = ?", (yeni_durum, servis_id))
-    conn.commit()
-    conn.close()
-
-    await query.edit_message_text(text=f"✅ Araç durumu güncellendi: *{yeni_durum}*", parse_mode="Markdown")
-
-async def bot_stok(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
-    cursor = conn.cursor()
-    cursor.execute("SELECT parca_adi, adet, fiyat FROM stok")
-    stoklar = cursor.fetchall()
-    conn.close()
-
-    msg = "📦 **Mevcut Stok Listesi:**\n\n"
-    if stoklar:
-        for s in stoklar:
-            msg += f"- {s[0]}: **{s[1]} adet** ({s[2]} TL)\n"
-    else:
-        msg += "Stokta ürün bulunmuyor."
-    await update.message.reply_text(msg, parse_mode="Markdown")
-
-async def bot_ciro(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
-    cursor = conn.cursor()
-    cursor.execute("SELECT SUM(toplam_tutar) FROM servisler")
-    res = cursor.fetchone()
-    toplam = res[0] if res and res[0] else 0.0
-    conn.close()
-    await update.message.reply_text(f"💰 **Toplam Servis Cirosu:** `{toplam:.2f} TL`", parse_mode="Markdown")
-
-# --- SERVİS FORMU OLUŞTURMA AKIŞI ---
 async def yeni_servis_baslat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['islemler'] = []
     context.user_data['hasar_path'] = None
@@ -899,9 +820,9 @@ async def logo_al(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await photo_file.download_to_drive(logo_path)
     context.user_data['logo_path'] = logo_path
     
-    keyboard = [['Fotoğraf Yok / Geç']]
+    keyboard = [['❌ Hasar Fotoğrafı Yok / Geç']]
     reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
-    await update.message.reply_text("Logo alındı! Şimdi varsa **hasar / durum fotoğrafını** gönder kanka (İsteğe bağlı, geçebilirsin):", reply_markup=reply_markup)
+    await update.message.reply_text("Logo alındı! Şimdi varsa **hasar / durum fotoğrafını** gönder kanka. Yoksa aşağıdaki butona basıp geçebilirsin:", reply_markup=reply_markup)
     return HASAR_AL
 
 async def logo_uyari(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -920,7 +841,7 @@ async def hasar_al(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def hasar_gec(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['hasar_path'] = None
-    await update.message.reply_text("Tamamdir. Şimdi **Müşteri Adı ve Soyadını** gir kanka:", reply_markup=ReplyKeyboardRemove())
+    await update.message.reply_text("Hasar fotoğrafı atlandı. Şimdi **Müşteri Adı ve Soyadını** gir kanka:", reply_markup=ReplyKeyboardRemove())
     return MUSTERI_AD
 
 async def musteri_ad_al(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1007,6 +928,8 @@ async def notlar_ve_bitis(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logo_yolu = context.user_data.get('logo_path')
     hasar_yolu = context.user_data.get('hasar_path')
     
+    musteri_ad = context.user_data['musteri_ad']
+    musteri_tel = context.user_data['musteri_tel']
     islemler = context.user_data.get('islemler', [])
     iscilik = context.user_data.get('iscilik', 0.0)
     yedek_parca_toplam = sum(i['fiyat'] * i['adet'] for i in islemler)
@@ -1020,7 +943,7 @@ async def notlar_ve_bitis(update: Update, context: ContextTypes.DEFAULT_TYPE):
     cursor.execute('''
         INSERT INTO servisler (plaka, musteri_ad, musteri_tel, model, km, tarih, detaylar, toplam_tutar, durum)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Bekliyor')
-    ''', (plaka, context.user_data['musteri_ad'], context.user_data['musteri_tel'], context.user_data['model'], context.user_data['km'], tarih_str, islem_str, genel_toplam))
+    ''', (plaka, musteri_ad, musteri_tel, context.user_data['model'], context.user_data['km'], tarih_str, islem_str, genel_toplam))
     conn.commit()
     conn.close()
 
@@ -1028,18 +951,176 @@ async def notlar_ve_bitis(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     with open(pdf_path, 'rb') as doc:
         keyboard = [
-            ["🛠️ Servis Formu Oluştur"],
+            ["🛠️ Servis Formu Oluştur", "📅 Randevu Ekle"],
             ["🏍️ Araçlar", "📦 Stok Ekle"],
             ["💰 Ciro Raporu", "📦 Stok Listesi"]
         ]
         reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-        await update.message.reply_document(document=doc, caption="İşte servis formu kanka!", reply_markup=reply_markup)
+        
+        wa_url = f"https://wa.me/{musteri_tel}?text=Sayin%20{musteri_ad},%20Iz%20Motorsiklet%20servis%20formunuz%20hazirdir.%20Toplam%20Tutar:%20{genel_toplam:.2f}%20TL.%20Iyi%20gunler%20dileriz."
+        inline_kb = InlineKeyboardMarkup([[InlineKeyboardButton("💬 Müşteriye WhatsApp ile Gönder", url=wa_url)]])
+        
+        await update.message.reply_document(document=doc, caption="İşte servis formu kanka!", reply_markup=inline_kb)
+        await update.message.reply_text("Ana menüye döndün kanka:", reply_markup=reply_markup)
         
     if os.path.exists(pdf_path): os.remove(pdf_path)
     if logo_yolu and os.path.exists(logo_yolu): os.remove(logo_yolu)
     if hasar_yolu and os.path.exists(hasar_yolu): os.remove(hasar_yolu)
         
     return ConversationHandler.END
+
+# Randevu & Stok Conversation Fonksiyonları
+async def randevu_ad_al(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data['randevu_ad'] = update.message.text
+    await update.message.reply_text("Müşteri **telefon numarasını** gir kanka (Örn: 90532...):")
+    return RANDEVU_TEL
+
+async def randevu_tel_al(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data['randevu_tel'] = update.message.text
+    await update.message.reply_text("Randevu **tarih ve saatini** gir kanka (Örn: 05.11.2026 - 15:00):")
+    return RANDEVU_ZAMAN
+
+async def randevu_zaman_al(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data['randevu_zaman'] = update.message.text
+    await update.message.reply_text("Randevu için **not veya işlem** yaz kanka (Yoksa 'Yok' yaz):")
+    return RANDEVU_NOT
+
+async def randevu_not_al(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text
+    notlar = "" if text.lower() == "yok" else text
+    
+    ad = context.user_data['randevu_ad']
+    tel = context.user_data['randevu_tel']
+    zaman = context.user_data['randevu_zaman']
+
+    conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO randevular (musteri_ad, tel, tarih_saat, notlar) VALUES (?, ?, ?, ?)", (ad, tel, zaman, notlar))
+    conn.commit()
+    conn.close()
+
+    keyboard = [
+        ["🛠️ Servis Formu Oluştur", "📅 Randevu Ekle"],
+        ["🏍️ Araçlar", "📦 Stok Ekle"],
+        ["💰 Ciro Raporu", "📦 Stok Listesi"]
+    ]
+    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+    await update.message.reply_text(f"✅ Randevu başarıyla oluşturuldu kanka!\n- **Müşteri:** {ad}\n- **Zaman:** {zaman}", parse_mode="Markdown", reply_markup=reply_markup)
+    return ConversationHandler.END
+
+async def stok_ad_al(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data['stok_parca'] = update.message.text
+    await update.message.reply_text("Stok **adet miktarını** gir kanka (Örn: 10):")
+    return STOK_ADET
+
+async def stok_adet_al(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        context.user_data['stok_adet'] = int(update.message.text)
+        await update.message.reply_text("Birim **satış fiyatını (TL)** gir kanka (Örn: 250):")
+        return STOK_FIYAT
+    except ValueError:
+        await update.message.reply_text("Geçerli bir sayı gir kanka:")
+        return STOK_ADET
+
+async def stok_fiyat_al(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        fiyat = float(update.message.text.replace(',', '.'))
+        parca = context.user_data['stok_parca']
+        adet = context.user_data['stok_adet']
+
+        conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO stok (parca_adi, adet, fiyat) VALUES (?, ?, ?)", (parca, adet, fiyat))
+        conn.commit()
+        conn.close()
+
+        keyboard = [
+            ["🛠️ Servis Formu Oluştur", "📅 Randevu Ekle"],
+            ["🏍️ Araçlar", "📦 Stok Ekle"],
+            ["💰 Ciro Raporu", "📦 Stok Listesi"]
+        ]
+        reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+        await update.message.reply_text(f"✅ Başarıyla eklendi kanka!\n- **{parca}**: {adet} adet ({fiyat} TL)", parse_mode="Markdown", reply_markup=reply_markup)
+        return ConversationHandler.END
+    except ValueError:
+        await update.message.reply_text("Geçerli bir fiyat gir kanka:")
+        return STOK_FIYAT
+
+async def bot_araclar(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, plaka, musteri_ad, musteri_tel, model, durum FROM servisler ORDER BY id DESC LIMIT 5")
+    araclar = cursor.fetchall()
+    conn.close()
+
+    if not araclar:
+        await update.message.reply_text("Atölyede kayıtlı araç bulunmuyor kanka.")
+        return
+
+    for a in araclar:
+        a_id, plaka, musteri, tel, model, durum = a
+        keyboard = [
+            [
+                InlineKeyboardButton("Bekliyor", callback_data=f"durum_{a_id}_Bekliyor"),
+                InlineKeyboardButton("İşlemde", callback_data=f"durum_{a_id}_İşlemde"),
+                InlineKeyboardButton("Hazır", callback_data=f"durum_{a_id}_Hazır")
+            ],
+            [
+                InlineKeyboardButton("Teslime Hazır", callback_data=f"durum_{a_id}_Teslime Hazır"),
+                InlineKeyboardButton("Parça Bekliyor", callback_data=f"durum_{a_id}_Parça Bekliyor")
+            ],
+            [
+                InlineKeyboardButton("💬 WhatsApp Bildirimi Gönder", url=f"https://wa.me/{tel}?text=Sayin%20{musteri},%20Iz%20Motorsiklet%20servisindeki%20motosikletinizin%20durumu:%20{durum}.%20Bekleriz.")
+            ]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await update.message.reply_text(
+            f"🏍️ **Plaka:** {plaka}\n"
+            f"👤 **Müşteri:** {musteri} ({tel})\n"
+            f"🛵 **Model:** {model}\n"
+            f"📌 **Durum:** `{durum}`",
+            parse_mode="Markdown",
+            reply_markup=reply_markup
+        )
+
+async def durum_degistir_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    data = query.data.split("_")
+    servis_id = data[1]
+    yeni_durum = data[2]
+
+    conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
+    cursor = conn.cursor()
+    cursor.execute("UPDATE servisler SET durum = ? WHERE id = ?", (yeni_durum, servis_id))
+    conn.commit()
+    conn.close()
+
+    await query.edit_message_text(text=f"✅ Araç durumu güncellendi: *{yeni_durum}*", parse_mode="Markdown")
+
+async def bot_stok(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
+    cursor = conn.cursor()
+    cursor.execute("SELECT parca_adi, adet, fiyat FROM stok")
+    stoklar = cursor.fetchall()
+    conn.close()
+
+    msg = "📦 **Mevcut Stok Listesi:**\n\n"
+    if stoklar:
+        for s in stoklar:
+            msg += f"- {s[0]}: **{s[1]} adet** ({s[2]} TL)\n"
+    else:
+        msg += "Stokta ürün bulunmuyor."
+    await update.message.reply_text(msg, parse_mode="Markdown")
+
+async def bot_ciro(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
+    cursor = conn.cursor()
+    cursor.execute("SELECT SUM(toplam_tutar) FROM servisler")
+    res = cursor.fetchone()
+    toplam = res[0] if res and res[0] else 0.0
+    conn.close()
+    await update.message.reply_text(f"💰 **Toplam Servis Cirosu:** `{toplam:.2f} TL`", parse_mode="Markdown")
 
 async def iptal(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logo_yolu = context.user_data.get('logo_path')
@@ -1048,7 +1129,7 @@ async def iptal(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if hasar_yolu and os.path.exists(hasar_yolu): os.remove(hasar_yolu)
     
     keyboard = [
-        ["🛠️ Servis Formu Oluştur"],
+        ["🛠️ Servis Formu Oluştur", "📅 Randevu Ekle"],
         ["🏍️ Araçlar", "📦 Stok Ekle"],
         ["💰 Ciro Raporu", "📦 Stok Listesi"]
     ]
@@ -1061,7 +1142,6 @@ def run_telegram_bot():
     if not TOKEN: return
     bot_app = Application.builder().token(TOKEN).build()
 
-    # Stok Ekleme Konuşması
     stok_conv = ConversationHandler(
         entry_points=[MessageHandler(filters.Regex('^📦 Stok Ekle$'), lambda u, c: (u.message.reply_text("Eklenecek **Parça Adını** yaz kanka:", reply_markup=ReplyKeyboardRemove()), STOK_AD)[1])],
         states={
@@ -1072,12 +1152,25 @@ def run_telegram_bot():
         fallbacks=[CommandHandler('iptal', iptal)]
     )
 
-    # Servis Formu Konuşması
+    randevu_conv = ConversationHandler(
+        entry_points=[MessageHandler(filters.Regex('^📅 Randevu Ekle$'), lambda u, c: (u.message.reply_text("Randevu vereceğin **Müşteri Adı Soyadını** yaz kanka:", reply_markup=ReplyKeyboardRemove()), RANDEVU_AD)[1])],
+        states={
+            RANDEVU_AD: [MessageHandler(filters.TEXT & ~filters.COMMAND, randevu_ad_al)],
+            RANDEVU_TEL: [MessageHandler(filters.TEXT & ~filters.COMMAND, randevu_tel_al)],
+            RANDEVU_ZAMAN: [MessageHandler(filters.TEXT & ~filters.COMMAND, randevu_zaman_al)],
+            RANDEVU_NOT: [MessageHandler(filters.TEXT & ~filters.COMMAND, randevu_not_al)],
+        },
+        fallbacks=[CommandHandler('iptal', iptal)]
+    )
+
     servis_conv = ConversationHandler(
         entry_points=[MessageHandler(filters.Regex('^🛠️ Servis Formu Oluştur$'), yeni_servis_baslat)],
         states={
             LOGO_AL: [MessageHandler(filters.PHOTO, logo_al), MessageHandler(filters.TEXT & ~filters.COMMAND, logo_uyari)],
-            HASAR_AL: [MessageHandler(filters.PHOTO, hasar_al), MessageHandler(filters.Regex(r'^Fotoğraf Yok / Geç$'), hasar_gec)],
+            HASAR_AL: [
+                MessageHandler(filters.PHOTO, hasar_al), 
+                MessageHandler(filters.Regex(r'^❌ Hasar Fotoğrafı Yok / Geç$'), hasar_gec)
+            ],
             MUSTERI_AD: [MessageHandler(filters.TEXT & ~filters.COMMAND, musteri_ad_al)],
             MUSTERI_TEL: [MessageHandler(filters.TEXT & ~filters.COMMAND, musteri_tel_al)],
             ARAÇ_PLAKA: [MessageHandler(filters.TEXT & ~filters.COMMAND, arac_plaka_al)],
@@ -1098,6 +1191,7 @@ def run_telegram_bot():
 
     bot_app.add_handler(CommandHandler("start", start))
     bot_app.add_handler(stok_conv)
+    bot_app.add_handler(randevu_conv)
     bot_app.add_handler(servis_conv)
     bot_app.add_handler(CallbackQueryHandler(durum_degistir_callback, pattern="^durum_"))
     bot_app.add_handler(MessageHandler(filters.Regex('^🏍️ Araçlar$'), bot_araclar))
