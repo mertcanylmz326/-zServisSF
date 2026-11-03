@@ -17,7 +17,7 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
 app = Flask(__name__)
-app.secret_key = "iz_motor_gizli_anahtar_erp_v11"
+app.secret_key = "iz_motor_gizli_anahtar_erp_v13"
 
 SIFRE = "izmotor2026*"
 
@@ -125,16 +125,16 @@ HTML_PANEL = """
         .brand-title h1 { color: #facc15; margin: 0; font-size: 22px; text-transform: uppercase; letter-spacing: 1.5px; text-shadow: 0 0 10px rgba(250,204,21,0.3); }
         .brand-title p { color: #94a3b8; margin: 2px 0 0 0; font-size: 12px; font-weight: 500; }
         
-        .logout a { color: #f87171; text-decoration: none; font-size: 13px; font-weight: bold; padding: 8px 14px; background: rgba(248,113,113,0.1); border-radius: 8px; border: 1px solid rgba(248,113,113,0.3); transition: 0.3s; }
+        .logout a { color: #f87171; text-decoration: none; font-size: 13px; font-weight: bold; padding: 6px 12px; background: rgba(248,113,113,0.1); border-radius: 8px; border: 1px solid rgba(248,113,113,0.3); transition: 0.3s; }
         .logout a:hover { background: rgba(248,113,113,0.2); }
 
         /* GRAFİK ÖZET KARTLARI (DASHBOARD STATS) */
-        .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; margin-bottom: 25px; }
+        .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 25px; }
         .stat-card { background: linear-gradient(135deg, #1e293b, #111827); border: 1px solid #334155; padding: 20px; border-radius: 14px; position: relative; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.3); transition: 0.3s; }
         .stat-card:hover { border-color: #facc15; transform: translateY(-3px); box-shadow: 0 8px 25px rgba(250,204,21,0.2); }
-        .stat-card h3 { margin: 0; font-size: 26px; color: #facc15; font-weight: 700; text-shadow: 0 0 10px rgba(250,204,21,0.2); }
-        .stat-card p { margin: 5px 0 0 0; color: #94a3b8; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
-        .stat-icon { position: absolute; right: 15px; top: 15px; font-size: 28px; opacity: 0.2; }
+        .stat-card h3 { margin: 0; font-size: 24px; color: #facc15; font-weight: 700; text-shadow: 0 0 10px rgba(250,204,21,0.2); }
+        .stat-card p { margin: 5px 0 0 0; color: #94a3b8; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+        .stat-icon { position: absolute; right: 15px; top: 15px; font-size: 26px; opacity: 0.2; }
 
         /* SEKMELER */
         .tabs { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-bottom: 25px; background: #0b0f19; padding: 10px; border-radius: 12px; border: 1px solid #1e293b; }
@@ -186,7 +186,7 @@ HTML_PANEL = """
                 <p>Profesyonel Atölye & Servis Yönetim Sistemi</p>
             </div>
         </div>
-        <div class="logout"><a href="/cikis">🔒 Güvenli Çıkış</a></div>
+        <div class="logout"><a href="/cikis">Çıkış</a></div>
     </div>
 
     <!-- GRAFİKSEL ÖZET KARTLARI -->
@@ -222,7 +222,6 @@ HTML_PANEL = """
         <button class="tab-btn" onclick="switchTab('historyTab', this)">🔍 Müşteri & Plaka</button>
         <button class="tab-btn" onclick="switchTab('stockTab', this)">📦 Stok Takibi</button>
         <button class="tab-btn" onclick="switchTab('randevuTab', this)">📅 Randevular</button>
-        <button class="tab-btn" onclick="switchTab('financeTab', this)">💵 Finans & Ciro</button>
         <button class="tab-btn" onclick="switchTab('reminderTab', this)">⏰ Bakım Hatırlat</button>
     </div>
 
@@ -397,23 +396,6 @@ HTML_PANEL = """
         {% endif %}
     </div>
 
-    <!-- CİRO / FİNANS RAPORU -->
-    <div id="financeTab" class="tab-content">
-        <h3>Finansal Özet ve Ciro</h3>
-        <div class="stats-box" style="background: linear-gradient(135deg, #1e293b, #0b0f19); border: 1px solid #facc15; padding: 25px; border-radius: 14px; text-align: center; margin-bottom: 20px;">
-            <h2 style="color: #facc15; margin: 0; font-size: 32px; border:none;">{{ "%.2f"|format(toplam_ciro) }} TL</h2>
-            <p style="margin: 8px 0 0 0; font-weight: bold; color: #94a3b8; text-transform: uppercase;">Toplam Servis Cirosu</p>
-        </div>
-        <h4>Son Yapılan İşlemler</h4>
-        {% if tum_servisler %}
-            {% for ts in tum_servisler[:10] %}
-            <div class="card">
-                <b>{{ ts[1] }}</b> - {{ ts[6] }} : <span style="color: #facc15; font-weight: bold;">{{ "%.2f"|format(ts[8]) }} TL</span>
-            </div>
-            {% endfor %}
-        {% endif %}
-    </div>
-
     <!-- AKILLI BAKIM HATIRLATMA -->
     <div id="reminderTab" class="tab-content">
         <h3>Akıllı Bakım Hatırlatıcı</h3>
@@ -489,8 +471,7 @@ if(tab === 'araclar') switchTab('araclarTab', document.querySelectorAll('.tab-bt
 else if(tab === 'history') switchTab('historyTab', document.querySelectorAll('.tab-btn')[2]);
 else if(tab === 'stock') switchTab('stockTab', document.querySelectorAll('.tab-btn')[3]);
 else if(tab === 'randevu') switchTab('randevuTab', document.querySelectorAll('.tab-btn')[4]);
-else if(tab === 'finance') switchTab('financeTab', document.querySelectorAll('.tab-btn')[5]);
-else if(tab === 'reminder') switchTab('reminderTab', document.querySelectorAll('.tab-btn')[6]);
+else if(tab === 'reminder') switchTab('reminderTab', document.querySelectorAll('.tab-btn')[5]);
 </script>
 
 </body>
@@ -854,7 +835,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def sifre_kontrol(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     text = update.message.text
-    if SIFRE_DURUMU.get(user_id, False): return
+    
+    # Eğer kullanıcı zaten giriş yapmışsa bu kontrole takılmasın
+    if SIFRE_DURUMU.get(user_id, False):
+        return
+        
     if text == SIFRE:
         SIFRE_DURUMU[user_id] = True
         keyboard = [
@@ -862,7 +847,7 @@ async def sifre_kontrol(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ["⚡ Hızlı Fiyat Teklifi", "🔍 Plaka Sorgula"],
             ["📊 Günlük / Haftalık Özet", "🔔 Günün Randevuları"],
             ["🏍️ Araçlar", "📦 Stok Ekle"],
-            ["💰 Ciro Raporu", "📦 Stok Listesi"]
+            ["📦 Stok Listesi"]
         ]
         reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
         await update.message.reply_text("Şifre doğru kanka! Aşağıdaki butonlardan yapmak istediğin işlemi seçebilirsin:", reply_markup=reply_markup)
@@ -870,6 +855,10 @@ async def sifre_kontrol(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Hatalı şifre kanka! Tekrar dene:")
 
 async def hizli_fiyat_teklifi(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not SIFRE_DURUMU.get(update.effective_user.id, False):
+        await update.message.reply_text("Önce şifreyi girmen gerekiyor kanka! /start yazabilirsin.")
+        return
+        
     conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
     cursor = conn.cursor()
     cursor.execute("SELECT parca_adi, fiyat FROM stok")
@@ -908,7 +897,7 @@ async def hizli_fiyat_teklifi(update: Update, context: ContextTypes.DEFAULT_TYPE
         ["⚡ Hızlı Fiyat Teklifi", "🔍 Plaka Sorgula"],
         ["📊 Günlük / Haftalık Özet", "🔔 Günün Randevuları"],
         ["🏍️ Araçlar", "📦 Stok Ekle"],
-        ["💰 Ciro Raporu", "📦 Stok Listesi"]
+        ["📦 Stok Listesi"]
     ]
     await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True))
 
@@ -918,6 +907,10 @@ def fiyat_str(val):
     return "_Stokta yok / Tanımsız_"
 
 async def plaka_sorgu_baslat(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not SIFRE_DURUMU.get(update.effective_user.id, False):
+        await update.message.reply_text("Önce şifreyi girmen gerekiyor kanka! /start yazabilirsin.")
+        return ConversationHandler.END
+        
     await update.message.reply_text("Sorgulamak istediğin **Plakayı veya Müşteri Adını** yaz kanka:", reply_markup=ReplyKeyboardRemove())
     return PLAKA_SORGU
 
@@ -935,7 +928,7 @@ async def plaka_sorgu_yap(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ["⚡ Hızlı Fiyat Teklifi", "🔍 Plaka Sorgula"],
         ["📊 Günlük / Haftalık Özet", "🔔 Günün Randevuları"],
         ["🏍️ Araçlar", "📦 Stok Ekle"],
-        ["💰 Ciro Raporu", "📦 Stok Listesi"]
+        ["📦 Stok Listesi"]
     ]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
@@ -959,6 +952,10 @@ async def plaka_sorgu_yap(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 async def gunluk_haftalik_ozet(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not SIFRE_DURUMU.get(update.effective_user.id, False):
+        await update.message.reply_text("Önce şifreyi girmen gerekiyor kanka! /start yazabilirsin.")
+        return
+        
     bugun_str = datetime.date.today().strftime("%d.%m.%Y")
     
     conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
@@ -994,11 +991,15 @@ async def gunluk_haftalik_ozet(update: Update, context: ContextTypes.DEFAULT_TYP
         ["⚡ Hızlı Fiyat Teklifi", "🔍 Plaka Sorgula"],
         ["📊 Günlük / Haftalık Özet", "🔔 Günün Randevuları"],
         ["🏍️ Araçlar", "📦 Stok Ekle"],
-        ["💰 Ciro Raporu", "📦 Stok Listesi"]
+        ["📦 Stok Listesi"]
     ]
     await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True))
 
 async def gunun_randevulari(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not SIFRE_DURUMU.get(update.effective_user.id, False):
+        await update.message.reply_text("Önce şifreyi girmen gerekiyor kanka! /start yazabilirsin.")
+        return
+        
     conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
     cursor = conn.cursor()
     cursor.execute("SELECT musteri_ad, tel, tarih_saat, notlar FROM randevular ORDER BY id DESC")
@@ -1021,17 +1022,25 @@ async def gunun_randevulari(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ["⚡ Hızlı Fiyat Teklifi", "🔍 Plaka Sorgula"],
         ["📊 Günlük / Haftalık Özet", "🔔 Günün Randevuları"],
         ["🏍️ Araçlar", "📦 Stok Ekle"],
-        ["💰 Ciro Raporu", "📦 Stok Listesi"]
+        ["📦 Stok Listesi"]
     ]
     await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True))
 
 async def yeni_servis_baslat(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not SIFRE_DURUMU.get(update.effective_user.id, False):
+        await update.message.reply_text("Önce şifreyi girmen gerekiyor kanka! /start yazabilirsin.")
+        return ConversationHandler.END
+
     context.user_data['islemler'] = []
     context.user_data['hasar_path'] = None
     await update.message.reply_text("1️⃣ Önce dükkanın **logosunu** fotoğraf olarak gönder kanka (Zorunlu):", reply_markup=ReplyKeyboardRemove())
     return LOGO_AL
 
 async def logo_al(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not update.message.photo:
+        await update.message.reply_text("Kanka yazı değil, **logo fotoğrafı** göndermen gerekiyor:")
+        return LOGO_AL
+
     photo_file = await update.message.photo[-1].get_file()
     logo_path = f"temp_logo_tg_{update.effective_user.id}.jpg"
     await photo_file.download_to_drive(logo_path)
@@ -1041,10 +1050,6 @@ async def logo_al(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
     await update.message.reply_text("Logo alındı! Şimdi varsa **hasar / durum fotoğrafını** gönder kanka. Yoksa aşağıdaki butona basıp geçebilirsin:", reply_markup=reply_markup)
     return HASAR_AL
-
-async def logo_uyari(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Kanka yazı değil, **logo fotoğrafı** göndermen gerekiyor:")
-    return LOGO_AL
 
 async def hasar_al(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.photo:
@@ -1172,7 +1177,7 @@ async def notlar_ve_bitis(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ["⚡ Hızlı Fiyat Teklifi", "🔍 Plaka Sorgula"],
             ["📊 Günlük / Haftalık Özet", "🔔 Günün Randevuları"],
             ["🏍️ Araçlar", "📦 Stok Ekle"],
-            ["💰 Ciro Raporu", "📦 Stok Listesi"]
+            ["📦 Stok Listesi"]
         ]
         reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
         
@@ -1187,6 +1192,13 @@ async def notlar_ve_bitis(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if hasar_yolu and os.path.exists(hasar_yolu): os.remove(hasar_yolu)
         
     return ConversationHandler.END
+
+async def randevu_baslat(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not SIFRE_DURUMU.get(update.effective_user.id, False):
+        await update.message.reply_text("Önce şifreyi girmen gerekiyor kanka! /start yazabilirsin.")
+        return ConversationHandler.END
+    await update.message.reply_text("Randevu vereceğin **Müşteri Adı Soyadını** yaz kanka:", reply_markup=ReplyKeyboardRemove())
+    return RANDEVU_AD
 
 async def randevu_ad_al(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['randevu_ad'] = update.message.text
@@ -1222,11 +1234,18 @@ async def randevu_not_al(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ["⚡ Hızlı Fiyat Teklifi", "🔍 Plaka Sorgula"],
         ["📊 Günlük / Haftalık Özet", "🔔 Günün Randevuları"],
         ["🏍️ Araçlar", "📦 Stok Ekle"],
-        ["💰 Ciro Raporu", "📦 Stok Listesi"]
+        ["📦 Stok Listesi"]
     ]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     await update.message.reply_text(f"🚨 **YENİ RANDEVU BİLDİRİMİ!**\n- **Müşteri:** {ad} ({tel})\n- **Zaman:** `{zaman}`\n- **Not:** {notlar or 'Yok'}", parse_mode="Markdown", reply_markup=reply_markup)
     return ConversationHandler.END
+
+async def stok_baslat(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not SIFRE_DURUMU.get(update.effective_user.id, False):
+        await update.message.reply_text("Önce şifreyi girmen gerekiyor kanka! /start yazabilirsin.")
+        return ConversationHandler.END
+    await update.message.reply_text("Eklenecek **Parça Adını** yaz kanka:", reply_markup=ReplyKeyboardRemove())
+    return STOK_AD
 
 async def stok_ad_al(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['stok_parca'] = update.message.text
@@ -1259,7 +1278,7 @@ async def stok_fiyat_al(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ["⚡ Hızlı Fiyat Teklifi", "🔍 Plaka Sorgula"],
             ["📊 Günlük / Haftalık Özet", "🔔 Günün Randevuları"],
             ["🏍️ Araçlar", "📦 Stok Ekle"],
-            ["💰 Ciro Raporu", "📦 Stok Listesi"]
+            ["📦 Stok Listesi"]
         ]
         reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
         await update.message.reply_text(f"✅ Başarıyla eklendi kanka!\n- **{parca}**: {adet} adet ({fiyat} TL)", parse_mode="Markdown", reply_markup=reply_markup)
@@ -1269,6 +1288,10 @@ async def stok_fiyat_al(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return STOK_FIYAT
 
 async def bot_araclar(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not SIFRE_DURUMU.get(update.effective_user.id, False):
+        await update.message.reply_text("Önce şifreyi girmen gerekiyor kanka! /start yazabilirsin.")
+        return
+
     conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
     cursor = conn.cursor()
     cursor.execute("SELECT id, plaka, musteri_ad, musteri_tel, model, durum FROM servisler ORDER BY id DESC LIMIT 5")
@@ -1321,6 +1344,10 @@ async def durum_degistir_callback(update: Update, context: ContextTypes.DEFAULT_
     await query.edit_message_text(text=f"✅ Araç durumu güncellendi: *{yeni_durum}*", parse_mode="Markdown")
 
 async def bot_stok(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not SIFRE_DURUMU.get(update.effective_user.id, False):
+        await update.message.reply_text("Önce şifreyi girmen gerekiyor kanka! /start yazabilirsin.")
+        return
+
     conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
     cursor = conn.cursor()
     cursor.execute("SELECT parca_adi, adet, fiyat FROM stok")
@@ -1335,15 +1362,6 @@ async def bot_stok(update: Update, context: ContextTypes.DEFAULT_TYPE):
         msg += "Stokta ürün bulunmuyor."
     await update.message.reply_text(msg, parse_mode="Markdown")
 
-async def bot_ciro(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
-    cursor = conn.cursor()
-    cursor.execute("SELECT SUM(toplam_tutar) FROM servisler")
-    res = cursor.fetchone()
-    toplam = res[0] if res and res[0] else 0.0
-    conn.close()
-    await update.message.reply_text(f"💰 **Toplam Servis Cirosu:** `{toplam:.2f} TL`", parse_mode="Markdown")
-
 async def iptal(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logo_yolu = context.user_data.get('logo_path')
     hasar_yolu = context.user_data.get('hasar_path')
@@ -1355,7 +1373,7 @@ async def iptal(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ["⚡ Hızlı Fiyat Teklifi", "🔍 Plaka Sorgula"],
         ["📊 Günlük / Haftalık Özet", "🔔 Günün Randevuları"],
         ["🏍️ Araçlar", "📦 Stok Ekle"],
-        ["💰 Ciro Raporu", "📦 Stok Listesi"]
+        ["📦 Stok Listesi"]
     ]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     await update.message.reply_text("İşlem iptal edildi kanka.", reply_markup=reply_markup)
@@ -1367,7 +1385,7 @@ def run_telegram_bot():
     bot_app = Application.builder().token(TOKEN).build()
 
     stok_conv = ConversationHandler(
-        entry_points=[MessageHandler(filters.Regex('^📦 Stok Ekle$'), lambda u, c: (u.message.reply_text("Eklenecek **Parça Adını** yaz kanka:", reply_markup=ReplyKeyboardRemove()), STOK_AD)[1])],
+        entry_points=[MessageHandler(filters.Regex('^📦 Stok Ekle$'), stok_baslat)],
         states={
             STOK_AD: [MessageHandler(filters.TEXT & ~filters.COMMAND, stok_ad_al)],
             STOK_ADET: [MessageHandler(filters.TEXT & ~filters.COMMAND, stok_adet_al)],
@@ -1377,7 +1395,7 @@ def run_telegram_bot():
     )
 
     randevu_conv = ConversationHandler(
-        entry_points=[MessageHandler(filters.Regex('^📅 Randevu Ekle$'), lambda u, c: (u.message.reply_text("Randevu vereceğin **Müşteri Adı Soyadını** yaz kanka:", reply_markup=ReplyKeyboardRemove()), RANDEVU_AD)[1])],
+        entry_points=[MessageHandler(filters.Regex('^📅 Randevu Ekle$'), randevu_baslat)],
         states={
             RANDEVU_AD: [MessageHandler(filters.TEXT & ~filters.COMMAND, randevu_ad_al)],
             RANDEVU_TEL: [MessageHandler(filters.TEXT & ~filters.COMMAND, randevu_tel_al)],
@@ -1432,7 +1450,6 @@ def run_telegram_bot():
     bot_app.add_handler(MessageHandler(filters.Regex('^🔔 Günün Randevuları$'), gunun_randevulari))
     bot_app.add_handler(MessageHandler(filters.Regex('^🏍️ Araçlar$'), bot_araclar))
     bot_app.add_handler(MessageHandler(filters.Regex('^📦 Stok Listesi$'), bot_stok))
-    bot_app.add_handler(MessageHandler(filters.Regex('^💰 Ciro Raporu$'), bot_ciro))
     bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, sifre_kontrol))
 
     bot_app.run_polling(stop_signals=None)
