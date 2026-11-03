@@ -17,7 +17,7 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
 app = Flask(__name__)
-app.secret_key = "iz_motor_gizli_anahtar_erp_v10"
+app.secret_key = "iz_motor_gizli_anahtar_erp_v11"
 
 SIFRE = "izmotor2026*"
 
@@ -71,7 +71,7 @@ except Exception:
     FONT_NAME = 'Helvetica'
     FONT_BOLD = 'Helvetica-Bold'
 
-# --- HTML / CAFCAFLI ARAYÜZ ---
+# --- HTML / PROFESYONEL CAFCAFLI ARAYÜZ ---
 HTML_LOGIN = """
 <!DOCTYPE html>
 <html lang="tr">
@@ -80,23 +80,27 @@ HTML_LOGIN = """
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>İz Motorsiklet - Giriş</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0f172a; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; color: #f8fafc; }
-        .login-box { background: rgba(30, 41, 59, 0.85); backdrop-filter: blur(10px); padding: 40px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); width: 100%; max-width: 350px; text-align: center; border: 1px solid rgba(255,215,0,0.3); }
-        h2 { color: #facc15; margin-bottom: 25px; letter-spacing: 1px; text-transform: uppercase; font-size: 22px; }
-        input { width: 100%; padding: 14px; margin-bottom: 20px; background: #0f172a; border: 1px solid #475569; border-radius: 8px; color: #fff; box-sizing: border-box; font-size: 16px; outline: none; transition: 0.3s; }
-        input:focus { border-color: #facc15; box-shadow: 0 0 10px rgba(250,204,21,0.4); }
-        button { background: linear-gradient(135deg, #facc15, #ca8a04); color: #0f172a; border: none; padding: 14px; border-radius: 8px; width: 100%; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.3s; }
-        button:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(250,204,21,0.4); }
-        .error { color: #f87171; margin-bottom: 15px; font-size: 14px; font-weight: bold; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%); display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; color: #f8fafc; }
+        .login-box { background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(16px); padding: 45px 35px; border-radius: 20px; box-shadow: 0 20px 50px rgba(0,0,0,0.7); width: 100%; max-width: 380px; text-align: center; border: 1px solid rgba(250,204,21,0.3); }
+        .logo-icon { font-size: 42px; margin-bottom: 10px; }
+        h2 { color: #facc15; margin-bottom: 8px; letter-spacing: 2px; text-transform: uppercase; font-size: 24px; text-shadow: 0 0 15px rgba(250,204,21,0.4); }
+        p { color: #94a3b8; font-size: 13px; margin-bottom: 30px; }
+        input { width: 100%; padding: 14px; margin-bottom: 20px; background: #0b0f19; border: 1px solid #334155; border-radius: 10px; color: #fff; box-sizing: border-box; font-size: 16px; outline: none; transition: 0.3s; text-align: center; letter-spacing: 2px; }
+        input:focus { border-color: #facc15; box-shadow: 0 0 15px rgba(250,204,21,0.4); }
+        button { background: linear-gradient(135deg, #facc15, #ca8a04); color: #0b0f19; border: none; padding: 14px; border-radius: 10px; width: 100%; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.3s; box-shadow: 0 4px 15px rgba(250,204,21,0.3); }
+        button:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(250,204,21,0.5); }
+        .error { color: #f87171; margin-bottom: 15px; font-size: 13px; font-weight: bold; background: rgba(248,113,113,0.1); padding: 8px; border-radius: 6px; border: 1px solid rgba(248,113,113,0.2); }
     </style>
 </head>
 <body>
 <div class="login-box">
+    <div class="logo-icon">🏍️</div>
     <h2>İZ MOTORSİKLET</h2>
+    <p>Profesyonel Servis & Yönetim Paneli</p>
     {% if error %}<div class="error">{{ error }}</div>{% endif %}
     <form method="POST">
-        <input type="password" name="sifre" placeholder="🔒 Yönetici Şifresi..." required autofocus>
-        <button type="submit">Sisteme Giriş Yap</button>
+        <input type="password" name="sifre" placeholder="••••••••••••" required autofocus>
+        <button type="submit">Güvenli Giriş Yap</button>
     </form>
 </div>
 </body>
@@ -109,63 +113,117 @@ HTML_PANEL = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>İz Motorsiklet ERP Paneli</title>
+    <title>İz Motorsiklet - Profesyonel ERP Paneli</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0b0f19; margin: 0; padding: 15px; color: #f1f5f9; }
-        .container { max-width: 720px; margin: 0 auto; background: #111827; padding: 25px; border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,0.6); border: 1px solid rgba(250,204,21,0.2); }
-        h2 { text-align: center; color: #facc15; margin-bottom: 20px; font-size: 24px; text-transform: uppercase; letter-spacing: 1px; text-shadow: 0 0 10px rgba(250,204,21,0.3); }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #07090e; margin: 0; padding: 20px; color: #f1f5f9; }
+        .container { max-width: 850px; margin: 0 auto; background: #0f172a; padding: 30px; border-radius: 20px; box-shadow: 0 15px 50px rgba(0,0,0,0.8); border: 1px solid rgba(250,204,21,0.25); }
         
-        .logout { text-align: right; margin-bottom: 10px; }
-        .logout a { color: #f87171; text-decoration: none; font-size: 13px; font-weight: bold; padding: 5px 10px; background: rgba(248,113,113,0.1); border-radius: 6px; border: 1px solid rgba(248,113,113,0.3); }
+        /* HEADER / MARKA ALANI */
+        .header-section { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #1e293b; padding-bottom: 20px; margin-bottom: 25px; }
+        .brand-box { display: flex; align-items: center; gap: 15px; }
+        .brand-logo { background: linear-gradient(135deg, #facc15, #ca8a04); width: 50px; height: 50px; border-radius: 14px; display: flex; justify-content: center; align-items: center; font-size: 26px; box-shadow: 0 0 20px rgba(250,204,21,0.4); }
+        .brand-title h1 { color: #facc15; margin: 0; font-size: 22px; text-transform: uppercase; letter-spacing: 1.5px; text-shadow: 0 0 10px rgba(250,204,21,0.3); }
+        .brand-title p { color: #94a3b8; margin: 2px 0 0 0; font-size: 12px; font-weight: 500; }
+        
+        .logout a { color: #f87171; text-decoration: none; font-size: 13px; font-weight: bold; padding: 8px 14px; background: rgba(248,113,113,0.1); border-radius: 8px; border: 1px solid rgba(248,113,113,0.3); transition: 0.3s; }
+        .logout a:hover { background: rgba(248,113,113,0.2); }
 
-        .tabs { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin-bottom: 25px; }
-        .tab-btn { background: #1f2937; color: #9ca3af; border: 1px solid #374151; padding: 9px 12px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 12px; transition: 0.3s; }
-        .tab-btn.active { background: linear-gradient(135deg, #facc15, #ca8a04); color: #0b0f19; border-color: #facc15; box-shadow: 0 0 15px rgba(250,204,21,0.4); }
+        /* GRAFİK ÖZET KARTLARI (DASHBOARD STATS) */
+        .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; margin-bottom: 25px; }
+        .stat-card { background: linear-gradient(135deg, #1e293b, #111827); border: 1px solid #334155; padding: 20px; border-radius: 14px; position: relative; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.3); transition: 0.3s; }
+        .stat-card:hover { border-color: #facc15; transform: translateY(-3px); box-shadow: 0 8px 25px rgba(250,204,21,0.2); }
+        .stat-card h3 { margin: 0; font-size: 26px; color: #facc15; font-weight: 700; text-shadow: 0 0 10px rgba(250,204,21,0.2); }
+        .stat-card p { margin: 5px 0 0 0; color: #94a3b8; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+        .stat-icon { position: absolute; right: 15px; top: 15px; font-size: 28px; opacity: 0.2; }
+
+        /* SEKMELER */
+        .tabs { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-bottom: 25px; background: #0b0f19; padding: 10px; border-radius: 12px; border: 1px solid #1e293b; }
+        .tab-btn { background: #111827; color: #94a3b8; border: 1px solid #1f2937; padding: 10px 14px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 12px; transition: 0.3s; }
+        .tab-btn:hover { color: #facc15; border-color: #334155; }
+        .tab-btn.active { background: linear-gradient(135deg, #facc15, #ca8a04); color: #07090e; border-color: #facc15; box-shadow: 0 0 15px rgba(250,204,21,0.4); }
+        
         .tab-content { display: none; }
         .tab-content.active { display: block; animation: fadeIn 0.4s ease-in-out; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 
+        /* FORM VE ELEMANLAR */
+        h3 { color: #facc15; border-bottom: 1px solid #1e293b; padding-bottom: 10px; margin-top: 0; font-size: 18px; }
         .form-group { margin-bottom: 15px; }
         label { display: block; font-weight: bold; margin-bottom: 6px; font-size: 13px; color: #cbd5e1; }
-        input, textarea, select { width: 100%; padding: 12px; background: #0f172a; border: 1px solid #374151; border-radius: 8px; color: #fff; box-sizing: border-box; font-size: 14px; transition: 0.3s; outline: none; }
-        input:focus, textarea:focus, select:focus { border-color: #facc15; box-shadow: 0 0 8px rgba(250,204,21,0.3); }
+        input, textarea, select { width: 100%; padding: 12px; background: #0b0f19; border: 1px solid #334155; border-radius: 10px; color: #fff; box-sizing: border-box; font-size: 14px; transition: 0.3s; outline: none; }
+        input:focus, textarea:focus, select:focus { border-color: #facc15; box-shadow: 0 0 10px rgba(250,204,21,0.3); }
         
-        .item-row { display: flex; gap: 6px; margin-bottom: 10px; align-items: center; background: #1e293b; padding: 8px; border-radius: 8px; border: 1px solid #334155; }
+        .item-row { display: flex; gap: 8px; margin-bottom: 10px; align-items: center; background: #1e293b; padding: 10px; border-radius: 10px; border: 1px solid #334155; }
         .item-row input.name-input { flex: 2; }
-        .item-row select { flex: 1.5; background: #0f172a; font-size: 12px; }
+        .item-row select { flex: 1.5; background: #0b0f19; font-size: 12px; }
         .item-row input.small { flex: 0.8; }
         
-        .btn-add { background: #0d9488; color: #fff; border: none; padding: 10px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; margin-bottom: 15px; transition: 0.3s; }
+        .btn-add { background: #0d9488; color: #fff; border: none; padding: 12px; border-radius: 10px; cursor: pointer; font-weight: bold; width: 100%; margin-bottom: 15px; transition: 0.3s; }
         .btn-add:hover { background: #0f766e; }
         
-        .btn-remove { background: #dc2626; color: #fff; border: none; padding: 8px 10px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        .btn-remove { background: #dc2626; color: #fff; border: none; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-weight: bold; }
         
-        button[type="submit"], .btn-action { background: linear-gradient(135deg, #facc15, #ca8a04); color: #0b0f19; border: none; padding: 14px; border-radius: 8px; cursor: pointer; width: 100%; font-size: 15px; font-weight: bold; margin-top: 15px; transition: 0.3s; box-shadow: 0 4px 15px rgba(250,204,21,0.3); }
+        button[type="submit"], .btn-action { background: linear-gradient(135deg, #facc15, #ca8a04); color: #0b0f19; border: none; padding: 14px; border-radius: 10px; cursor: pointer; width: 100%; font-size: 15px; font-weight: bold; margin-top: 15px; transition: 0.3s; box-shadow: 0 4px 15px rgba(250,204,21,0.3); }
         button[type="submit"]:hover, .btn-action:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(250,204,21,0.5); }
         button:disabled { opacity: 0.6; cursor: not-allowed; }
 
-        .card { background: #1e293b; border: 1px solid #334155; padding: 14px; border-radius: 10px; margin-bottom: 12px; font-size: 14px; box-shadow: 0 4px 6px rgba(0,0,0,0.2); }
-        .stats-box { background: linear-gradient(135deg, #1e293b, #0f172a); border: 1px solid #facc15; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 20px; box-shadow: 0 0 15px rgba(250,204,21,0.2); }
-        .whatsapp-btn { display: inline-block; margin-top: 8px; background: #25d366; color: #fff; padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 12px; font-weight: bold; box-shadow: 0 3px 10px rgba(37,211,102,0.3); }
-        .alert-box { background: rgba(250,204,21,0.1); border: 1px solid #facc15; padding: 12px; border-radius: 8px; color: #facc15; margin-bottom: 15px; font-weight: bold; text-align: center; display: none; }
+        .card { background: #162032; border: 1px solid #334155; padding: 16px; border-radius: 12px; margin-bottom: 12px; font-size: 14px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); transition: 0.3s; }
+        .card:hover { border-color: #475569; }
+        .whatsapp-btn { display: inline-block; margin-top: 10px; background: #25d366; color: #fff; padding: 8px 14px; border-radius: 8px; text-decoration: none; font-size: 12px; font-weight: bold; box-shadow: 0 3px 10px rgba(37,211,102,0.3); transition: 0.3s; }
+        .whatsapp-btn:hover { background: #20ba5a; }
+        .alert-box { background: rgba(250,204,21,0.1); border: 1px solid #facc15; padding: 12px; border-radius: 10px; color: #facc15; margin-bottom: 15px; font-weight: bold; text-align: center; display: none; }
     </style>
 </head>
 <body>
 <div class="container">
-    <div class="logout"><a href="/cikis">Çıkış Yap</a></div>
-    <h2>İZ MOTORSİKLET YÖNETİM</h2>
+    
+    <!-- PROFESYONEL BAŞLIK VE MARKA ALANI -->
+    <div class="header-section">
+        <div class="brand-box">
+            <div class="brand-logo">🏍️</div>
+            <div class="brand-title">
+                <h1>İz Motorsiklet</h1>
+                <p>Profesyonel Atölye & Servis Yönetim Sistemi</p>
+            </div>
+        </div>
+        <div class="logout"><a href="/cikis">🔒 Güvenli Çıkış</a></div>
+    </div>
+
+    <!-- GRAFİKSEL ÖZET KARTLARI -->
+    <div class="dashboard-grid">
+        <div class="stat-card">
+            <div class="stat-icon">💰</div>
+            <h3>{{ "%.2f"|format(toplam_ciro) }} TL</h3>
+            <p>Toplam Servis Cirosu</p>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">🏍️</div>
+            <h3>{{ tum_servisler|length }}</h3>
+            <p>Kayıtlı Toplam Araç</p>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">📦</div>
+            <h3>{{ stoklar|length }}</h3>
+            <p>Stoktaki Çeşit Ürün</p>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">📅</div>
+            <h3>{{ randevular|length }}</h3>
+            <p>Aktif Randevu Sayısı</p>
+        </div>
+    </div>
 
     <div id="duplicateAlert" class="alert-box">⚠️ Bu servis formu az önce kaydedildi! Tekrar işlem yapılmadı.</div>
 
     <!-- SEKMELER -->
     <div class="tabs">
-        <button class="tab-btn active" onclick="switchTab('formTab', this)">Servis Formu</button>
-        <button class="tab-btn" onclick="switchTab('araclarTab', this)">Araçlar (Durum)</button>
-        <button class="tab-btn" onclick="switchTab('historyTab', this)">Müşteri & Plaka</button>
-        <button class="tab-btn" onclick="switchTab('stockTab', this)">Stok Takibi</button>
-        <button class="tab-btn" onclick="switchTab('randevuTab', this)">Randevular</button>
-        <button class="tab-btn" onclick="switchTab('financeTab', this)">Ciro</button>
-        <button class="tab-btn" onclick="switchTab('reminderTab', this)">Bakım Hatırlat</button>
+        <button class="tab-btn active" onclick="switchTab('formTab', this)">🛠️ Servis Formu</button>
+        <button class="tab-btn" onclick="switchTab('araclarTab', this)">🏍️ Araçlar & Durum</button>
+        <button class="tab-btn" onclick="switchTab('historyTab', this)">🔍 Müşteri & Plaka</button>
+        <button class="tab-btn" onclick="switchTab('stockTab', this)">📦 Stok Takibi</button>
+        <button class="tab-btn" onclick="switchTab('randevuTab', this)">📅 Randevular</button>
+        <button class="tab-btn" onclick="switchTab('financeTab', this)">💵 Finans & Ciro</button>
+        <button class="tab-btn" onclick="switchTab('reminderTab', this)">⏰ Bakım Hatırlat</button>
     </div>
 
     <!-- 1. SEKME: SERVİS FORMU -->
@@ -176,7 +234,7 @@ HTML_PANEL = """
                 <input type="file" name="logo" accept="image/*" required>
             </div>
             <div class="form-group">
-                <label>Hasar / Durum Fotoğrafı <span style="color:#9ca3af; font-weight:normal;">(İsteğe Bağlı)</span></label>
+                <label>Hasar / Durum Fotoğrafı <span style="color:#94a3af; font-weight:normal;">(İsteğe Bağlı)</span></label>
                 <input type="file" name="hasar_foto" accept="image/*">
             </div>
             <div class="form-group">
@@ -200,7 +258,7 @@ HTML_PANEL = """
                 <input type="text" name="km" placeholder="Örn: 15000" required>
             </div>
 
-            <hr style="margin: 20px 0; border: 0; border-top: 1px solid #374151;">
+            <hr style="margin: 20px 0; border: 0; border-top: 1px solid #1e293b;">
             
             <label><b>🛠️ Yapılan İşlemler ve Parçalar</b></label>
             <div id="items-container">
@@ -236,18 +294,18 @@ HTML_PANEL = """
     <!-- ARAÇLAR (SERVİS DURUM TAKİBİ) -->
     <div id="araclarTab" class="tab-content">
         <h3>Atölyedeki / Servisteki Araçlar</h3>
-        <p style="font-size: 13px; color: #9ca3af; margin-bottom: 15px;">Motorların anlık servis durumlarını buradan güncelleyebilirsin:</p>
+        <p style="font-size: 13px; color: #94a3b8; margin-bottom: 15px;">Motorların anlık servis durumlarını buradan güncelleyebilirsin:</p>
         {% if tum_servisler %}
             {% for ts in tum_servisler %}
             <div class="card">
                 <b>Plaka:</b> <span style="color:#facc15;">{{ ts[1] }}</span> | <b>Müşteri:</b> {{ ts[2] }} ({{ ts[3] }})<br>
                 <b>Model / KM:</b> {{ ts[4] }} - {{ ts[5] }} | <b>Tarih:</b> {{ ts[6] }}<br>
                 <b>Yapılanlar:</b> {{ ts[7] }} | <b>Toplam:</b> {{ "%.2f"|format(ts[8]) }} TL<br>
-                <hr style="border:0; border-top:1px solid #334155; margin: 10px 0;">
+                <hr style="border:0; border-top:1px solid #1e293b; margin: 10px 0;">
                 <form action="/durum_guncelle" method="POST" style="display: flex; gap: 8px; align-items: center;">
                     <input type="hidden" name="servis_id" value="{{ ts[0] }}">
                     <label style="font-size:12px; margin:0;">Durum:</label>
-                    <select name="durum" style="padding: 6px; font-size: 12px; background: #0f172a;" onchange="this.form.submit()">
+                    <select name="durum" style="padding: 6px; font-size: 12px; background: #07090e;" onchange="this.form.submit()">
                         <option value="Bekliyor" {% if ts[9] == 'Bekliyor' %}selected{% endif %}>Bekliyor</option>
                         <option value="İşlemde" {% if ts[9] == 'İşlemde' %}selected{% endif %}>İşlemde</option>
                         <option value="Hazır" {% if ts[9] == 'Hazır' %}selected{% endif %}>Hazır</option>
@@ -259,7 +317,7 @@ HTML_PANEL = """
             </div>
             {% endfor %}
         {% else %}
-            <p style="color: #9ca3af; text-align: center;">Kayıtlı aktif araç bulunmuyor.</p>
+            <p style="color: #94a3b8; text-align: center;">Kayıtlı aktif araç bulunmuyor.</p>
         {% endif %}
     </div>
 
@@ -273,7 +331,7 @@ HTML_PANEL = """
             </div>
             <button type="submit" class="btn-action">Hızlı Arama Yap</button>
         </form>
-        <hr style="margin: 20px 0; border: 0; border-top: 1px solid #374151;">
+        <hr style="margin: 20px 0; border: 0; border-top: 1px solid #1e293b;">
         <h3>Arama Sonuçları / Geçmiş</h3>
         {% if kayitlar %}
             {% for k in kayitlar %}
@@ -287,7 +345,7 @@ HTML_PANEL = """
             </div>
             {% endfor %}
         {% else %}
-            <p style="color: #9ca3af; text-align: center;">Kayıt bulunamadı.</p>
+            <p style="color: #94a3b8; text-align: center;">Kayıt bulunamadı.</p>
         {% endif %}
     </div>
 
@@ -300,7 +358,7 @@ HTML_PANEL = """
             <div class="form-group"><input type="number" step="0.01" name="fiyat" placeholder="Birim Satış Fiyatı (TL)" required></div>
             <button type="submit" class="btn-action">Stok Ekle / Güncelle</button>
         </form>
-        <hr style="margin: 20px 0; border: 0; border-top: 1px solid #374151;">
+        <hr style="margin: 20px 0; border: 0; border-top: 1px solid #1e293b;">
         <h4>Mevcut Stoklar</h4>
         {% if stoklar %}
             {% for s in stoklar %}
@@ -309,7 +367,7 @@ HTML_PANEL = """
             </div>
             {% endfor %}
         {% else %}
-            <p style="color: #9ca3af; text-align: center;">Stokta ürün bulunmuyor.</p>
+            <p style="color: #94a3b8; text-align: center;">Stokta ürün bulunmuyor.</p>
         {% endif %}
     </div>
 
@@ -323,7 +381,7 @@ HTML_PANEL = """
             <div class="form-group"><input type="text" name="notlar" placeholder="Randevu Notu (Örn: Periyodik bakım)"></div>
             <button type="submit" class="btn-action">Randevu Oluştur</button>
         </form>
-        <hr style="margin: 20px 0; border: 0; border-top: 1px solid #374151;">
+        <hr style="margin: 20px 0; border: 0; border-top: 1px solid #1e293b;">
         <h4>Aktif Randevular</h4>
         {% if randevular %}
             {% for r in randevular %}
@@ -335,16 +393,16 @@ HTML_PANEL = """
             </div>
             {% endfor %}
         {% else %}
-            <p style="color: #9ca3af; text-align: center;">Kayıtlı randevu bulunmuyor.</p>
+            <p style="color: #94a3b8; text-align: center;">Kayıtlı randevu bulunmuyor.</p>
         {% endif %}
     </div>
 
     <!-- CİRO / FİNANS RAPORU -->
     <div id="financeTab" class="tab-content">
         <h3>Finansal Özet ve Ciro</h3>
-        <div class="stats-box">
-            <h2 style="color: #facc15; margin: 0; font-size: 28px;">{{ "%.2f"|format(toplam_ciro) }} TL</h2>
-            <p style="margin: 5px 0 0 0; font-weight: bold; color: #94a3b8;">Toplam Servis Cirosu</p>
+        <div class="stats-box" style="background: linear-gradient(135deg, #1e293b, #0b0f19); border: 1px solid #facc15; padding: 25px; border-radius: 14px; text-align: center; margin-bottom: 20px;">
+            <h2 style="color: #facc15; margin: 0; font-size: 32px; border:none;">{{ "%.2f"|format(toplam_ciro) }} TL</h2>
+            <p style="margin: 8px 0 0 0; font-weight: bold; color: #94a3b8; text-transform: uppercase;">Toplam Servis Cirosu</p>
         </div>
         <h4>Son Yapılan İşlemler</h4>
         {% if tum_servisler %}
@@ -359,7 +417,7 @@ HTML_PANEL = """
     <!-- AKILLI BAKIM HATIRLATMA -->
     <div id="reminderTab" class="tab-content">
         <h3>Akıllı Bakım Hatırlatıcı</h3>
-        <p style="font-size: 13px; color: #9ca3af; margin-bottom: 15px;">Daha önce gelen motorların üzerinden geçen süreler:</p>
+        <p style="font-size: 13px; color: #94a3b8; margin-bottom: 15px;">Daha önce gelen motorların üzerinden geçen süreler:</p>
         {% if bakim_listesi %}
             {% for b in bakim_listesi %}
             <div class="card" style="border-left: 4px solid #facc15;">
@@ -370,7 +428,7 @@ HTML_PANEL = """
             </div>
             {% endfor %}
         {% else %}
-            <p style="color: #9ca3af; text-align: center;">Kayıtlı bakım geçmişi bulunmuyor.</p>
+            <p style="color: #94a3b8; text-align: center;">Kayıtlı bakım geçmişi bulunmuyor.</p>
         {% endif %}
     </div>
 
@@ -811,7 +869,6 @@ async def sifre_kontrol(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("Hatalı şifre kanka! Tekrar dene:")
 
-# --- HIZLI FİYAT TEKLİFİ SİHİRBAZI ---
 async def hizli_fiyat_teklifi(update: Update, context: ContextTypes.DEFAULT_TYPE):
     conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
     cursor = conn.cursor()
@@ -838,7 +895,7 @@ async def hizli_fiyat_teklifi(update: Update, context: ContextTypes.DEFAULT_TYPE
     msg += f"⚙️ **Kayış Değişimi:** {fiyat_str(kayis_fiyat)}\n"
     msg += f"💡 **Far / Ampul Değişimi:** {fiyat_str(far_fiyat)}\n\n"
     
-    genel_toplam_tahmin = (yag_fiyat or 0) + (buji_fiyat or 0) + (kayis_fiyat or 0) + (far_fiyat or 0) + 500 # 500 TL işçilik varsayımı
+    genel_toplam_tahmin = (yag_fiyat or 0) + (buji_fiyat or 0) + (kayis_fiyat or 0) + (far_fiyat or 0) + 500
     if genel_toplam_tahmin > 500:
         msg += f"🛠️ **Ortalama Genel Bakım (Parçalar + İşçilik):** `~{genel_toplam_tahmin:.2f} TL`\n"
     else:
@@ -860,7 +917,6 @@ def fiyat_str(val):
         return f"`{val:.2f} TL`"
     return "_Stokta yok / Tanımsız_"
 
-# --- PLAKA İLE GEÇMİŞ SORGULAMA ---
 async def plaka_sorgu_baslat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Sorgulamak istediğin **Plakayı veya Müşteri Adını** yaz kanka:", reply_markup=ReplyKeyboardRemove())
     return PLAKA_SORGU
@@ -887,7 +943,7 @@ async def plaka_sorgu_yap(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"❌ '{sorgu}' ile eşleşen geçmiş servis kaydı bulunamadı kanka.", reply_markup=reply_markup)
         return ConversationHandler.END
 
-    for r in sonuclar[:3]: # En son 3 kaydı göster
+    for r in sonuclar[:3]:
         plaka, ad, tel, model, km, tarih, detay, tutar, durum = r
         msg = f"🔍 **Servis Geçmişi Bulundu:**\n\n"
         msg += f"🏍️ **Plaka:** {plaka}\n"
@@ -902,26 +958,22 @@ async def plaka_sorgu_yap(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Ana menüdesin kanka:", reply_markup=reply_markup)
     return ConversationHandler.END
 
-# --- GÜNLÜK / HAFTALIK ÖZET RAPORU ---
 async def gunluk_haftalik_ozet(update: Update, context: ContextTypes.DEFAULT_TYPE):
     bugun_str = datetime.date.today().strftime("%d.%m.%Y")
     
     conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
     cursor = conn.cursor()
     
-    # Bugün gelenler
     cursor.execute("SELECT SUM(toplam_tutar), COUNT(id) FROM servisler WHERE tarih = ?", (bugun_str,))
     bugun_res = cursor.fetchone()
     bugun_ciro = bugun_res[0] if bugun_res and bugun_res[0] else 0.0
     bugun_adet = bugun_res[1] if bugun_res and bugun_res[1] else 0
 
-    # Toplam ciro
     cursor.execute("SELECT SUM(toplam_tutar), COUNT(id) FROM servisler")
     toplam_res = cursor.fetchone()
     toplam_ciro = toplam_res[0] if toplam_res and toplam_res[0] else 0.0
     toplam_adet = toplam_res[1] if toplam_res and toplam_res[1] else 0
 
-    # Kritik stoklar (<3 adet)
     cursor.execute("SELECT COUNT(id) FROM stok WHERE adet < 3")
     kritik_res = cursor.fetchone()
     kritik_adet = kritik_res[0] if kritik_res else 0
@@ -946,7 +998,6 @@ async def gunluk_haftalik_ozet(update: Update, context: ContextTypes.DEFAULT_TYP
     ]
     await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True))
 
-# --- GÜNÜN RANDEVULARI & BİLDİRİMİ ---
 async def gunun_randevulari(update: Update, context: ContextTypes.DEFAULT_TYPE):
     conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
     cursor = conn.cursor()
@@ -974,7 +1025,6 @@ async def gunun_randevulari(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
     await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True))
 
-# --- SERVİS FORMU OLUŞTURMA AKIŞI ---
 async def yeni_servis_baslat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['islemler'] = []
     context.user_data['hasar_path'] = None
@@ -1138,7 +1188,6 @@ async def notlar_ve_bitis(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
     return ConversationHandler.END
 
-# Randevu & Stok Conversation Fonksiyonları
 async def randevu_ad_al(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['randevu_ad'] = update.message.text
     await update.message.reply_text("Müşteri **telefon numarasını** gir kanka (Örn: 90532...):")
@@ -1176,8 +1225,6 @@ async def randevu_not_al(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ["💰 Ciro Raporu", "📦 Stok Listesi"]
     ]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-    
-    # Anında bildirim bot sohbetine düşer
     await update.message.reply_text(f"🚨 **YENİ RANDEVU BİLDİRİMİ!**\n- **Müşteri:** {ad} ({tel})\n- **Zaman:** `{zaman}`\n- **Not:** {notlar or 'Yok'}", parse_mode="Markdown", reply_markup=reply_markup)
     return ConversationHandler.END
 
