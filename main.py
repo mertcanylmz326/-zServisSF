@@ -13,7 +13,7 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
 app = Flask(__name__)
-app.secret_key = "iz_motor_gizli_anahtar_erp_ultra_v27"
+app.secret_key = "iz_motor_gizli_anahtar_erp_ultra_v28"
 
 SIFRE = "izmotor2026*"
 
@@ -69,7 +69,7 @@ except Exception:
     FONT_NAME = 'Helvetica'
     FONT_BOLD = 'Helvetica-Bold'
 
-# --- HTML ARAYÜZ ---
+# --- HTML ARAYÜZ (MOBİL UYUMLU KAYDIRILABILIR ÜST MENÜ) ---
 HTML_LOGIN = """
 <!DOCTYPE html>
 <html lang="tr">
@@ -122,81 +122,88 @@ HTML_PANEL = """
             --text-main: #f8fafc;
             --text-muted: #94a3b8;
         }
-        body { font-family: 'Inter', 'Segoe UI', Tahoma, sans-serif; background: var(--bg-main); margin: 0; padding: 20px; color: var(--text-main); box-sizing: border-box; }
-        .container { max-width: 950px; margin: 0 auto; background: var(--bg-card); backdrop-filter: blur(20px); padding: 30px; border-radius: 20px; box-shadow: 0 20px 50px rgba(0,0,0,0.8); border: 1px solid var(--border-color); }
+        body { font-family: 'Inter', 'Segoe UI', Tahoma, sans-serif; background: var(--bg-main); margin: 0; padding: 12px; color: var(--text-main); box-sizing: border-box; }
+        .container { max-width: 900px; margin: 0 auto; background: var(--bg-card); backdrop-filter: blur(20px); padding: 20px; border-radius: 20px; box-shadow: 0 20px 50px rgba(0,0,0,0.8); border: 1px solid var(--border-color); }
         
-        /* ÜST PROFESYONEL SEKMELER (NAVBAR) */
-        .top-navbar { display: flex; flex-wrap: wrap; gap: 8px; background: rgba(3, 7, 18, 0.8); padding: 12px; border-radius: 14px; border: 1px solid var(--border-color); margin-bottom: 30px; align-items: center; justify-content: space-between; }
-        .nav-tabs { display: flex; flex-wrap: wrap; gap: 6px; }
-        .tab-btn { background: rgba(17, 24, 39, 0.9); color: var(--text-muted); border: 1px solid #1f2937; padding: 10px 16px; border-radius: 8px; cursor: pointer; font-weight: 700; font-size: 13px; transition: 0.2s; text-align: center; }
+        /* ŞIK ÜST MENÜ VE YATAY KAYDIRILABİLİR SEKMELER */
+        .top-navbar { display: flex; flex-direction: column; gap: 12px; background: rgba(3, 7, 18, 0.9); padding: 14px; border-radius: 14px; border: 1px solid var(--border-color); margin-bottom: 22px; }
+        
+        .navbar-header { display: flex; justify-content: space-between; align-items: center; width: 100%; border-bottom: 1px solid rgba(51,65,85,0.4); padding-bottom: 10px; }
+        .brand-mini { display: flex; align-items: center; gap: 10px; }
+        .brand-logo { background: linear-gradient(135deg, var(--accent-gold), var(--accent-gold-dark)); width: 34px; height: 34px; border-radius: 8px; display: flex; justify-content: center; align-items: center; font-size: 18px; box-shadow: 0 0 12px rgba(250,204,21,0.3); flex-shrink: 0; }
+        .brand-title h1 { color: var(--accent-gold); margin: 0; font-size: 15px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 800; }
+        
+        .logout a { color: #f87171; text-decoration: none; font-size: 11px; font-weight: 700; padding: 6px 10px; background: rgba(248,113,113,0.1); border-radius: 6px; border: 1px solid rgba(248,113,113,0.3); display: inline-block; }
+
+        /* Mobilde yan yana kayan (scrollable) sekmeler */
+        .nav-tabs { display: flex; gap: 6px; overflow-x: auto; white-space: nowrap; padding-bottom: 4px; scrollbar-width: none; }
+        .nav-tabs::-webkit-scrollbar { display: none; }
+        
+        .tab-btn { background: rgba(17, 24, 39, 0.9); color: var(--text-muted); border: 1px solid #1f2937; padding: 8px 14px; border-radius: 8px; cursor: pointer; font-weight: 700; font-size: 12px; transition: 0.2s; flex-shrink: 0; }
         .tab-btn:hover { color: #fff; background: rgba(30,41,59,0.9); }
         .tab-btn.active { background: linear-gradient(135deg, var(--accent-gold), var(--accent-gold-dark)); color: #030712; border-color: var(--accent-gold); box-shadow: 0 4px 15px rgba(250,204,21,0.3); }
 
-        .header-right { display: flex; align-items: center; gap: 15px; margin-left: auto; }
-        .brand-mini { display: flex; align-items: center; gap: 10px; }
-        .brand-logo { background: linear-gradient(135deg, var(--accent-gold), var(--accent-gold-dark)); width: 38px; height: 38px; border-radius: 10px; display: flex; justify-content: center; align-items: center; font-size: 20px; box-shadow: 0 0 15px rgba(250,204,21,0.3); flex-shrink: 0; }
-        .brand-title h1 { color: var(--accent-gold); margin: 0; font-size: 16px; text-transform: uppercase; letter-spacing: 1px; font-weight: 800; }
-        .logout a { color: #f87171; text-decoration: none; font-size: 12px; font-weight: 700; padding: 8px 12px; background: rgba(248,113,113,0.1); border-radius: 8px; border: 1px solid rgba(248,113,113,0.3); display: inline-block; }
-
-        .dashboard-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 25px; }
+        .dashboard-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 20px; }
         @media(min-width: 600px) { .dashboard-grid { grid-template-columns: repeat(4, 1fr); } }
         
-        .stat-card { background: rgba(30,41,59,0.5); border: 1px solid var(--border-color); padding: 16px; border-radius: 14px; position: relative; }
+        .stat-card { background: rgba(30,41,59,0.5); border: 1px solid var(--border-color); padding: 14px; border-radius: 12px; position: relative; }
         .stat-card::after { content: ''; position: absolute; top: 0; left: 0; width: 3px; height: 100%; background: var(--accent-gold); border-radius: 3px 0 0 3px; }
-        .stat-card h3 { margin: 0; font-size: 20px; color: var(--accent-gold); font-weight: 800; }
-        .stat-card p { margin: 4px 0 0 0; color: var(--text-muted); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+        .stat-card h3 { margin: 0; font-size: 18px; color: var(--accent-gold); font-weight: 800; }
+        .stat-card p { margin: 4px 0 0 0; color: var(--text-muted); font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
 
         .tab-content { display: none; animation: fadeIn 0.3s ease; }
         .tab-content.active { display: block; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
-        h3 { color: var(--accent-gold); border-bottom: 1px solid rgba(51,65,85,0.6); padding-bottom: 10px; margin-top: 0; font-size: 18px; font-weight: 800; }
-        .form-group { margin-bottom: 15px; }
-        label { display: block; font-weight: 700; margin-bottom: 6px; font-size: 12px; color: #cbd5e1; }
+        h3 { color: var(--accent-gold); border-bottom: 1px solid rgba(51,65,85,0.6); padding-bottom: 10px; margin-top: 0; font-size: 17px; font-weight: 800; }
+        .form-group { margin-bottom: 14px; }
+        label { display: block; font-weight: 700; margin-bottom: 5px; font-size: 12px; color: #cbd5e1; }
         input, textarea, select { width: 100%; padding: 12px; background: rgba(3, 7, 18, 0.9); border: 1px solid var(--border-color); border-radius: 10px; color: #fff; box-sizing: border-box; font-size: 14px; outline: none; }
         input:focus, textarea:focus, select:focus { border-color: var(--accent-gold); box-shadow: 0 0 10px rgba(250,204,21,0.2); }
         
-        .item-row { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; background: rgba(30, 41, 59, 0.4); padding: 12px; border-radius: 10px; border: 1px solid var(--border-color); }
+        .item-row { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; background: rgba(30, 41, 59, 0.4); padding: 10px; border-radius: 10px; border: 1px solid var(--border-color); }
         @media(min-width: 550px) { .item-row { flex-direction: row; align-items: center; } }
         .item-row input.name-input { flex: 2; }
         .item-row select { flex: 1.5; background: rgba(3,7,18,0.9); font-size: 12px; }
         .item-row input.small { flex: 0.8; }
         
-        .btn-add { background: #0d9488; color: #fff; border: none; padding: 12px; border-radius: 10px; cursor: pointer; font-weight: 800; width: 100%; margin-bottom: 15px; }
+        .btn-add { background: #0d9488; color: #fff; border: none; padding: 12px; border-radius: 10px; cursor: pointer; font-weight: 800; width: 100%; margin-bottom: 14px; }
         .btn-remove { background: #dc2626; color: #fff; border: none; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-weight: 800; align-self: flex-end; }
         @media(min-width: 550px) { .btn-remove { align-self: center; } }
         
-        button[type="submit"], .btn-action { background: linear-gradient(135deg, var(--accent-gold), var(--accent-gold-dark)); color: #030712; border: none; padding: 14px; border-radius: 10px; cursor: pointer; width: 100%; font-size: 15px; font-weight: 800; margin-top: 15px; text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 5px 15px rgba(250,204,21,0.3); }
+        button[type="submit"], .btn-action { background: linear-gradient(135deg, var(--accent-gold), var(--accent-gold-dark)); color: #030712; border: none; padding: 14px; border-radius: 10px; cursor: pointer; width: 100%; font-size: 15px; font-weight: 800; margin-top: 14px; text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 5px 15px rgba(250,204,21,0.3); }
         
-        .card { background: rgba(22, 32, 50, 0.7); border: 1px solid var(--border-color); padding: 16px; border-radius: 14px; margin-bottom: 14px; font-size: 13px; line-height: 1.5; }
+        .card { background: rgba(22, 32, 50, 0.7); border: 1px solid var(--border-color); padding: 15px; border-radius: 12px; margin-bottom: 12px; font-size: 13px; line-height: 1.4; }
         
-        .action-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+        .action-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
         .whatsapp-btn { background: #25d366; color: #fff; padding: 8px 12px; border-radius: 8px; text-decoration: none; font-size: 11px; font-weight: 800; display: inline-block; }
         .pdf-btn { background: #0284c7; color: #fff; padding: 8px 12px; border-radius: 8px; text-decoration: none; font-size: 11px; font-weight: 800; display: inline-block; }
         
-        .alert-box { background: rgba(250,204,21,0.1); border: 1px solid var(--accent-gold); padding: 12px; border-radius: 10px; color: var(--accent-gold); margin-bottom: 15px; font-weight: 800; text-align: center; display: none; font-size: 13px; }
+        .alert-box { background: rgba(250,204,21,0.1); border: 1px solid var(--accent-gold); padding: 10px; border-radius: 10px; color: var(--accent-gold); margin-bottom: 15px; font-weight: 800; text-align: center; display: none; font-size: 12px; }
     </style>
 </head>
 <body>
 <div class="container">
-    <!-- ÜST PROFESYONEL NAVBAR VE SEKMELER -->
+    <!-- ÜST KOMPAKT VE ŞIK NAVBAR -->
     <div class="top-navbar">
-        <div class="brand-mini">
-            <div class="brand-logo">🏍️</div>
-            <div class="brand-title">
-                <h1>İz Motorsiklet</h1>
+        <div class="navbar-header">
+            <div class="brand-mini">
+                <div class="brand-logo">🏍️</div>
+                <div class="brand-title">
+                    <h1>İz Motorsiklet</h1>
+                </div>
             </div>
+            <div class="logout"><a href="/cikis">Çıkış</a></div>
         </div>
+        
+        <!-- Yatay Kaydırılabilir Sekmeler (Mobilde asla üst üste binmez) -->
         <div class="nav-tabs">
-            <button class="tab-btn active" onclick="switchTab('formTab', this)">🛠️ Servis Formu</button>
+            <button class="tab-btn active" onclick="switchTab('formTab', this)">🛠️ Servis</button>
             <button class="tab-btn" onclick="switchTab('araclarTab', this)">🏍️ Araçlar</button>
             <button class="tab-btn" onclick="switchTab('historyTab', this)">🔍 Geçmiş</button>
-            <button class="tab-btn" onclick="switchTab('stockTab', this)">📦 Stoklar</button>
-            <button class="tab-btn" onclick="switchTab('randevuTab', this)">📅 Randevular</button>
+            <button class="tab-btn" onclick="switchTab('stockTab', this)">📦 Stok</button>
+            <button class="tab-btn" onclick="switchTab('randevuTab', this)">📅 Randevu</button>
             <button class="tab-btn" onclick="switchTab('reminderTab', this)">⏰ Bakım</button>
-        </div>
-        <div class="header-right">
-            <div class="logout"><a href="/cikis">Çıkış</a></div>
         </div>
     </div>
     
@@ -269,32 +276,32 @@ HTML_PANEL = """
     <div id="araclarTab" class="tab-content">
         <h3>Atölyedeki / Servisteki Araçlar</h3>
         
-        <div style="background: rgba(22, 32, 50, 0.5); border: 1px solid rgba(250,204,21,0.3); padding: 16px; border-radius: 14px; margin-bottom: 20px;">
-            <h4 style="color: var(--accent-gold); margin-top: 0; margin-bottom: 10px; font-size: 14px; font-weight: 800;">➕ Doğrudan Servise Yeni Araç Ekle</h4>
+        <div style="background: rgba(22, 32, 50, 0.5); border: 1px solid rgba(250,204,21,0.3); padding: 14px; border-radius: 12px; margin-bottom: 18px;">
+            <h4 style="color: var(--accent-gold); margin-top: 0; margin-bottom: 8px; font-size: 13px; font-weight: 800;">➕ Doğrudan Servise Yeni Araç Ekle</h4>
             <form action="/arac_ekle_hizli" method="POST">
-                <div style="display: flex; flex-direction: column; gap: 10px;">
+                <div style="display: flex; flex-direction: column; gap: 8px;">
                     <input type="text" name="plaka" placeholder="Plaka (Örn: 34 ABC)" required>
                     <input type="text" name="musteri_ad" placeholder="Müşteri Ad Soyad" required>
                     <input type="text" name="musteri_tel" placeholder="Telefon (90532...)" required>
                     <input type="text" name="model" placeholder="Model (Örn: Honda Dio)" required>
                     <input type="text" name="km" placeholder="KM (Örn: 12000)" required>
                 </div>
-                <button type="submit" class="btn-action" style="margin-top: 12px; padding: 12px;">Hızlı Aracı Ekle</button>
+                <button type="submit" class="btn-action" style="margin-top: 10px; padding: 10px;">Hızlı Aracı Ekle</button>
             </form>
         </div>
 
         {% if tum_servisler %}
             {% for ts in tum_servisler %}
             <div class="card" style="border-left: 4px solid {% if ts[10] == 'Borçlu / Veresiye' %}#f87171{% else %}#4ade80{% endif %};">
-                <b>Plaka:</b> <span style="color:var(--accent-gold); font-size:15px; font-weight:800;">{{ ts[1] }}</span> | <b>Müşteri:</b> {{ ts[2] }} ({{ ts[3] }})<br>
+                <b>Plaka:</b> <span style="color:var(--accent-gold); font-size:14px; font-weight:800;">{{ ts[1] }}</span> | <b>Müşteri:</b> {{ ts[2] }} ({{ ts[3] }})<br>
                 <b>Model / KM:</b> {{ ts[4] }} - {{ ts[5] }} KM | <b>Tarih:</b> {{ ts[6] }}<br>
                 <b>Yapılanlar:</b> {{ ts[7] }} | <b>Toplam:</b> <span style="color:var(--accent-gold); font-weight:800;">{{ "%.2f"|format(ts[8]) }} TL</span><br>
                 <b>Ödeme Durumu:</b> <span style="color: {% if ts[10] == 'Borçlu / Veresiye' %}#f87171{% else %}#4ade80{% endif %}; font-weight:800;">{{ ts[10] or 'Ödendi' }}</span><br>
-                <hr style="border:0; border-top:1px solid rgba(51,65,85,0.5); margin: 10px 0;">
-                <form action="/durum_guncelle" method="POST" style="margin-bottom: 8px;">
+                <hr style="border:0; border-top:1px solid rgba(51,65,85,0.5); margin: 8px 0;">
+                <form action="/durum_guncelle" method="POST" style="margin-bottom: 6px;">
                     <input type="hidden" name="servis_id" value="{{ ts[0] }}">
-                    <label style="font-size:11px; margin-bottom:4px;">Durum Güncelle:</label>
-                    <select name="durum" style="padding: 8px; font-size: 12px; background: rgba(3,7,18,0.9);" onchange="this.form.submit()">
+                    <label style="font-size:11px; margin-bottom:3px;">Durum Güncelle:</label>
+                    <select name="durum" style="padding: 6px; font-size: 12px; background: rgba(3,7,18,0.9);" onchange="this.form.submit()">
                         <option value="Bekliyor" {% if ts[9] == 'Bekliyor' %}selected{% endif %}>Bekliyor</option>
                         <option value="İşlemde" {% if ts[9] == 'İşlemde' %}selected{% endif %}>İşlemde</option>
                         <option value="Hazır" {% if ts[9] == 'Hazır' %}selected{% endif %}>Hazır</option>
@@ -322,7 +329,7 @@ HTML_PANEL = """
             <div class="form-group"><label>Plaka veya Müşteri Adı ile Sorgula</label><input type="text" name="sorgu_plaka" placeholder="Örn: 34 ABC veya Ahmet..." value="{{ sorgu_plaka or '' }}"></div>
             <button type="submit" class="btn-action">Hızlı Arama Yap</button>
         </form>
-        <hr style="margin: 20px 0; border: 0; border-top: 1px solid rgba(51,65,85,0.5);">
+        <hr style="margin: 18px 0; border: 0; border-top: 1px solid rgba(51,65,85,0.5);">
         <h3>Arama Sonuçları / Geçmiş</h3>
         {% if kayitlar %}
             {% for k in kayitlar %}
@@ -332,7 +339,7 @@ HTML_PANEL = """
                 <b>İşlemler:</b> {{ k[7] }}<br>
                 <b>Toplam Tutar:</b> <span style="color: var(--accent-gold); font-weight: 800;">{{ "%.2f"|format(k[8]) }} TL</span> | <b>Durum:</b> {{ k[10] or 'Ödendi' }}
                 {% if k[11] %}
-                <div style="margin-top: 10px;"><a href="/pdf_indir/{{ k[0] }}" class="pdf-btn">📄 Formu İndir (PDF)</a></div>
+                <div style="margin-top: 8px;"><a href="/pdf_indir/{{ k[0] }}" class="pdf-btn">📄 Formu İndir (PDF)</a></div>
                 {% endif %}
             </div>
             {% endfor %}
@@ -350,13 +357,13 @@ HTML_PANEL = """
             <div class="form-group"><input type="number" step="0.01" name="fiyat" placeholder="Birim Satış Fiyatı (TL)" required></div>
             <button type="submit" class="btn-action">Stok Ekle / Güncelle</button>
         </form>
-        <hr style="margin: 20px 0; border: 0; border-top: 1px solid rgba(51,65,85,0.5);">
+        <hr style="margin: 18px 0; border: 0; border-top: 1px solid rgba(51,65,85,0.5);">
         <h4>Mevcut Stoklar ve Uyarılar</h4>
         {% for s in stoklar %}
         <div class="card" style="border-left: 4px solid {% if s[2] < 3 %}#f87171{% else %}#4ade80{% endif %};">
-            <b>{{ s[1] }}</b> - Adet: <span style="color: {% if s[2] < 3 %}#f87171{% else %}#4ade80{% endif %}; font-weight:800; font-size:15px;">{{ s[2] }}</span> | Fiyat: <b>{{ "%.2f"|format(s[3]) }} TL</b>
+            <b>{{ s[1] }}</b> - Adet: <span style="color: {% if s[2] < 3 %}#f87171{% else %}#4ade80{% endif %}; font-weight:800; font-size:14px;">{{ s[2] }}</span> | Fiyat: <b>{{ "%.2f"|format(s[3]) }} TL</b>
             {% if s[2] < 3 %}
-            <br><span style="color: #f87171; font-weight: 800; font-size: 11px; display:inline-block; margin-top:6px; background:rgba(248,113,113,0.1); padding:4px 8px; border-radius:6px; border:1px solid rgba(248,113,113,0.3);">⚠️ KRİTİK STOK: Bu ürün 3 adedin altında!</span>
+            <br><span style="color: #f87171; font-weight: 800; font-size: 11px; display:inline-block; margin-top:5px; background:rgba(248,113,113,0.1); padding:3px 6px; border-radius:5px; border:1px solid rgba(248,113,113,0.3);">⚠️ KRİTİK STOK: Bu ürün 3 adedin altında!</span>
             {% endif %}
         </div>
         {% endfor %}
@@ -372,7 +379,7 @@ HTML_PANEL = """
             <div class="form-group"><input type="text" name="notlar" placeholder="Randevu Notu"></div>
             <button type="submit" class="btn-action">Randevu Oluştur</button>
         </form>
-        <hr style="margin: 20px 0; border: 0; border-top: 1px solid rgba(51,65,85,0.5);">
+        <hr style="margin: 18px 0; border: 0; border-top: 1px solid rgba(51,65,85,0.5);">
         <h4>Aktif Randevular</h4>
         {% for r in randevular %}
         <div class="card" style="border-left: 4px solid #0d9488;"><b>Müşteri:</b> {{ r[1] }} ({{ r[2] }})<br><b>Zaman:</b> <span style="color:var(--accent-gold); font-weight:800;">{{ r[3] }}</span></div>
@@ -386,7 +393,7 @@ HTML_PANEL = """
         <div class="card" style="border-left: 4px solid var(--accent-gold);">
             <b>Plaka:</b> <span style="color:var(--accent-gold);">{{ b[1] }}</span> | <b>Müşteri:</b> {{ b[2] }} ({{ b[3] }})<br>
             <b>Geçen Süre:</b> <span style="color:var(--accent-gold); font-weight:800;">{{ b.gecen_sure }}</span><br>
-            <div style="margin-top: 10px;"><a href="https://wa.me/{{ b[3] }}?text=Sayin%20{{ b[2] }},%20Iz%20Motorsiklet%20servisimizdeki%20bakim%20vaktiniz%20yaklasti,%20bekleriz." target="_blank" class="whatsapp-btn">💬 Bakım Hatırlatması Gönder</a></div>
+            <div style="margin-top: 8px;"><a href="https://wa.me/{{ b[3] }}?text=Sayin%20{{ b[2] }},%20Iz%20Motorsiklet%20servisimizdeki%20bakim%20vaktiniz%20yaklasti,%20bekleriz." target="_blank" class="whatsapp-btn">💬 Bakım Hatırlatması Gönder</a></div>
         </div>
         {% endfor %}
     </div>
