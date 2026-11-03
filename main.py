@@ -3,20 +3,17 @@ import datetime
 import sqlite3
 import threading
 from flask import Flask, render_template_string, request, send_file, session, redirect, url_for
-from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import (
-    Application, CommandHandler, MessageHandler, 
-    filters, ContextTypes, CallbackQueryHandler
-)
+from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib import colors
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
 app = Flask(__name__)
-app.secret_key = "iz_motor_gizli_anahtar_erp_full_v22"
+app.secret_key = "iz_motor_gizli_anahtar_erp_full_v24"
 
 SIFRE = "izmotor2026*"
 
@@ -35,7 +32,9 @@ def init_db():
             tarih TEXT,
             detaylar TEXT,
             toplam_tutar REAL,
-            durum TEXT DEFAULT 'Bekliyor'
+            durum TEXT DEFAULT 'Bekliyor',
+            odeme_durumu TEXT DEFAULT 'Ödendi',
+            pdf_dosya TEXT
         )
     ''')
     cursor.execute('''
@@ -144,6 +143,7 @@ HTML_PANEL = """
         button[type="submit"], .btn-action { background: linear-gradient(135deg, #facc15, #ca8a04); color: #0b0f19; border: none; padding: 14px; border-radius: 10px; cursor: pointer; width: 100%; font-size: 15px; font-weight: bold; margin-top: 15px; }
         .card { background: #162032; border: 1px solid #334155; padding: 16px; border-radius: 12px; margin-bottom: 12px; font-size: 14px; }
         .whatsapp-btn { display: inline-block; margin-top: 10px; background: #25d366; color: #fff; padding: 8px 14px; border-radius: 8px; text-decoration: none; font-size: 12px; font-weight: bold; }
+        .pdf-btn { display: inline-block; margin-top: 10px; background: #0284c7; color: #fff; padding: 8px 14px; border-radius: 8px; text-decoration: none; font-size: 12px; font-weight: bold; margin-left: 5px; }
         .alert-box { background: rgba(250,204,21,0.1); border: 1px solid #facc15; padding: 12px; border-radius: 10px; color: #facc15; margin-bottom: 15px; font-weight: bold; text-align: center; display: none; }
     </style>
 </head>
@@ -178,9 +178,8 @@ HTML_PANEL = """
         <button class="tab-btn" onclick="switchTab('reminderTab', this)">⏰ Bakım Hatırlat</button>
     </div>
 
-    <!-- 1. SERVİS FORMU (AKILLI ARAÇ SEÇİCİ EKLENDİ) -->
+    <!-- 1. SERVİS FORMU -->
     <div id="formTab" class="tab-content active">
-        <!-- KAYITLI ARAÇLARDAN OTOMATİK DOLDURMA KUTUSU -->
         <div style="background: #162032; border: 1px solid #facc15; padding: 15px; border-radius: 12px; margin-bottom: 20px;">
             <label style="color: #facc15; margin-bottom: 8px;">⚡ Kayıtlı Araçlardan Seç (Otomatik Doldur)</label>
             <select id="aracSecici" onchange="aracBilgileriniDoldur(this)" style="background: #07090e; font-size: 14px; padding: 10px;">
@@ -201,12 +200,21 @@ HTML_PANEL = """
             <div class="form-group"><label>Motosiklet Plaka</label><input type="text" id="plaka" name="plaka" placeholder="Örn: 34 ABC 123" required></div>
             <div class="form-group"><label>Marka / Model</label><input type="text" id="model" name="model" placeholder="Örn: Honda PCX 125" required></div>
             <div class="form-group"><label>Kilometre (KM)</label><input type="text" id="km" name="km" placeholder="Örn: 15000" required></div>
+            
+            <div class="form-group">
+                <label>Ödeme / Borç Durumu</label>
+                <select name="odeme_durumu" style="background: #0b0f19;">
+                    <option value="Ödendi">🟢 Ödendi</option>
+                    <option value="Borçlu / Veresiye">🔴 Borçlu / Veresiye</option>
+                    <option value="Parça Bekliyor">🟡 Parça Bekliyor</option>
+                </select>
+            </div>
 
             <hr style="margin: 20px 0; border: 0; border-top: 1px solid #1e293b;">
             <label><b>🛠️ Yapılan İşlemler ve Parçalar</b></label>
             <div id="items-container">
                 <div class="item-row">
-                    <input type="text" name="islem_ad[]" class="name-input" placeholder="İşlem / Parça Adı (Örn: Motor Yağı Değişti)" required>
+                    <input type="text" name="islem_ad[]" class="name-input" placeholder="İşlem / Parça Adı" required>
                     <select name="stok_id[]">
                         <option value="">-- Stoktan Düş (İsteğe Bağlı) --</option>
                         {% for s in stoklar %}
@@ -220,13 +228,13 @@ HTML_PANEL = """
             <button type="button" class="btn-add" onclick="addItemRow()">+ Yeni İşlem / Parça Satırı Ekle</button>
 
             <div class="form-group"><label>Ek İşçilik Tutarı (TL)</label><input type="number" step="0.01" name="iscilik" placeholder="Örn: 500" value="0"></div>
-            <div class="form-group"><label>Notlar ve Tespitler</label><textarea name="notlar" rows="2" placeholder="Örn: Genel bakım yapıldı, buji değiştirildi."></textarea></div>
+            <div class="form-group"><label>Notlar ve Tespitler</label><textarea name="notlar" rows="2" placeholder="Örn: Genel bakım yapıldı."></textarea></div>
 
             <button type="submit" id="submitBtn">Servis Formu PDF İndir & Kaydet</button>
         </form>
     </div>
 
-    <!-- 2. ARAÇLAR & DURUM (YENİ ARAÇ EKLEME FORMU İLE) -->
+    <!-- 2. ARAÇLAR & DURUM (PDF FORMU VARSA İNDİR BUTONU GÖRÜNÜR) -->
     <div id="araclarTab" class="tab-content">
         <h3>Atölyedeki / Servisteki Araçlar</h3>
         
@@ -246,10 +254,11 @@ HTML_PANEL = """
 
         {% if tum_servisler %}
             {% for ts in tum_servisler %}
-            <div class="card">
+            <div class="card" style="border-left: 4px solid {% if ts[10] == 'Borçlu / Veresiye' %}#f87171{% else %}#4ade80{% endif %};">
                 <b>Plaka:</b> <span style="color:#facc15;">{{ ts[1] }}</span> | <b>Müşteri:</b> {{ ts[2] }} ({{ ts[3] }})<br>
                 <b>Model / KM:</b> {{ ts[4] }} - {{ ts[5] }} | <b>Tarih:</b> {{ ts[6] }}<br>
-                <b>Yapılanlar / Detay:</b> {{ ts[7] }} | <b>Toplam:</b> {{ "%.2f"|format(ts[8]) }} TL<br>
+                <b>Yapılanlar:</b> {{ ts[7] }} | <b>Toplam:</b> {{ "%.2f"|format(ts[8]) }} TL<br>
+                <b>Ödeme Durumu:</b> <span style="color: {% if ts[10] == 'Borçlu / Veresiye' %}#f87171{% else %}#4ade80{% endif %}; font-weight:bold;">{{ ts[10] or 'Ödendi' }}</span><br>
                 <hr style="border:0; border-top:1px solid #1e293b; margin: 10px 0;">
                 <form action="/durum_guncelle" method="POST" style="display: flex; gap: 8px; align-items: center;">
                     <input type="hidden" name="servis_id" value="{{ ts[0] }}">
@@ -262,7 +271,10 @@ HTML_PANEL = """
                         <option value="Parça Bekliyor" {% if ts[9] == 'Parça Bekliyor' %}selected{% endif %}>Parça Bekliyor</option>
                     </select>
                 </form>
-                <a href="https://wa.me/{{ ts[3] }}?text=Sayin%20{{ ts[2] }},%20Iz%20Motorsiklet%20servisindeki%20motosikletinizin%20durumu:%20{{ ts[9] }}.%20Bekleriz." target="_blank" class="whatsapp-btn">💬 Müşteriye Durum Mesajı Gönder</a>
+                <a href="https://wa.me/{{ ts[3] }}?text=Sayin%20{{ ts[2] }},%20Iz%20Motorsiklet%20servis%20ucretiniz%20{{ "%.2f"|format(ts[8]) }}%20TL%20durumu:%20{{ ts[10] or 'Ödendi' }}." target="_blank" class="whatsapp-btn">💬 Müşteriye Mesaj Gönder</a>
+                {% if ts[11] %}
+                <a href="/pdf_indir/{{ ts[0] }}" class="pdf-btn">📄 Servis Formunu İndir (PDF)</a>
+                {% endif %}
             </div>
             {% endfor %}
         {% else %}
@@ -285,7 +297,10 @@ HTML_PANEL = """
                 <b>Plaka:</b> {{ k[1] }} | <b>Tarih:</b> {{ k[6] }}<br>
                 <b>Müşteri:</b> {{ k[2] }} ({{ k[3] }})<br>
                 <b>İşlemler:</b> {{ k[7] }}<br>
-                <b>Toplam Tutar:</b> <span style="color: #facc15; font-weight: bold;">{{ "%.2f"|format(k[8]) }} TL</span>
+                <b>Toplam Tutar:</b> <span style="color: #facc15; font-weight: bold;">{{ "%.2f"|format(k[8]) }} TL</span> | <b>Durum:</b> {{ k[10] or 'Ödendi' }}
+                {% if k[11] %}
+                <br><a href="/pdf_indir/{{ k[0] }}" class="pdf-btn" style="margin-left:0; margin-top:8px;">📄 Formu İndir</a>
+                {% endif %}
             </div>
             {% endfor %}
         {% else %}
@@ -303,9 +318,14 @@ HTML_PANEL = """
             <button type="submit" class="btn-action">Stok Ekle / Güncelle</button>
         </form>
         <hr style="margin: 20px 0; border: 0; border-top: 1px solid #1e293b;">
-        <h4>Mevcut Stoklar</h4>
+        <h4>Mevcut Stoklar ve Uyarılar</h4>
         {% for s in stoklar %}
-        <div class="card"><b>{{ s[1] }}</b> - Adet: <span style="color: {% if s[2] < 3 %}#f87171{% else %}#4ade80{% endif %}; font-weight:bold;">{{ s[2] }}</span> | Fiyat: {{ "%.2f"|format(s[3]) }} TL</div>
+        <div class="card" style="border-left: 4px solid {% if s[2] < 3 %}#f87171{% else %}#4ade80{% endif %};">
+            <b>{{ s[1] }}</b> - Adet: <span style="color: {% if s[2] < 3 %}#f87171{% else %}#4ade80{% endif %}; font-weight:bold;">{{ s[2] }}</span> | Fiyat: {{ "%.2f"|format(s[3]) }} TL
+            {% if s[2] < 3 %}
+            <br><span style="color: #f87171; font-weight: bold; font-size: 12px;">⚠️ KRİTİK STOK: Bu ürün 3 adedin altında! Acil sipariş verilmeli.</span>
+            {% endif %}
+        </div>
         {% endfor %}
     </div>
 
@@ -337,14 +357,12 @@ HTML_PANEL = """
 
 <script>
 let isSubmitted = false;
-
 function switchTab(tabId, btn) {
     document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
     document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
     document.getElementById(tabId).classList.add('active');
     btn.classList.add('active');
 }
-
 function aracBilgileriniDoldur(selectObj) {
     const opt = selectObj.options[selectObj.selectedIndex];
     if (opt.value) {
@@ -353,15 +371,8 @@ function aracBilgileriniDoldur(selectObj) {
         document.getElementById('musteri_tel').value = opt.getAttribute('data-tel') || '';
         document.getElementById('model').value = opt.getAttribute('data-model') || '';
         document.getElementById('km').value = opt.getAttribute('data-km') || '';
-    } else {
-        document.getElementById('plaka').value = '';
-        document.getElementById('musteri_ad').value = '';
-        document.getElementById('musteri_tel').value = '';
-        document.getElementById('model').value = '';
-        document.getElementById('km').value = '';
     }
 }
-
 function addItemRow() {
     const container = document.getElementById('items-container');
     const row = document.createElement('div');
@@ -380,7 +391,6 @@ function addItemRow() {
     `;
     container.appendChild(row);
 }
-
 function handleFormSubmit(e) {
     if (isSubmitted) {
         e.preventDefault();
@@ -395,7 +405,6 @@ function handleFormSubmit(e) {
     btn.disabled = true;
     setTimeout(() => { isSubmitted = false; btn.innerText = "Servis Formu PDF İndir & Kaydet"; btn.disabled = false; }, 5000);
 }
-
 const urlParams = new URLSearchParams(window.location.search);
 const tab = urlParams.get('tab');
 if(tab === 'araclar') switchTab('araclarTab', document.querySelectorAll('.tab-btn')[1]);
@@ -550,8 +559,8 @@ def arac_ekle_hizli():
     conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
     cursor = conn.cursor()
     cursor.execute('''
-        INSERT INTO servisler (plaka, musteri_ad, musteri_tel, model, km, tarih, detaylar, toplam_tutar, durum)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Bekliyor')
+        INSERT INTO servisler (plaka, musteri_ad, musteri_tel, model, km, tarih, detaylar, toplam_tutar, durum, odeme_durumu, pdf_dosya)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Bekliyor', 'Ödendi', NULL)
     ''', (plaka, musteri_ad, musteri_tel, model, km, tarih_str, "Hızlı Kayıt", 0.0))
     conn.commit()
     conn.close()
@@ -591,6 +600,7 @@ def randevu_ekle():
 def olustur():
     if not session.get('giris'): return redirect(url_for('index'))
     ad, tel, plaka, model, km = request.form.get('musteri_ad'), request.form.get('musteri_tel'), request.form.get('plaka'), request.form.get('model'), request.form.get('km')
+    odeme_durumu = request.form.get('odeme_durumu', 'Ödendi')
     
     try:
         iscilik = float(request.form.get('iscilik', 0))
@@ -635,13 +645,6 @@ def olustur():
     islem_str = ", ".join(islem_ozeti_list) if islem_ozeti_list else "Genel Bakım"
     tarih_str = datetime.date.today().strftime("%d.%m.%Y")
 
-    cursor.execute('''
-        INSERT INTO servisler (plaka, musteri_ad, musteri_tel, model, km, tarih, detaylar, toplam_tutar, durum)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Bekliyor')
-    ''', (plaka, ad, tel, model, km, tarih_str, islem_str, genel_toplam))
-    conn.commit()
-    conn.close()
-
     logo_file = request.files.get('logo')
     logo_path = f"temp_logo_{plaka}.jpg" if logo_file and logo_file.filename != '' else None
     if logo_file and logo_path: logo_file.save(logo_path)
@@ -650,16 +653,32 @@ def olustur():
     hasar_path = f"temp_hasar_{plaka}.jpg" if hasar_file and hasar_file.filename != '' else None
     if hasar_file and hasar_path: hasar_file.save(hasar_path)
 
-    pdf_path = f"servis_formu_{plaka}.pdf"
-    pdf_olustur(pdf_path, {'musteri_ad': ad, 'musteri_tel': tel, 'plaka': plaka, 'model': model, 'km': km, 'islemler': islemler, 'iscilik': iscilik}, logo_path, hasar_path)
-    
-    response = send_file(pdf_path, as_attachment=True)
-    @response.call_on_close
-    def cleanup():
-        if os.path.exists(pdf_path): os.remove(pdf_path)
-        if logo_path and os.path.exists(logo_path): os.remove(logo_path)
-        if hasar_path and os.path.exists(hasar_path): os.remove(hasar_path)
-    return response
+    pdf_filename = f"servis_formu_{plaka}_{int(datetime.datetime.now().timestamp())}.pdf"
+    pdf_olustur(pdf_filename, {'musteri_ad': ad, 'musteri_tel': tel, 'plaka': plaka, 'model': model, 'km': km, 'islemler': islemler, 'iscilik': iscilik}, logo_path, hasar_path)
+
+    cursor.execute('''
+        INSERT INTO servisler (plaka, musteri_ad, musteri_tel, model, km, tarih, detaylar, toplam_tutar, durum, odeme_durumu, pdf_dosya)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Bekliyor', ?, ?)
+    ''', (plaka, ad, tel, model, km, tarih_str, islem_str, genel_toplam, odeme_durumu, pdf_filename))
+    conn.commit()
+    conn.close()
+
+    if logo_path and os.path.exists(logo_path): os.remove(logo_path)
+    if hasar_path and os.path.exists(hasar_path): os.remove(hasar_path)
+
+    return send_file(pdf_filename, as_attachment=True)
+
+@app.route('/pdf_indir/<int:servis_id>')
+def pdf_indir(servis_id):
+    if not session.get('giris'): return redirect(url_for('index'))
+    conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
+    cursor = conn.cursor()
+    cursor.execute("SELECT pdf_dosya FROM servisler WHERE id = ?", (servis_id,))
+    res = cursor.fetchone()
+    conn.close()
+    if res and res[0] and os.path.exists(res[0]):
+        return send_file(res[0], as_attachment=True)
+    return "PDF Formu bulunamadı kanka.", 404
 
 @app.route('/cikis')
 def cikis():
@@ -700,7 +719,7 @@ async def mesaj_yoneticisi(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if durum_bilgisi == 'plaka_sor':
         conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
         cursor = conn.cursor()
-        cursor.execute("SELECT plaka, musteri_ad, musteri_tel, model, km, tarih, detaylar, toplam_tutar, durum FROM servisler WHERE plaka LIKE ? OR musteri_ad LIKE ? ORDER BY id DESC LIMIT 3", ('%' + text + '%', '%' + text + '%'))
+        cursor.execute("SELECT plaka, musteri_ad, musteri_tel, model, km, tarih, detaylar, toplam_tutar, durum, odeme_durumu FROM servisler WHERE plaka LIKE ? OR musteri_ad LIKE ? ORDER BY id DESC LIMIT 3", ('%' + text + '%', '%' + text + '%'))
         sonuclar = cursor.fetchall()
         conn.close()
 
@@ -716,7 +735,7 @@ async def mesaj_yoneticisi(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(f"❌ '{text}' ile eşleşen kayıt bulunamadı kanka.", reply_markup=reply_markup)
         else:
             for r in sonuclar:
-                msg = f"🔍 **Servis Geçmişi:**\n- **Plaka:** {r[0]}\n- **Müşteri:** {r[1]} ({r[2]})\n- **Model / KM:** {r[3]} - {r[4]}\n- **Tarih:** {r[5]}\n- **İşlemler:** {r[6]}\n- **Tutar:** `{r[7]:.2f} TL`\n- **Durum:** `{r[8]}`"
+                msg = f"🔍 **Servis Geçmişi:**\n- **Plaka:** {r[0]}\n- **Müşteri:** {r[1]} ({r[2]})\n- **Model / KM:** {r[3]} - {r[4]}\n- **Tarih:** {r[5]}\n- **İşlemler:** {r[6]}\n- **Tutar:** `{r[7]:.2f} TL`\n- **Durum:** `{r[8]}`\n- **Ödeme:** `{r[9] or 'Ödendi'}`"
                 await update.message.reply_text(msg, parse_mode="Markdown")
             await update.message.reply_text("Ana menüdesin kanka:", reply_markup=reply_markup)
         
@@ -791,20 +810,21 @@ async def mesaj_yoneticisi(update: Update, context: ContextTypes.DEFAULT_TYPE):
         cursor.execute("SELECT parca_adi, adet, fiyat FROM stok")
         stoklar = cursor.fetchall()
         conn.close()
-        msg = "📦 **Mevcut Stoklar:**\n\n"
+        msg = "📦 **Mevcut Stoklar ve Uyarılar:**\n\n"
         for s in stoklar:
-            msg += f"- {s[1]} adet {s[0]} ({s[2]} TL)\n"
+            kritik = " ⚠️ (KRİTİK STOK!)" if s[2] < 3 else ""
+            msg += f"- {s[1]} adet {s[0]} ({s[2]} TL){kritik}\n"
         await update.message.reply_text(msg or "Stok boş.", parse_mode="Markdown")
 
     elif text == "🏍️ Araçlar":
         conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
         cursor = conn.cursor()
-        cursor.execute("SELECT plaka, musteri_ad, model, durum FROM servisler ORDER BY id DESC LIMIT 5")
+        cursor.execute("SELECT plaka, musteri_ad, model, durum, odeme_durumu FROM servisler ORDER BY id DESC LIMIT 5")
         araclar = cursor.fetchall()
         conn.close()
         msg = "🏍️ **Son Giren Araçlar:**\n\n"
         for a in araclar:
-            msg += f"- {a[0]} | {a[1]} | {a[2]} (`{a[3]}`)\n"
+            msg += f"- {a[0]} | {a[1]} | {a[2]} (`{a[3]}` - {a[4] or 'Ödendi'})\n"
         await update.message.reply_text(msg or "Kayıtlı araç yok.", parse_mode="Markdown")
     else:
         await update.message.reply_text("Kanka menüden bir seçenek seçebilir veya /start yazabilirsin.")
