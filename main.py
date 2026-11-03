@@ -1,10 +1,10 @@
 import os
 import datetime
-import sqlite3
 import time
 import threading
+import psycopg2
 from flask import Flask, render_template_string, request, send_file, session, redirect, url_for
-from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
+from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove, Bot
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
@@ -14,51 +14,63 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
 app = Flask(__name__)
-app.secret_key = "iz_motor_gizli_anahtar_erp_carbon_v41"
+app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v44"
 
 SIFRE = "izmotor2026*"
 TELEGRAM_ADMIN_CHAT_ID = None
 
-# --- VERİTABANI KURULUMU ---
+# Supabase PostgreSQL Bağlantı Adresin (Şifrendeki * işareti %2A yapılarak güvenli hale getirildi)
+DATABASE_URL = "postgresql://postgres:izmotor2026%2A@db.dcyoerlxjonqmbatennf.supabase.co:5432/postgres"
+
+def get_db_connection():
+    conn = psycopg2.connect(DATABASE_URL, sslmode='require')
+    return conn
+
+# --- VERİTABANI KURULUMU (PostgreSQL) ---
 def init_db():
-    conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
-    cursor = conn.cursor()
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS servisler (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            plaka TEXT,
-            musteri_ad TEXT,
-            musteri_tel TEXT,
-            model TEXT,
-            km TEXT,
-            tarih TEXT,
-            detaylar TEXT,
-            toplam_tutar REAL,
-            durum TEXT DEFAULT 'Bekliyor',
-            odeme_durumu TEXT DEFAULT 'Borçlu / Veresiye',
-            pdf_dosya TEXT
-        )
-    ''')
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS stok (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            parca_adi TEXT,
-            adet INTEGER,
-            fiyat REAL
-        )
-    ''')
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS randevular (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            musteri_ad TEXT,
-            tel TEXT,
-            tarih_saat TEXT,
-            notlar TEXT,
-            hatirlatildi INTEGER DEFAULT 0
-        )
-    ''')
-    conn.commit()
-    conn.close()
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS servisler (
+                id SERIAL PRIMARY KEY,
+                plaka TEXT,
+                musteri_ad TEXT,
+                musteri_tel TEXT,
+                model TEXT,
+                km TEXT,
+                tarih TEXT,
+                detaylar TEXT,
+                toplam_tutar REAL,
+                durum TEXT DEFAULT 'Bekliyor',
+                odeme_durumu TEXT DEFAULT 'Borçlu / Veresiye',
+                pdf_dosya TEXT
+            )
+        ''')
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS stok (
+                id SERIAL PRIMARY KEY,
+                parca_adi TEXT,
+                adet INTEGER,
+                fiyat REAL
+            )
+        ''')
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS randevular (
+                id SERIAL PRIMARY KEY,
+                musteri_ad TEXT,
+                tel TEXT,
+                tarih_saat TEXT,
+                notlar TEXT,
+                hatirlatildi INTEGER DEFAULT 0
+            )
+        ''')
+        conn.commit()
+        cursor.close()
+        conn.close()
+        print("Supabase Veritabanı bağlantısı ve tablolar başarılı!")
+    except Exception as e:
+        print("Veritabanı kurulum hatası:", e)
 
 init_db()
 
@@ -105,7 +117,7 @@ HTML_LOGIN = """
 <div class="login-box">
     <div class="logo-badge">🏍️</div>
     <h2>İZ MOTORSİKLET</h2>
-    <p>Karbon Garaj Yönetim Paneli</p>
+    <p>Supabase PostgreSQL Garaj Paneli</p>
     {% if error %}<div class="error">{{ error }}</div>{% endif %}
     <form method="POST">
         <input type="password" name="sifre" placeholder="••••••••••••" required autofocus>
@@ -136,7 +148,6 @@ HTML_PANEL = """
         body { 
             font-family: 'Inter', 'Segoe UI', Tahoma, sans-serif; 
             background-color: var(--bg-main);
-            /* KARBON FİBER & NOKTALI GARAJ DOKUSU */
             background-image: 
                 radial-gradient(rgba(250, 204, 21, 0.05) 1px, transparent 1px),
                 linear-gradient(135deg, #030712 0%, #0b0f19 50%, #050811 100%);
@@ -145,7 +156,6 @@ HTML_PANEL = """
         }
         .container { max-width: 900px; margin: 0 auto; background: var(--bg-card); backdrop-filter: blur(25px); padding: 18px; border-radius: 22px; box-shadow: 0 25px 60px rgba(0,0,0,0.9); border: 1px solid rgba(250,204,21,0.25); }
         
-        /* SABİT ÜST MENÜ (STICKY NAVBAR) */
         .top-navbar { position: sticky; top: 0; z-index: 100; display: flex; flex-direction: column; gap: 10px; background: rgba(5, 8, 17, 0.96); backdrop-filter: blur(20px); padding: 12px; border-radius: 16px; border: 1px solid rgba(250,204,21,0.3); margin-bottom: 18px; box-shadow: 0 10px 30px rgba(0,0,0,0.6); }
         .navbar-header { display: flex; justify-content: space-between; align-items: center; width: 100%; border-bottom: 1px solid rgba(51,65,85,0.4); padding-bottom: 8px; }
         .brand-mini { display: flex; align-items: center; gap: 10px; }
@@ -633,14 +643,14 @@ def index():
     if not session.get('giris'):
         return render_template_string(HTML_LOGIN)
 
-    conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
+    conn = get_db_connection()
     cursor = conn.cursor()
 
     sorgu_plaka = request.args.get('sorgu_plaka', '').strip()
     kayitlar = []
     
     if sorgu_plaka:
-        cursor.execute("SELECT * FROM servisler WHERE (plaka LIKE ? OR musteri_ad LIKE ?) AND odeme_durumu = 'Ödendi' ORDER BY id DESC", ('%' + sorgu_plaka + '%', '%' + sorgu_plaka + '%'))
+        cursor.execute("SELECT * FROM servisler WHERE (plaka ILIKE %s OR musteri_ad ILIKE %s) AND odeme_durumu = 'Ödendi' ORDER BY id DESC", ('%' + sorgu_plaka + '%', '%' + sorgu_plaka + '%'))
         kayitlar = cursor.fetchall()
     else:
         cursor.execute("SELECT * FROM servisler WHERE odeme_durumu = 'Ödendi' ORDER BY id DESC")
@@ -680,6 +690,7 @@ def index():
     cursor.execute("SELECT DISTINCT plaka, musteri_ad, musteri_tel, model, km FROM servisler ORDER BY id DESC")
     gecmis_araclar = cursor.fetchall()
 
+    cursor.close()
     conn.close()
     return render_template_string(HTML_PANEL, kayitlar=kayitlar, sorgu_plaka=sorgu_plaka, stoklar=stoklar, randevular=randevular, tum_servisler=tum_servisler, aktif_araclar=aktif_araclar, gecmis_araclar=gecmis_araclar, bakim_listesi=bakim_listesi, toplam_ciro=toplam_ciro)
 
@@ -693,63 +704,67 @@ def arac_ekle_hizli():
     km = request.form.get('km', '0')
     tarih_str = datetime.date.today().strftime("%d.%m.%Y")
 
-    conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
+    conn = get_db_connection()
     cursor = conn.cursor()
     
-    cursor.execute("SELECT id FROM servisler WHERE plaka = ? AND (odeme_durumu != 'Ödendi' OR odeme_durumu IS NULL)", (plaka,))
+    cursor.execute("SELECT id FROM servisler WHERE plaka = %s AND (odeme_durumu != 'Ödendi' OR odeme_durumu IS NULL)", (plaka,))
     mevcut = cursor.fetchone()
     
     if mevcut:
         cursor.execute('''
             UPDATE servisler 
-            SET musteri_ad = ?, musteri_tel = ?, model = ?, km = ?, tarih = ?
-            WHERE id = ?
+            SET musteri_ad = %s, musteri_tel = %s, model = %s, km = %s, tarih = %s
+            WHERE id = %s
         ''', (musteri_ad, musteri_tel, model, km, tarih_str, mevcut[0]))
     else:
         cursor.execute('''
             INSERT INTO servisler (plaka, musteri_ad, musteri_tel, model, km, tarih, detaylar, toplam_tutar, durum, odeme_durumu, pdf_dosya)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Bekliyor', 'Borçlu / Veresiye', NULL)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'Bekliyor', 'Borçlu / Veresiye', NULL)
         ''', (plaka, musteri_ad, musteri_tel, model, km, tarih_str, "Hızlı Kayıt", 0.0))
         
     conn.commit()
+    cursor.close()
     conn.close()
     return redirect(url_for('index') + '?tab=araclar')
 
 @app.route('/durum_guncelle', methods=['POST'])
 def durum_guncelle():
     if not session.get('giris'): return redirect(url_for('index'))
-    conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
+    conn = get_db_connection()
     cursor = conn.cursor()
     yeni_durum = request.form.get('durum')
     yeni_odeme = request.form.get('odeme_durumu')
     servis_id = request.form.get('servis_id')
     
     if yeni_durum:
-        cursor.execute("UPDATE servisler SET durum = ? WHERE id = ?", (yeni_durum, servis_id))
+        cursor.execute("UPDATE servisler SET durum = %s WHERE id = %s", (yeni_durum, servis_id))
     if yeni_odeme:
-        cursor.execute("UPDATE servisler SET odeme_durumu = ? WHERE id = ?", (yeni_odeme, servis_id))
+        cursor.execute("UPDATE servisler SET odeme_durumu = %s WHERE id = %s", (yeni_odeme, servis_id))
         
     conn.commit()
+    cursor.close()
     conn.close()
     return redirect(url_for('index') + '?tab=araclar')
 
 @app.route('/stok_ekle', methods=['POST'])
 def stok_ekle():
     if not session.get('giris'): return redirect(url_for('index'))
-    conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
+    conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("INSERT INTO stok (parca_adi, adet, fiyat) VALUES (?, ?, ?)", (request.form.get('parca_adi'), int(request.form.get('adet', 0)), float(request.form.get('fiyat', 0))))
+    cursor.execute("INSERT INTO stok (parca_adi, adet, fiyat) VALUES (%s, %s, %s)", (request.form.get('parca_adi'), int(request.form.get('adet', 0)), float(request.form.get('fiyat', 0))))
     conn.commit()
+    cursor.close()
     conn.close()
     return redirect(url_for('index') + '?tab=stock')
 
 @app.route('/randevu_ekle', methods=['POST'])
 def randevu_ekle():
     if not session.get('giris'): return redirect(url_for('index'))
-    conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
+    conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("INSERT INTO randevular (musteri_ad, tel, tarih_saat, notlar, hatirlatildi) VALUES (?, ?, ?, ?, 0)", (request.form.get('musteri_ad'), request.form.get('tel'), request.form.get('tarih_saat'), request.form.get('notlar', '')))
+    cursor.execute("INSERT INTO randevular (musteri_ad, tel, tarih_saat, notlar, hatirlatildi) VALUES (%s, %s, %s, %s, 0)", (request.form.get('musteri_ad'), request.form.get('tel'), request.form.get('tarih_saat'), request.form.get('notlar', '')))
     conn.commit()
+    cursor.close()
     conn.close()
     return redirect(url_for('index') + '?tab=randevu')
 
@@ -764,7 +779,7 @@ def olustur():
     except ValueError:
         iscilik = 0.0
 
-    conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
+    conn = get_db_connection()
     cursor = conn.cursor()
 
     islem_adlari = request.form.getlist('islem_ad[]')
@@ -791,11 +806,11 @@ def olustur():
                 islem_ozeti_list.append(f"{ad_item} (x{adt})")
 
                 if s_id:
-                    cursor.execute("SELECT adet FROM stok WHERE id = ?", (s_id,))
+                    cursor.execute("SELECT adet FROM stok WHERE id = %s", (int(s_id),))
                     stok_item = cursor.fetchone()
                     if stok_item:
                         yeni_adet = max(0, stok_item[0] - adt)
-                        cursor.execute("UPDATE stok SET adet = ? WHERE id = ?", (yeni_adet, s_id))
+                        cursor.execute("UPDATE stok SET adet = %s WHERE id = %s", (yeni_adet, int(s_id)))
             except Exception:
                 continue
 
@@ -814,7 +829,7 @@ def olustur():
     pdf_filename = f"servis_formu_{plaka}_{int(datetime.datetime.now().timestamp())}.pdf"
     pdf_olustur(pdf_filename, {'musteri_ad': ad, 'musteri_tel': tel, 'plaka': plaka, 'model': model, 'km': km, 'islemler': islemler, 'iscilik': iscilik}, logo_path, hasar_path)
 
-    cursor.execute("SELECT id, toplam_tutar, detaylar FROM servisler WHERE plaka = ? AND (odeme_durumu != 'Ödendi' OR odeme_durumu IS NULL)", (plaka,))
+    cursor.execute("SELECT id, toplam_tutar, detaylar FROM servisler WHERE plaka = %s AND (odeme_durumu != 'Ödendi' OR odeme_durumu IS NULL)", (plaka,))
     mevcut = cursor.fetchone()
 
     if mevcut:
@@ -824,16 +839,17 @@ def olustur():
         
         cursor.execute('''
             UPDATE servisler 
-            SET musteri_ad = ?, musteri_tel = ?, model = ?, km = ?, tarih = ?, detaylar = ?, toplam_tutar = ?, odeme_durumu = ?, pdf_dosya = ?
-            WHERE id = ?
+            SET musteri_ad = %s, musteri_tel = %s, model = %s, km = %s, tarih = %s, detaylar = %s, toplam_tutar = %s, odeme_durumu = %s, pdf_dosya = %s
+            WHERE id = %s
         ''', (ad, tel, model, km, tarih_str, yeni_detaylar, yeni_toplam, odeme_durumu, pdf_filename, m_id))
     else:
         cursor.execute('''
             INSERT INTO servisler (plaka, musteri_ad, musteri_tel, model, km, tarih, detaylar, toplam_tutar, durum, odeme_durumu, pdf_dosya)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Bekliyor', ?, ?)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'Bekliyor', %s, %s)
         ''', (plaka, ad, tel, model, km, tarih_str, islem_str, genel_toplam, odeme_durumu, pdf_filename))
 
     conn.commit()
+    cursor.close()
     conn.close()
 
     if logo_path and os.path.exists(logo_path): os.remove(logo_path)
@@ -844,10 +860,11 @@ def olustur():
 @app.route('/pdf_indir/<int:servis_id>')
 def pdf_indir(servis_id):
     if not session.get('giris'): return redirect(url_for('index'))
-    conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
+    conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT pdf_dosya FROM servisler WHERE id = ?", (servis_id,))
+    cursor.execute("SELECT pdf_dosya FROM servisler WHERE id = %s", (servis_id,))
     res = cursor.fetchone()
+    cursor.close()
     conn.close()
     if res and res[0] and os.path.exists(res[0]):
         return send_file(res[0], as_attachment=True)
@@ -868,7 +885,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     TELEGRAM_ADMIN_CHAT_ID = update.effective_chat.id
     SIFRE_DURUMU[user_id] = False
     BOT_DURUMLARI[user_id] = {'adim': 'sifre'}
-    await update.message.reply_text("Selam kanka! İz Motorsiklet Botuna hoş geldin.\nDevam etmek için önce **yönetici şifresini** gir kanka:")
+    await update.message.reply_text("Selam kanka! İz Motorsiklet Supabase Botuna hoş geldin.\nDevam etmek için önce **yönetici şifresini** gir kanka:")
 
 async def mesaj_yoneticisi(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global TELEGRAM_ADMIN_CHAT_ID
@@ -896,10 +913,11 @@ async def mesaj_yoneticisi(update: Update, context: ContextTypes.DEFAULT_TYPE):
     durum_bilgisi = user_state.get('adim', 'menu')
 
     if durum_bilgisi == 'plaka_sor':
-        conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
+        conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT plaka, musteri_ad, musteri_tel, model, km, tarih, detaylar, toplam_tutar, durum, odeme_durumu FROM servisler WHERE (plaka LIKE ? OR musteri_ad LIKE ?) AND odeme_durumu = 'Ödendi' ORDER BY id DESC LIMIT 3", ('%' + text + '%', '%' + text + '%'))
+        cursor.execute("SELECT plaka, musteri_ad, musteri_tel, model, km, tarih, detaylar, toplam_tutar, durum, odeme_durumu FROM servisler WHERE (plaka ILIKE %s OR musteri_ad ILIKE %s) AND odeme_durumu = 'Ödendi' ORDER BY id DESC LIMIT 3", ('%' + text + '%', '%' + text + '%'))
         sonuclar = cursor.fetchall()
+        cursor.close()
         conn.close()
 
         keyboard = [
@@ -937,10 +955,11 @@ async def mesaj_yoneticisi(update: Update, context: ContextTypes.DEFAULT_TYPE):
         tel = user_state['rand_tel']
         zaman = text
 
-        conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
+        conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("INSERT INTO randevular (musteri_ad, tel, tarih_saat, notlar, hatirlatildi) VALUES (?, ?, ?, ?, 0)", (ad, tel, zaman, "Telegram Randevusu"))
+        cursor.execute("INSERT INTO randevular (musteri_ad, tel, tarih_saat, notlar, hatirlatildi) VALUES (%s, %s, %s, %s, 0)", (ad, tel, zaman, "Telegram Randevusu"))
         conn.commit()
+        cursor.close()
         conn.close()
 
         keyboard = [
@@ -1045,10 +1064,10 @@ async def mesaj_yoneticisi(update: Update, context: ContextTypes.DEFAULT_TYPE):
             except Exception as e:
                 print("PDF hata:", e)
 
-            conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
+            conn = get_db_connection()
             cursor = conn.cursor()
             
-            cursor.execute("SELECT id, toplam_tutar, detaylar FROM servisler WHERE plaka = ? AND (odeme_durumu != 'Ödendi' OR odeme_durumu IS NULL)", (s_plaka,))
+            cursor.execute("SELECT id, toplam_tutar, detaylar FROM servisler WHERE plaka = %s AND (odeme_durumu != 'Ödendi' OR odeme_durumu IS NULL)", (s_plaka,))
             mevcut = cursor.fetchone()
 
             if mevcut:
@@ -1058,16 +1077,17 @@ async def mesaj_yoneticisi(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 
                 cursor.execute('''
                     UPDATE servisler 
-                    SET musteri_ad = ?, musteri_tel = ?, model = ?, km = ?, tarih = ?, detaylar = ?, toplam_tutar = ?, odeme_durumu = ?, pdf_dosya = ?
-                    WHERE id = ?
+                    SET musteri_ad = %s, musteri_tel = %s, model = %s, km = %s, tarih = %s, detaylar = %s, toplam_tutar = %s, odeme_durumu = %s, pdf_dosya = %s
+                    WHERE id = %s
                 ''', (s_ad, s_tel, s_model, s_km, tarih_str, yeni_detaylar, yeni_toplam, 'Borçlu / Veresiye', pdf_filename, m_id))
             else:
                 cursor.execute('''
                     INSERT INTO servisler (plaka, musteri_ad, musteri_tel, model, km, tarih, detaylar, toplam_tutar, durum, odeme_durumu, pdf_dosya)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Bekliyor', 'Borçlu / Veresiye', ?)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'Bekliyor', 'Borçlu / Veresiye', %s)
                 ''', (s_plaka, s_ad, s_tel, s_model, s_km, tarih_str, islem_str, toplam_tutar, pdf_filename))
                 
             conn.commit()
+            cursor.close()
             conn.close()
 
             if s_logo and os.path.exists(s_logo):
@@ -1104,10 +1124,11 @@ async def mesaj_yoneticisi(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Randevu vereceğin **Müşteri Adı Soyadını** yaz kanka:", reply_markup=ReplyKeyboardRemove())
 
     elif text == "⚡ Hızlı Fiyat Teklifi":
-        conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
+        conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute("SELECT parca_adi, fiyat FROM stok")
         stoklar = cursor.fetchall()
+        cursor.close()
         conn.close()
         msg = "⚡ **İZ MOTORSİKLET - FİYAT LİSTESİ**\n\n"
         for s in stoklar:
@@ -1116,20 +1137,22 @@ async def mesaj_yoneticisi(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
     elif text == "📊 Günlük Özet":
         bugun = datetime.date.today().strftime("%d.%m.%Y")
-        conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
+        conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT SUM(toplam_tutar), COUNT(id) FROM servisler WHERE tarih = ?", (bugun,))
+        cursor.execute("SELECT SUM(toplam_tutar), COUNT(id) FROM servisler WHERE tarih = %s", (bugun,))
         res = cursor.fetchone()
+        cursor.close()
         conn.close()
         ciro = res[0] if res and res[0] else 0.0
         adet = res[1] if res and res[1] else 0
         await update.message.reply_text(f"📊 **Günlük Özet ({bugun}):**\n- Giren Araç: {adet}\n- Toplam Ciro: `{ciro:.2f} TL`", parse_mode="Markdown")
 
     elif text == "📦 Stok Listesi":
-        conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
+        conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute("SELECT parca_adi, adet, fiyat FROM stok")
         stoklar = cursor.fetchall()
+        cursor.close()
         conn.close()
         msg = "📦 **Mevcut Stoklar ve Uyarılar:**\n\n"
         for s in stoklar:
@@ -1138,10 +1161,11 @@ async def mesaj_yoneticisi(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(msg or "Stok boş.", parse_mode="Markdown")
 
     elif text == "🏍️ Aktif Araçlar":
-        conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
+        conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute("SELECT plaka, musteri_ad, model, durum, odeme_durumu FROM servisler WHERE odeme_durumu != 'Ödendi' OR odeme_durumu IS NULL ORDER BY id DESC LIMIT 5")
         araclar = cursor.fetchall()
+        cursor.close()
         conn.close()
         msg = "🏍️ **Atölyedeki Aktif Araçlar:**\n\n"
         for a in araclar:
@@ -1160,7 +1184,7 @@ def randevu_hatirlatici_thread(bot_token):
             if not TELEGRAM_ADMIN_CHAT_ID:
                 continue
                 
-            conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
+            conn = get_db_connection()
             cursor = conn.cursor()
             cursor.execute("SELECT id, musteri_ad, tel, tarih_saat FROM randevular WHERE hatirlatildi = 0")
             randevular = cursor.fetchall()
@@ -1182,10 +1206,11 @@ def randevu_hatirlatici_thread(bot_token):
                         loop.run_until_complete(bot.send_message(chat_id=TELEGRAM_ADMIN_CHAT_ID, text=mesaj, parse_mode="Markdown"))
                         loop.close()
                         
-                        cursor.execute("UPDATE randevular SET hatirlatildi = 1 WHERE id = ?", (r_id,))
+                        cursor.execute("UPDATE randevular SET hatirlatildi = 1 WHERE id = %s", (r_id,))
                         conn.commit()
                 except Exception as ex:
                     print("Zaman parse hatası:", ex)
+            cursor.close()
             conn.close()
         except Exception as e:
             print("Hatırlatıcı thread hata:", e)
