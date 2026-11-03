@@ -32,7 +32,6 @@ def pdf_olustur(filename, veri):
     islemler = veri.get('islemler', [])
     yedek_parca_toplam = 0.0
     
-    # Tablo satırlarını oluşturuyoruz (10 satıra tamamlama)
     rows_html = ""
     for idx in range(10):
         if idx < len(islemler):
@@ -51,10 +50,10 @@ def pdf_olustur(filename, veri):
             
         rows_html += f"""
         <tr>
-            <td style="text-align: center; width: 35px;">{no}</td>
+            <td style="text-align: center; width: 30px;">{no}</td>
             <td>{islem_adi}</td>
-            <td style="text-align: center; width: 75px;">{adet}</td>
-            <td style="text-align: right; width: 100px;">{tutar_str}</td>
+            <td style="text-align: center; width: 70px;">{adet}</td>
+            <td style="text-align: right; width: 95px;">{tutar_str}</td>
         </tr>
         """
 
@@ -62,83 +61,90 @@ def pdf_olustur(filename, veri):
     genel_toplam = yedek_parca_toplam + iscilik_tutar
     notlar_text = veri.get('notlar', '')
 
-    # HTML & CSS Tasarımı (Motor Tamirhane Konsepti)
     html_content = f"""
     <!DOCTYPE html>
     <html lang="tr">
     <head>
         <meta charset="UTF-8">
         <style>
+            @font-face {{
+                font-family: 'DejaVu Sans';
+                src: url('file:///usr/share/fonts/truetype/dejavu/DejaVuSans.ttf');
+            }}
+            @font-face {{
+                font-family: 'DejaVu Sans';
+                font-weight: bold;
+                src: url('file:///usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf');
+            }}
             @page {{
                 size: A4;
-                margin: 12mm;
+                margin: 8mm;
             }}
             body {{
-                font-family: Helvetica, Arial, sans-serif;
+                font-family: 'DejaVu Sans', sans-serif;
                 color: #111111;
-                font-size: 10pt;
-                line-height: 1.2;
+                font-size: 9pt;
+                line-height: 1.15;
             }}
             .header-box {{
                 background-color: #121212;
                 color: #ffffff;
-                padding: 12px;
+                padding: 10px;
                 text-align: center;
-                border-bottom: 4px solid #E65100;
-                margin-bottom: 10px;
+                border-bottom: 3px solid #E65100;
+                margin-bottom: 6px;
             }}
             .header-box h1 {{
                 margin: 0;
-                font-size: 20pt;
-                letter-spacing: 2px;
+                font-size: 16pt;
+                letter-spacing: 1.5px;
                 font-weight: bold;
             }}
             .header-box p {{
-                margin: 4px 0 0 0;
-                font-size: 10pt;
+                margin: 3px 0 0 0;
+                font-size: 9pt;
                 color: #FFB300;
                 letter-spacing: 1px;
             }}
             .form-title {{
                 text-align: center;
-                font-size: 13pt;
+                font-size: 11pt;
                 font-weight: bold;
                 background-color: #E0E0E0;
-                padding: 6px;
-                margin-bottom: 10px;
+                padding: 4px;
+                margin-bottom: 6px;
                 border: 1px solid #B0B0B0;
                 text-transform: uppercase;
             }}
             .info-table, .main-table, .footer-table {{
                 width: 100%;
                 border-collapse: collapse;
-                margin-bottom: 8px;
+                margin-bottom: 6px;
             }}
             .info-table td {{
                 width: 50%;
                 vertical-align: top;
                 border: 1px solid #B0B0B0;
-                padding: 8px;
+                padding: 6px;
                 background-color: #FAFAFA;
             }}
             .section-title {{
                 font-weight: bold;
-                font-size: 9.5pt;
+                font-size: 8.5pt;
                 border-bottom: 1px solid #CCCCCC;
-                padding-bottom: 4px;
-                margin-bottom: 6px;
+                padding-bottom: 3px;
+                margin-bottom: 4px;
                 color: #333333;
             }}
             .main-table th, .main-table td {{
                 border: 1px solid #B0B0B0;
-                padding: 5px 6px;
-                font-size: 9.5pt;
+                padding: 3.5px 5px;
+                font-size: 9pt;
             }}
             .main-table th {{
                 background-color: #212121;
                 color: #ffffff;
                 text-align: center;
-                font-size: 9.5pt;
             }}
             .total-row {{
                 font-weight: bold;
@@ -151,40 +157,40 @@ def pdf_olustur(filename, veri):
             }}
             .notes-box {{
                 border: 1px solid #B0B0B0;
-                padding: 6px;
-                min-height: 35px;
-                margin-bottom: 10px;
+                padding: 5px;
+                min-height: 25px;
+                margin-bottom: 6px;
                 background-color: #FAFAFA;
             }}
             .signature-table {{
                 width: 100%;
-                margin-top: 15px;
+                margin-top: 10px;
             }}
             .signature-table td {{
                 width: 50%;
                 text-align: center;
-                padding: 10px;
+                padding: 5px;
                 vertical-align: top;
             }}
             .sig-line {{
                 border-top: 1px solid #777777;
-                margin-top: 35px;
-                padding-top: 4px;
-                font-size: 8.5pt;
+                margin-top: 25px;
+                padding-top: 3px;
+                font-size: 8pt;
                 color: #555555;
             }}
             .footer {{
-                margin-top: 15px;
-                font-size: 8pt;
+                margin-top: 8px;
+                font-size: 7.5pt;
                 color: #666666;
                 border-top: 1px solid #DDDDDD;
-                padding-top: 4px;
+                padding-top: 3px;
             }}
         </style>
     </head>
     <body>
 
-        <!-- ŞIK MOTORCU ÜST LOGO & BAŞLIK ALANI -->
+        <!-- ÜST BAŞLIK ALANI -->
         <div class="header-box">
             <h1>İZ MOTORSİKLET ÇEKMEKÖY</h1>
             <p>TAMİR • BAKIM • ONARIM • SERVİS</p>
@@ -231,14 +237,14 @@ def pdf_olustur(filename, veri):
                     <td style="text-align: right;">{yedek_parca_toplam:.2f} TL</td>
                 </tr>
                 <tr class="grand-total">
-                    <td colspan="3" style="text-align: right; font-size: 10pt;">GENEL TOPLAM:</td>
-                    <td style="text-align: right; font-size: 10pt;">{genel_toplam:.2f} TL</td>
+                    <td colspan="3" style="text-align: right; font-size: 9.5pt;">GENEL TOPLAM:</td>
+                    <td style="text-align: right; font-size: 9.5pt;">{genel_toplam:.2f} TL</td>
                 </tr>
             </tbody>
         </table>
 
         <!-- NOTLAR VE TESPİTLER -->
-        <div style="font-size: 9pt; font-weight: bold; margin-bottom: 2px;">Notlar ve Tespitler</div>
+        <div style="font-size: 8.5pt; font-weight: bold; margin-bottom: 2px;">Notlar ve Tespitler</div>
         <div class="notes-box">
             {notlar_text}
         </div>
@@ -269,14 +275,13 @@ def pdf_olustur(filename, veri):
     </html>
     """
 
-    # PDF Derleme
     result_file = open(filename, "w+b")
     pisa.CreatePDF(BytesIO(html_content.encode("utf-8")), dest=result_file)
     result_file.close()
 
 # --- BOT KOMUTLARI & AKIŞI ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Selam kanka! HTML tasarımlı profesyonel servis formu için /yeni_servis yazabilirsin.")
+    await update.message.reply_text("Selam kanka! Yeni form için /yeni_servis yazabilirsin.")
 
 async def yeni_servis(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['islemler'] = []
@@ -363,13 +368,13 @@ async def notlar_ve_bitis(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     context.user_data['notlar'] = "" if text.lower() == "yok" else text
     
-    await update.message.reply_text("HTML tabanlı servis formu hazırlanıyor...", reply_markup=ReplyKeyboardRemove())
+    await update.message.reply_text("Servis formu hazırlanıyor...", reply_markup=ReplyKeyboardRemove())
     
     pdf_path = f"servis_formu_{context.user_data['plaka']}.pdf"
     pdf_olustur(pdf_path, context.user_data)
     
     with open(pdf_path, 'rb') as doc:
-        await update.message.reply_document(document=doc, caption="İşte tam istediğin HTML tasarımlı motorcu servis formu kanka!")
+        await update.message.reply_document(document=doc, caption="İşte taş gibi tek sayfa ve düzgün Türkçe karakterli servis formu kanka!")
         
     if os.path.exists(pdf_path):
         os.remove(pdf_path)
