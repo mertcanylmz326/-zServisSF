@@ -23,10 +23,10 @@ def run_flask():
     app_flask.run(host='0.0.0.0', port=port)
 
 # --- ADIM KODLARI ---
-MUSTERI_AD, MUSTERI_TEL, ARAÇ_PLAKA, ARAÇ_MODEL, ARAÇ_KM, ISLEM_EKLE, ISLEM_ADET, ISLEM_FIYAT, ISCILIK, NOTLAR = range(10)
+LOGO_AL, MUSTERI_AD, MUSTERI_TEL, ARAÇ_PLAKA, ARAÇ_MODEL, ARAÇ_KM, ISLEM_EKLE, ISLEM_ADET, ISLEM_FIYAT, ISCILIK, NOTLAR = range(11)
 
 # --- HTML/CSS İLE PDF OLUŞTURMA FONKSİYONU ---
-def pdf_olustur(filename, veri):
+def pdf_olustur(filename, veri, logo_yolu):
     tarih_str = datetime.date.today().strftime("%d.%m.%Y")
     
     islemler = veri.get('islemler', [])
@@ -61,6 +61,11 @@ def pdf_olustur(filename, veri):
     genel_toplam = yedek_parca_toplam + iscilik_tutar
     notlar_text = veri.get('notlar', '')
 
+    # Logo HTML etiketi
+    logo_html = ""
+    if logo_yolu and os.path.exists(logo_yolu):
+        logo_html = f'<div class="logo-container"><img src="{logo_yolu}" /></div>'
+
     html_content = f"""
     <!DOCTYPE html>
     <html lang="tr">
@@ -78,68 +83,57 @@ def pdf_olustur(filename, veri):
             }}
             @page {{
                 size: A4;
-                margin: 8mm;
+                margin: 6mm;
             }}
             body {{
                 font-family: 'DejaVu Sans', sans-serif;
                 color: #111111;
-                font-size: 9pt;
-                line-height: 1.15;
+                font-size: 8.5pt;
+                line-height: 1.1;
             }}
-            .header-box {{
-                background-color: #121212;
-                color: #ffffff;
-                padding: 10px;
+            .logo-container {{
                 text-align: center;
-                border-bottom: 3px solid #E65100;
-                margin-bottom: 6px;
+                margin-bottom: 4px;
             }}
-            .header-box h1 {{
-                margin: 0;
-                font-size: 16pt;
-                letter-spacing: 1.5px;
-                font-weight: bold;
-            }}
-            .header-box p {{
-                margin: 3px 0 0 0;
-                font-size: 9pt;
-                color: #FFB300;
-                letter-spacing: 1px;
+            .logo-container img {{
+                max-width: 100%;
+                height: 55px;
+                object-fit: contain;
             }}
             .form-title {{
                 text-align: center;
-                font-size: 11pt;
+                font-size: 10.5pt;
                 font-weight: bold;
                 background-color: #E0E0E0;
-                padding: 4px;
-                margin-bottom: 6px;
+                padding: 3px;
+                margin-bottom: 4px;
                 border: 1px solid #B0B0B0;
                 text-transform: uppercase;
             }}
             .info-table, .main-table, .footer-table {{
                 width: 100%;
                 border-collapse: collapse;
-                margin-bottom: 6px;
+                margin-bottom: 4px;
             }}
             .info-table td {{
                 width: 50%;
                 vertical-align: top;
                 border: 1px solid #B0B0B0;
-                padding: 6px;
+                padding: 5px;
                 background-color: #FAFAFA;
             }}
             .section-title {{
                 font-weight: bold;
-                font-size: 8.5pt;
+                font-size: 8pt;
                 border-bottom: 1px solid #CCCCCC;
-                padding-bottom: 3px;
-                margin-bottom: 4px;
+                padding-bottom: 2px;
+                margin-bottom: 3px;
                 color: #333333;
             }}
             .main-table th, .main-table td {{
                 border: 1px solid #B0B0B0;
-                padding: 3.5px 5px;
-                font-size: 9pt;
+                padding: 3px 4px;
+                font-size: 8.5pt;
             }}
             .main-table th {{
                 background-color: #212121;
@@ -157,44 +151,41 @@ def pdf_olustur(filename, veri):
             }}
             .notes-box {{
                 border: 1px solid #B0B0B0;
-                padding: 5px;
-                min-height: 25px;
-                margin-bottom: 6px;
+                padding: 4px;
+                min-height: 20px;
+                margin-bottom: 4px;
                 background-color: #FAFAFA;
             }}
             .signature-table {{
                 width: 100%;
-                margin-top: 10px;
+                margin-top: 6px;
             }}
             .signature-table td {{
                 width: 50%;
                 text-align: center;
-                padding: 5px;
+                padding: 4px;
                 vertical-align: top;
             }}
             .sig-line {{
                 border-top: 1px solid #777777;
-                margin-top: 25px;
-                padding-top: 3px;
-                font-size: 8pt;
+                margin-top: 20px;
+                padding-top: 2px;
+                font-size: 7.5pt;
                 color: #555555;
             }}
             .footer {{
-                margin-top: 8px;
-                font-size: 7.5pt;
+                margin-top: 6px;
+                font-size: 7pt;
                 color: #666666;
                 border-top: 1px solid #DDDDDD;
-                padding-top: 3px;
+                padding-top: 2px;
             }}
         </style>
     </head>
     <body>
 
-        <!-- ÜST BAŞLIK ALANI -->
-        <div class="header-box">
-            <h1>İZ MOTORSİKLET ÇEKMEKÖY</h1>
-            <p>TAMİR • BAKIM • ONARIM • SERVİS</p>
-        </div>
+        <!-- DÜKKAN LOGOSU -->
+        {logo_html}
 
         <div class="form-title">MÜŞTERİ SERVİS FORMU</div>
 
@@ -237,14 +228,14 @@ def pdf_olustur(filename, veri):
                     <td style="text-align: right;">{yedek_parca_toplam:.2f} TL</td>
                 </tr>
                 <tr class="grand-total">
-                    <td colspan="3" style="text-align: right; font-size: 9.5pt;">GENEL TOPLAM:</td>
-                    <td style="text-align: right; font-size: 9.5pt;">{genel_toplam:.2f} TL</td>
+                    <td colspan="3" style="text-align: right; font-size: 9pt;">GENEL TOPLAM:</td>
+                    <td style="text-align: right; font-size: 9pt;">{genel_toplam:.2f} TL</td>
                 </tr>
             </tbody>
         </table>
 
         <!-- NOTLAR VE TESPİTLER -->
-        <div style="font-size: 8.5pt; font-weight: bold; margin-bottom: 2px;">Notlar ve Tespitler</div>
+        <div style="font-size: 8pt; font-weight: bold; margin-bottom: 2px;">Notlar ve Tespitler</div>
         <div class="notes-box">
             {notlar_text}
         </div>
@@ -281,11 +272,20 @@ def pdf_olustur(filename, veri):
 
 # --- BOT KOMUTLARI & AKIŞI ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Selam kanka! Yeni form için /yeni_servis yazabilirsin.")
+    await update.message.reply_text("Selam kanka! Logolu servis formu için /yeni_servis yazabilirsin.")
 
 async def yeni_servis(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['islemler'] = []
-    await update.message.reply_text("Müşteri Adı ve Soyadını gir kanka:")
+    await update.message.reply_text("Önce dükkanın logosunu veya fotoğrafını **fotoğraf olarak** gönder kanka:")
+    return LOGO_AL
+
+async def logo_al(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    photo_file = await update.message.photo[-1].get_file()
+    logo_path = f"temp_logo_{update.effective_user.id}.jpg"
+    await photo_file.download_to_drive(logo_path)
+    context.user_data['logo_path'] = logo_path
+    
+    await update.message.reply_text("Logo alındı! Şimdi Müşteri Adı ve Soyadını gir kanka:")
     return MUSTERI_AD
 
 async def musteri_ad_al(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -368,20 +368,29 @@ async def notlar_ve_bitis(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     context.user_data['notlar'] = "" if text.lower() == "yok" else text
     
-    await update.message.reply_text("Servis formu hazırlanıyor...", reply_markup=ReplyKeyboardRemove())
+    await update.message.reply_text("Logolu servis formu hazırlanıyor...", reply_markup=ReplyKeyboardRemove())
     
     pdf_path = f"servis_formu_{context.user_data['plaka']}.pdf"
-    pdf_olustur(pdf_path, context.user_data)
+    logo_yolu = context.user_data.get('logo_path')
+    
+    pdf_olustur(pdf_path, context.user_data, logo_yolu)
     
     with open(pdf_path, 'rb') as doc:
-        await update.message.reply_document(document=doc, caption="İşte taş gibi tek sayfa ve düzgün Türkçe karakterli servis formu kanka!")
+        await update.message.reply_document(document=doc, caption="İşte logolu, tek sayfa ve tertemiz servis formu kanka!")
         
     if os.path.exists(pdf_path):
         os.remove(pdf_path)
+    if logo_yolu and os.path.exists(logo_yolu):
+        os.remove(logo_yolu)
         
     return ConversationHandler.END
 
 async def iptal(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Geçici logo dosyası kaldıysa temizle
+    logo_yolu = context.user_data.get('logo_path')
+    if logo_yolu and os.path.exists(logo_yolu):
+        os.remove(logo_yolu)
+        
     await update.message.reply_text("İşlem iptal edildi kanka.", reply_markup=ReplyKeyboardRemove())
     return ConversationHandler.END
 
@@ -397,6 +406,7 @@ def main():
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler('yeni_servis', yeni_servis)],
         states={
+            LOGO_AL: [MessageHandler(filters.PHOTO, logo_al)],
             MUSTERI_AD: [MessageHandler(filters.TEXT & ~filters.COMMAND, musteri_ad_al)],
             MUSTERI_TEL: [MessageHandler(filters.TEXT & ~filters.COMMAND, musteri_tel_al)],
             ARAÇ_PLAKA: [MessageHandler(filters.TEXT & ~filters.COMMAND, arac_plaka_al)],
