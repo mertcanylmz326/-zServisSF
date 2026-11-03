@@ -13,7 +13,7 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
 app = Flask(__name__)
-app.secret_key = "iz_motor_gizli_anahtar_erp_ultra_v29"
+app.secret_key = "iz_motor_gizli_anahtar_erp_stable_v30"
 
 SIFRE = "izmotor2026*"
 
@@ -169,9 +169,14 @@ HTML_PANEL = """
         
         button[type="submit"], .btn-action { background: linear-gradient(135deg, var(--accent-gold), var(--accent-gold-dark)); color: #030712; border: none; padding: 14px; border-radius: 10px; cursor: pointer; width: 100%; font-size: 15px; font-weight: 800; margin-top: 14px; text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 5px 15px rgba(250,204,21,0.3); }
         
-        .card { background: rgba(22, 32, 50, 0.7); border: 1px solid var(--border-color); padding: 15px; border-radius: 12px; margin-bottom: 12px; font-size: 13px; line-height: 1.4; }
+        .card { background: rgba(22, 32, 50, 0.75); border: 1px solid var(--border-color); padding: 16px; border-radius: 14px; margin-bottom: 14px; font-size: 13px; line-height: 1.5; }
         
-        .action-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+        /* DURUM KONTROL ALANI (YAN YANA STABİL DROPDOWNLAR) */
+        .status-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+        .status-box label { font-size: 10px; color: var(--text-muted); margin-bottom: 3px; text-transform: uppercase; font-weight: 700; }
+        .status-box select { padding: 8px; font-size: 12px; background: rgba(3,7,18,0.95); border-radius: 8px; border: 1px solid var(--border-color); color: #fff; width: 100%; }
+
+        .action-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
         .whatsapp-btn { background: #25d366; color: #fff; padding: 8px 12px; border-radius: 8px; text-decoration: none; font-size: 11px; font-weight: 800; display: inline-block; }
         .pdf-btn { background: #0284c7; color: #fff; padding: 8px 12px; border-radius: 8px; text-decoration: none; font-size: 11px; font-weight: 800; display: inline-block; }
         
@@ -286,23 +291,38 @@ HTML_PANEL = """
 
         {% if tum_servisler %}
             {% for ts in tum_servisler %}
-            <div class="card" style="border-left: 4px solid {% if ts[10] == 'Borçlu / Veresiye' %}#f87171{% else %}#4ade80{% endif %};">
-                <b>Plaka:</b> <span style="color:var(--accent-gold); font-size:14px; font-weight:800;">{{ ts[1] }}</span> | <b>Müşteri:</b> {{ ts[2] }} ({{ ts[3] }})<br>
+            <div class="card" style="border-left: 5px solid {% if ts[10] == 'Borçlu / Veresiye' %}#f87171{% else %}#4ade80{% endif %};">
+                <b>Plaka:</b> <span style="color:var(--accent-gold); font-size:15px; font-weight:800;">{{ ts[1] }}</span> | <b>Müşteri:</b> {{ ts[2] }} ({{ ts[3] }})<br>
                 <b>Model / KM:</b> {{ ts[4] }} - {{ ts[5] }} KM | <b>Tarih:</b> {{ ts[6] }}<br>
                 <b>Yapılanlar:</b> {{ ts[7] }} | <b>Toplam:</b> <span style="color:var(--accent-gold); font-weight:800;">{{ "%.2f"|format(ts[8]) }} TL</span><br>
-                <b>Ödeme Durumu:</b> <span style="color: {% if ts[10] == 'Borçlu / Veresiye' %}#f87171{% else %}#4ade80{% endif %}; font-weight:800;">{{ ts[10] or 'Ödendi' }}</span><br>
-                <hr style="border:0; border-top:1px solid rgba(51,65,85,0.5); margin: 8px 0;">
-                <form action="/durum_guncelle" method="POST" style="margin-bottom: 6px;">
+                
+                <hr style="border:0; border-top:1px solid rgba(51,65,85,0.5); margin: 10px 0;">
+                
+                <!-- STABİL YAN YANA DURUM VE ÖDEME GÜNCELLEME FORMU -->
+                <form action="/durum_guncelle" method="POST">
                     <input type="hidden" name="servis_id" value="{{ ts[0] }}">
-                    <label style="font-size:11px; margin-bottom:3px;">Durum Güncelle:</label>
-                    <select name="durum" style="padding: 6px; font-size: 12px; background: rgba(3,7,18,0.9);" onchange="this.form.submit()">
-                        <option value="Bekliyor" {% if ts[9] == 'Bekliyor' %}selected{% endif %}>Bekliyor</option>
-                        <option value="İşlemde" {% if ts[9] == 'İşlemde' %}selected{% endif %}>İşlemde</option>
-                        <option value="Hazır" {% if ts[9] == 'Hazır' %}selected{% endif %}>Hazır</option>
-                        <option value="Teslime Hazır" {% if ts[9] == 'Teslime Hazır' %}selected{% endif %}>Teslime Hazır</option>
-                        <option value="Parça Bekliyor" {% if ts[9] == 'Parça Bekliyor' %}selected{% endif %}>Parça Bekliyor</option>
-                    </select>
+                    <div class="status-controls">
+                        <div class="status-box">
+                            <label>Çalışma Durumu</label>
+                            <select name="durum" onchange="this.form.submit()">
+                                <option value="Bekliyor" {% if ts[9] == 'Bekliyor' %}selected{% endif %}>Bekliyor</option>
+                                <option value="İşlemde" {% if ts[9] == 'İşlemde' %}selected{% endif %}>İşlemde</option>
+                                <option value="Hazır" {% if ts[9] == 'Hazır' %}selected{% endif %}>Hazır</option>
+                                <option value="Teslime Hazır" {% if ts[9] == 'Teslime Hazır' %}selected{% endif %}>Teslime Hazır</option>
+                                <option value="Parça Bekliyor" {% if ts[9] == 'Parça Bekliyor' %}selected{% endif %}>Parça Bekliyor</option>
+                            </select>
+                        </div>
+                        <div class="status-box">
+                            <label>Ödeme Durumu</label>
+                            <select name="odeme_durumu" onchange="this.form.submit()">
+                                <option value="Ödendi" {% if ts[10] == 'Ödendi' or not ts[10] %}selected{% endif %}>🟢 Ödendi</option>
+                                <option value="Borçlu / Veresiye" {% if ts[10] == 'Borçlu / Veresiye' %}selected{% endif %}>🔴 Borçlu</option>
+                                <option value="Parça Bekliyor" {% if ts[10] == 'Parça Bekliyor' %}selected{% endif %}>🟡 Parça Bekliyor</option>
+                            </select>
+                        </div>
+                    </div>
                 </form>
+
                 <div class="action-buttons">
                     <a href="https://wa.me/{{ ts[3] }}?text=Sayin%20{{ ts[2] }},%20Iz%20Motorsiklet%20servis%20ucretiniz%20{{ "%.2f"|format(ts[8]) }}%20TL%20durumu:%20{{ ts[10] or 'Ödendi' }}." target="_blank" class="whatsapp-btn">💬 WhatsApp</a>
                     {% if ts[11] %}
@@ -331,7 +351,7 @@ HTML_PANEL = """
                 <b>Plaka:</b> <span style="color:var(--accent-gold);">{{ k[1] }}</span> | <b>Tarih:</b> {{ k[6] }}<br>
                 <b>Müşteri:</b> {{ k[2] }} ({{ k[3] }})<br>
                 <b>İşlemler:</b> {{ k[7] }}<br>
-                <b>Toplam Tutar:</b> <span style="color: var(--accent-gold); font-weight: 800;">{{ "%.2f"|format(k[8]) }} TL</span> | <b>Durum:</b> {{ k[10] or 'Ödendi' }}
+                <b>Toplam Tutar:</b> <span style="color: var(--accent-gold); font-weight: 800;">{{ "%.2f"|format(k[8]) }} TL</span> | <b>Ödeme:</b> {{ k[10] or 'Ödendi' }}
                 {% if k[11] %}
                 <div style="margin-top: 8px;"><a href="/pdf_indir/{{ k[0] }}" class="pdf-btn">📄 Formu İndir (PDF)</a></div>
                 {% endif %}
@@ -609,7 +629,15 @@ def durum_guncelle():
     if not session.get('giris'): return redirect(url_for('index'))
     conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
     cursor = conn.cursor()
-    cursor.execute("UPDATE servisler SET durum = ? WHERE id = ?", (request.form.get('durum'), request.form.get('servis_id')))
+    yeni_durum = request.form.get('durum')
+    yeni_odeme = request.form.get('odeme_durumu')
+    servis_id = request.form.get('servis_id')
+    
+    if yeni_durum:
+        cursor.execute("UPDATE servisler SET durum = ? WHERE id = ?", (yeni_durum, servis_id))
+    if yeni_odeme:
+        cursor.execute("UPDATE servisler SET odeme_durumu = ? WHERE id = ?", (yeni_odeme, servis_id))
+        
     conn.commit()
     conn.close()
     return redirect(url_for('index') + '?tab=araclar')
@@ -723,7 +751,7 @@ def cikis():
     session.pop('giris', None)
     return redirect(url_for('index'))
 
-# --- TELEGRAM BOTU (SERVİS FORMU SİHİRBAZI EKLENDİ) ---
+# --- TELEGRAM BOTU ---
 SIFRE_DURUMU = {}
 BOT_DURUMLARI = {}
 
@@ -755,7 +783,6 @@ async def mesaj_yoneticisi(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_state = BOT_DURUMLARI.get(user_id, {})
     durum_bilgisi = user_state.get('adim', 'menu')
 
-    # --- PLAKA SORGULAMA ADIMI ---
     if durum_bilgisi == 'plaka_sor':
         conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
         cursor = conn.cursor()
@@ -782,7 +809,6 @@ async def mesaj_yoneticisi(update: Update, context: ContextTypes.DEFAULT_TYPE):
         BOT_DURUMLARI[user_id] = {'adim': 'menu'}
         return
 
-    # --- RANDEVU ADIMLARI ---
     rand_adim = user_state.get('randevu_adim')
     if rand_adim == 'ad_al':
         BOT_DURUMLARI[user_id]['rand_ad'] = text
@@ -815,7 +841,6 @@ async def mesaj_yoneticisi(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"✅ **Randevu Başarıyla Kaydedildi!**\n- Müşteri: {ad} ({tel})\n- Zaman: `{zaman}`", parse_mode="Markdown", reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True))
         return
 
-    # --- SERVİS FORMU SİHİRBAZI ADIMLARI ---
     servis_adim = user_state.get('servis_adim')
     if servis_adim == 'plaka_al':
         BOT_DURUMLARI[user_id]['s_plaka'] = text
@@ -868,12 +893,11 @@ async def mesaj_yoneticisi(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ]
         BOT_DURUMLARI[user_id] = {'adim': 'menu'}
         await update.message.reply_text(
-            f"✅ **Servis Formu Kaydı Başarıyla Oluşturuldu!**\n\n- Plaka: `{s_plaka}`\n- Müşteri: {s_ad} ({s_tel})\n- Model/KM: {s_model} - {s_km}\n- İşlem: {islem_notu}\n\n*(Not: Detaylı PDF çıktısı ve logolar için web panelini kullanabilirsin kanka)*",
+            f"✅ **Servis Formu Kaydı Başarıyla Oluşturuldu!**\n\n- Plaka: `{s_plaka}`\n- Müşteri: {s_ad} ({s_tel})\n- Model/KM: {s_model} - {s_km}\n- İşlem: {islem_notu}",
             parse_mode="Markdown", reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
         )
         return
 
-    # --- ANA MENÜ SEÇİMLERİ ---
     if text == "🛠️ Servis Formu Oluştur":
         BOT_DURUMLARI[user_id] = {'adim': 'servis_formu', 'servis_adim': 'plaka_al'}
         await update.message.reply_text("Servis formu için motosiklet **Plakasını** yaz kanka:", reply_markup=ReplyKeyboardRemove())
