@@ -14,12 +14,12 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
 app = Flask(__name__)
-app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v47"
+app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v49"
 
 SIFRE = "izmotor2026*"
 TELEGRAM_ADMIN_CHAT_ID = None
 
-# Doğrudan Supabase 5432 Portlu Doğrudan Bağlantı (Şifrendeki * işareti %2A yapılmıştır)
+# Supabase Havuz (Pooler) Bağlantı Adresi (Frankfurt Havuz - IPv4 Uyumlu)
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres.dcyoerlxjonqmbatennf:izmotor2026%2A@aws-0-eu-central-1.pooler.supabase.com:6543/postgres")
 
 def get_db_connection():
@@ -68,7 +68,7 @@ def init_db():
         conn.commit()
         cursor.close()
         conn.close()
-        print("Supabase Veritabanı bağlantısı ve tablolar başarılı!")
+        print("Supabase Havuz Veritabanı bağlantısı ve tablolar başarılı!")
     except Exception as e:
         print("Veritabanı kurulum hatası:", e)
 
@@ -84,7 +84,7 @@ except Exception:
     FONT_NAME = 'Helvetica'
     FONT_BOLD = 'Helvetica-Bold'
 
-# --- HTML ARAYÜZ (KARBON FİBER GARAJ TASARIMI) ---
+# --- HTML ARAYÜZ ---
 HTML_LOGIN = """
 <!DOCTYPE html>
 <html lang="tr">
@@ -93,15 +93,7 @@ HTML_LOGIN = """
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>İz Motorsiklet - Giriş</title>
     <style>
-        body { 
-            font-family: 'Inter', 'Segoe UI', sans-serif; 
-            background-color: #0b0f19;
-            background-image: 
-                radial-gradient(rgba(250, 204, 21, 0.08) 1px, transparent 1px),
-                linear-gradient(135deg, #050811 0%, #0f172a 100%);
-            background-size: 20px 20px, 100% 100%;
-            display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; color: #f8fafc; 
-        }
+        body { font-family: 'Inter', 'Segoe UI', sans-serif; background-color: #0b0f19; background-image: radial-gradient(rgba(250, 204, 21, 0.08) 1px, transparent 1px), linear-gradient(135deg, #050811 0%, #0f172a 100%); background-size: 20px 20px, 100% 100%; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; color: #f8fafc; }
         .login-box { background: rgba(11, 15, 25, 0.92); backdrop-filter: blur(25px); border: 1px solid rgba(250, 204, 21, 0.4); padding: 45px 30px; border-radius: 28px; box-shadow: 0 30px 60px rgba(0,0,0,0.9); width: 100%; max-width: 380px; text-align: center; }
         .logo-badge { font-size: 52px; margin-bottom: 12px; filter: drop-shadow(0 0 15px rgba(250,204,21,0.5)); }
         h2 { color: #f8fafc; margin-bottom: 6px; letter-spacing: 2px; font-weight: 800; font-size: 24px; text-transform: uppercase; }
@@ -117,7 +109,7 @@ HTML_LOGIN = """
 <div class="login-box">
     <div class="logo-badge">🏍️</div>
     <h2>İZ MOTORSİKLET</h2>
-    <p>Supabase Garaj Paneli</p>
+    <p>Supabase Havuz Garaj Paneli</p>
     {% if error %}<div class="error">{{ error }}</div>{% endif %}
     <form method="POST">
         <input type="password" name="sifre" placeholder="••••••••••••" required autofocus>
@@ -136,86 +128,46 @@ HTML_PANEL = """
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>İz Motorsiklet - Karbon ERP Paneli</title>
     <style>
-        :root {
-            --bg-main: #050811;
-            --bg-card: rgba(11, 15, 25, 0.9);
-            --border-color: rgba(51, 65, 85, 0.6);
-            --accent-gold: #facc15;
-            --accent-gold-dark: #ca8a04;
-            --text-main: #f8fafc;
-            --text-muted: #94a3b8;
-        }
-        body { 
-            font-family: 'Inter', 'Segoe UI', Tahoma, sans-serif; 
-            background-color: var(--bg-main);
-            background-image: 
-                radial-gradient(rgba(250, 204, 21, 0.05) 1px, transparent 1px),
-                linear-gradient(135deg, #030712 0%, #0b0f19 50%, #050811 100%);
-            background-size: 16px 16px, 100% 100%;
-            margin: 0; padding: 10px; color: var(--text-main); box-sizing: border-box; 
-        }
+        :root { --bg-main: #050811; --bg-card: rgba(11, 15, 25, 0.9); --border-color: rgba(51, 65, 85, 0.6); --accent-gold: #facc15; --accent-gold-dark: #ca8a04; --text-main: #f8fafc; --text-muted: #94a3b8; }
+        body { font-family: 'Inter', 'Segoe UI', Tahoma, sans-serif; background-color: var(--bg-main); background-image: radial-gradient(rgba(250, 204, 21, 0.05) 1px, transparent 1px), linear-gradient(135deg, #030712 0%, #0b0f19 50%, #050811 100%); background-size: 16px 16px, 100% 100%; margin: 0; padding: 10px; color: var(--text-main); box-sizing: border-box; }
         .container { max-width: 900px; margin: 0 auto; background: var(--bg-card); backdrop-filter: blur(25px); padding: 18px; border-radius: 22px; box-shadow: 0 25px 60px rgba(0,0,0,0.9); border: 1px solid rgba(250,204,21,0.25); }
-        
         .top-navbar { position: sticky; top: 0; z-index: 100; display: flex; flex-direction: column; gap: 10px; background: rgba(5, 8, 17, 0.96); backdrop-filter: blur(20px); padding: 12px; border-radius: 16px; border: 1px solid rgba(250,204,21,0.3); margin-bottom: 18px; box-shadow: 0 10px 30px rgba(0,0,0,0.6); }
         .navbar-header { display: flex; justify-content: space-between; align-items: center; width: 100%; border-bottom: 1px solid rgba(51,65,85,0.4); padding-bottom: 8px; }
         .brand-mini { display: flex; align-items: center; gap: 10px; }
         .brand-logo { background: linear-gradient(135deg, var(--accent-gold), var(--accent-gold-dark)); width: 34px; height: 34px; border-radius: 10px; display: flex; justify-content: center; align-items: center; font-size: 18px; box-shadow: 0 0 15px rgba(250,204,21,0.45); flex-shrink: 0; }
         .brand-title h1 { color: var(--accent-gold); margin: 0; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; font-weight: 800; }
-        .logout a { color: #f87171; text-decoration: none; font-size: 11px; font-weight: 700; padding: 6px 10px; background: rgba(248,113,113,0.12); border-radius: 8px; border: 1px solid rgba(248,113,113,0.3); transition: 0.2s; }
-        .logout a:active { transform: scale(0.95); }
-
+        .logout a { color: #f87171; text-decoration: none; font-size: 11px; font-weight: 700; padding: 6px 10px; background: rgba(248,113,113,0.12); border-radius: 8px; border: 1px solid rgba(248,113,113,0.3); }
         .nav-tabs { display: flex; gap: 6px; overflow-x: auto; white-space: nowrap; padding-bottom: 2px; scrollbar-width: none; }
         .nav-tabs::-webkit-scrollbar { display: none; }
-        
-        .tab-btn { background: rgba(15, 23, 42, 0.95); color: var(--text-muted); border: 1px solid #1f2937; padding: 8px 14px; border-radius: 10px; cursor: pointer; font-weight: 700; font-size: 12px; transition: 0.2s; flex-shrink: 0; }
-        .tab-btn:hover { color: #fff; background: rgba(30,41,59,0.95); }
+        .tab-btn { background: rgba(15, 23, 42, 0.95); color: var(--text-muted); border: 1px solid #1f2937; padding: 8px 14px; border-radius: 10px; cursor: pointer; font-weight: 700; font-size: 12px; flex-shrink: 0; }
         .tab-btn.active { background: linear-gradient(135deg, var(--accent-gold), var(--accent-gold-dark)); color: #030712; border-color: var(--accent-gold); box-shadow: 0 4px 15px rgba(250,204,21,0.4); font-weight: 800; }
-
         .dashboard-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 18px; }
         @media(min-width: 600px) { .dashboard-grid { grid-template-columns: repeat(4, 1fr); } }
-        
         .stat-card { background: rgba(20, 27, 45, 0.6); border: 1px solid var(--border-color); padding: 12px; border-radius: 14px; position: relative; overflow: hidden; }
         .stat-card::after { content: ''; position: absolute; top: 0; left: 0; width: 3px; height: 100%; background: var(--accent-gold); border-radius: 3px 0 0 3px; }
         .stat-card h3 { margin: 0; font-size: 17px; color: var(--accent-gold); font-weight: 800; }
-        .stat-card p { margin: 4px 0 0 0; color: var(--text-muted); font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
-
-        .tab-content { display: none; animation: fadeIn 0.3s ease; }
+        .stat-card p { margin: 4px 0 0 0; color: var(--text-muted); font-size: 9px; font-weight: 700; text-transform: uppercase; }
+        .tab-content { display: none; }
         .tab-content.active { display: block; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
-
         h3 { color: var(--accent-gold); border-bottom: 1px solid rgba(51,65,85,0.6); padding-bottom: 10px; margin-top: 0; font-size: 16px; font-weight: 800; }
         .form-group { margin-bottom: 14px; }
         label { display: block; font-weight: 700; margin-bottom: 5px; font-size: 12px; color: #cbd5e1; }
-        input, textarea, select { width: 100%; padding: 12px; background: rgba(5, 8, 17, 0.95); border: 1px solid var(--border-color); border-radius: 12px; color: #fff; box-sizing: border-box; font-size: 14px; outline: none; transition: 0.2s; }
-        input:focus, textarea:focus, select:focus { border-color: var(--accent-gold); box-shadow: 0 0 12px rgba(250,204,21,0.3); }
-        
+        input, textarea, select { width: 100%; padding: 12px; background: rgba(5, 8, 17, 0.95); border: 1px solid var(--border-color); border-radius: 12px; color: #fff; box-sizing: border-box; font-size: 14px; outline: none; }
         .item-row { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; background: rgba(20, 27, 45, 0.5); padding: 10px; border-radius: 12px; border: 1px solid var(--border-color); }
         @media(min-width: 550px) { .item-row { flex-direction: row; align-items: center; } }
         .item-row input.name-input { flex: 2; }
         .item-row select { flex: 1.5; background: rgba(5,8,17,0.95); font-size: 12px; }
         .item-row input.small { flex: 0.8; }
-        
-        .btn-add { background: #0d9488; color: #fff; border: none; padding: 12px; border-radius: 12px; cursor: pointer; font-weight: 800; width: 100%; margin-bottom: 14px; transition: 0.2s; }
-        .btn-add:active { transform: scale(0.98); }
+        .btn-add { background: #0d9488; color: #fff; border: none; padding: 12px; border-radius: 12px; cursor: pointer; font-weight: 800; width: 100%; margin-bottom: 14px; }
         .btn-remove { background: #dc2626; color: #fff; border: none; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-weight: 800; align-self: flex-end; }
-        @media(min-width: 550px) { .btn-remove { align-self: center; } }
-        
-        button[type="submit"], .btn-action { background: linear-gradient(135deg, var(--accent-gold), var(--accent-gold-dark)); color: #030712; border: none; padding: 14px; border-radius: 12px; cursor: pointer; width: 100%; font-size: 14px; font-weight: 800; margin-top: 14px; text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 6px 20px rgba(250,204,21,0.35); transition: 0.2s; }
-        button[type="submit"]:active, .btn-action:active { transform: scale(0.98); }
-        
-        .card { background: rgba(18, 24, 40, 0.75); border: 1px solid var(--border-color); padding: 16px; border-radius: 16px; margin-bottom: 14px; font-size: 13px; line-height: 1.5; box-shadow: 0 10px 30px rgba(0,0,0,0.4); transition: 0.2s; }
-        .card:hover { border-color: rgba(250,204,21,0.4); }
-        
+        button[type="submit"], .btn-action { background: linear-gradient(135deg, var(--accent-gold), var(--accent-gold-dark)); color: #030712; border: none; padding: 14px; border-radius: 12px; cursor: pointer; width: 100%; font-size: 14px; font-weight: 800; margin-top: 14px; text-transform: uppercase; box-shadow: 0 6px 20px rgba(250,204,21,0.35); }
+        .card { background: rgba(18, 24, 40, 0.75); border: 1px solid var(--border-color); padding: 16px; border-radius: 16px; margin-bottom: 14px; font-size: 13px; line-height: 1.5; }
         .status-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
         .status-box label { font-size: 10px; color: var(--text-muted); margin-bottom: 3px; text-transform: uppercase; font-weight: 700; }
         .status-box select { padding: 9px; font-size: 12px; background: rgba(5,8,17,0.98); border-radius: 10px; border: 1px solid var(--border-color); color: #fff; width: 100%; font-weight: 700; }
-
         .action-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-        .whatsapp-btn { background: #25d366; color: #fff; padding: 8px 12px; border-radius: 9px; text-decoration: none; font-size: 11px; font-weight: 800; display: inline-block; box-shadow: 0 4px 12px rgba(37,211,102,0.35); transition: 0.2s; }
-        .whatsapp-btn:active { transform: scale(0.95); }
-        .pdf-btn { background: #0284c7; color: #fff; padding: 8px 12px; border-radius: 9px; text-decoration: none; font-size: 11px; font-weight: 800; display: inline-block; box-shadow: 0 4px 12px rgba(2,132,199,0.35); transition: 0.2s; }
-        .pdf-btn:active { transform: scale(0.95); }
-        
+        .whatsapp-btn { background: #25d366; color: #fff; padding: 8px 12px; border-radius: 9px; text-decoration: none; font-size: 11px; font-weight: 800; display: inline-block; }
+        .pdf-btn { background: #0284c7; color: #fff; padding: 8px 12px; border-radius: 9px; text-decoration: none; font-size: 11px; font-weight: 800; display: inline-block; }
         .alert-box { background: rgba(250,204,21,0.15); border: 1px solid var(--accent-gold); padding: 12px; border-radius: 12px; color: var(--accent-gold); margin-bottom: 15px; font-weight: 800; text-align: center; display: none; font-size: 12px; }
     </style>
 </head>
@@ -225,13 +177,10 @@ HTML_PANEL = """
         <div class="navbar-header">
             <div class="brand-mini">
                 <div class="brand-logo">🏍️</div>
-                <div class="brand-title">
-                    <h1>İz Motorsiklet</h1>
-                </div>
+                <div class="brand-title"><h1>İz Motorsiklet</h1></div>
             </div>
             <div class="logout"><a href="/cikis">Çıkış</a></div>
         </div>
-        
         <div class="nav-tabs">
             <button class="tab-btn active" onclick="switchTab('formTab', this)">🛠️ Servis</button>
             <button class="tab-btn" onclick="switchTab('araclarTab', this)">🏍️ Araçlar</button>
@@ -258,9 +207,7 @@ HTML_PANEL = """
             <select id="aracSecici" onchange="aracBilgileriniDoldur(this)" style="background: rgba(5,8,17,0.95); font-size: 13px; padding: 11px;">
                 <option value="">-- Listeden Araç Seç (İsteğe Bağlı) --</option>
                 {% for ts in aktif_araclar %}
-                <option value="{{ ts[1] }}" data-ad="{{ ts[2] }}" data-tel="{{ ts[3] }}" data-model="{{ ts[4] }}" data-km="{{ ts[5] }}">
-                    {{ ts[1] }} - {{ ts[2] }} ({{ ts[4] }})
-                </option>
+                <option value="{{ ts[1] }}" data-ad="{{ ts[2] }}" data-tel="{{ ts[3] }}" data-model="{{ ts[4] }}" data-km="{{ ts[5] }}">{{ ts[1] }} - {{ ts[2] }} ({{ ts[4] }})</option>
                 {% endfor %}
             </select>
         </div>
@@ -310,22 +257,17 @@ HTML_PANEL = """
     <!-- 2. ARAÇLAR & DURUM -->
     <div id="araclarTab" class="tab-content">
         <h3>Atölyedeki / Servisteki Aktif Araçlar</h3>
-        
         <div style="background: rgba(20, 27, 45, 0.5); border: 1px solid rgba(250,204,21,0.3); padding: 14px; border-radius: 14px; margin-bottom: 18px;">
             <h4 style="color: var(--accent-gold); margin-top: 0; margin-bottom: 8px; font-size: 13px; font-weight: 800;">➕ Doğrudan Servise Yeni Araç Ekle</h4>
-            
             <div class="form-group" style="margin-bottom: 10px;">
                 <label style="color: var(--accent-gold);">⚡ Daha Önce Gelen Eski Araçtan Seç</label>
                 <select id="hizliPlakaSecici" onchange="hizliAracBilgileriniDoldur(this)" style="background: rgba(5,8,17,0.95); font-size: 13px; padding: 11px;">
                     <option value="">-- Geçmiş Araçlardan Seç (İsteğe Bağlı) --</option>
                     {% for g in gecmis_araclar %}
-                    <option value="{{ g[1] }}" data-ad="{{ g[2] }}" data-tel="{{ g[3] }}" data-model="{{ g[4] }}" data-km="{{ g[5] }}">
-                        {{ g[1] }} - {{ g[2] }} ({{ g[4] }})
-                    </option>
+                    <option value="{{ g[1] }}" data-ad="{{ g[2] }}" data-tel="{{ g[3] }}" data-model="{{ g[4] }}" data-km="{{ g[5] }}">{{ g[1] }} - {{ g[2] }} ({{ g[4] }})</option>
                     {% endfor %}
                 </select>
             </div>
-
             <form action="/arac_ekle_hizli" method="POST">
                 <div style="display: flex; flex-direction: column; gap: 8px;">
                     <input type="text" id="h_plaka" name="plaka" placeholder="Plaka (Örn: 34 ABC)" required>
@@ -346,7 +288,6 @@ HTML_PANEL = """
                 <b>Yapılanlar:</b> {{ ts[7] }} | <b>Toplam:</b> <span style="color:var(--accent-gold); font-weight:800;">{{ "%.2f"|format(ts[8]) }} TL</span><br>
                 
                 <hr style="border:0; border-top:1px solid rgba(51,65,85,0.5); margin: 10px 0;">
-                
                 <form action="/durum_guncelle" method="POST">
                     <input type="hidden" name="servis_id" value="{{ ts[0] }}">
                     <div class="status-controls">
@@ -372,9 +313,7 @@ HTML_PANEL = """
 
                 <div class="action-buttons">
                     <a href="https://wa.me/{{ ts[3] }}?text=Sayin%20{{ ts[2] }},%20Iz%20Motorsiklet%20servis%20ucretiniz%20{{ "%.2f"|format(ts[8]) }}%20TL%20durumu:%20{{ ts[10] or 'Borçlu' }}." target="_blank" class="whatsapp-btn">💬 WhatsApp</a>
-                    {% if ts[11] %}
-                    <a href="/pdf_indir/{{ ts[0] }}" class="pdf-btn">📄 Formu İndir (PDF)</a>
-                    {% endif %}
+                    {% if ts[11] %}<a href="/pdf_indir/{{ ts[0] }}" class="pdf-btn">📄 Formu İndir (PDF)</a>{% endif %}
                 </div>
             </div>
             {% endfor %}
@@ -399,9 +338,7 @@ HTML_PANEL = """
                 <b>Müşteri:</b> {{ k[2] }} ({{ k[3] }})<br>
                 <b>İşlemler:</b> {{ k[7] }}<br>
                 <b>Toplam Tutar:</b> <span style="color: var(--accent-gold); font-weight: 800;">{{ "%.2f"|format(k[8]) }} TL</span> | <b>Ödeme:</b> <span style="color: #4ade80; font-weight:800;">{{ k[10] }}</span>
-                {% if k[11] %}
-                <div style="margin-top: 8px;"><a href="/pdf_indir/{{ k[0] }}" class="pdf-btn">📄 Formu İndir (PDF)</a></div>
-                {% endif %}
+                {% if k[11] %}<div style="margin-top: 8px;"><a href="/pdf_indir/{{ k[0] }}" class="pdf-btn">📄 Formu İndir (PDF)</a></div>{% endif %}
             </div>
             {% endfor %}
         {% else %}
@@ -423,9 +360,7 @@ HTML_PANEL = """
         {% for s in stoklar %}
         <div class="card" style="border-left: 4px solid {% if s[2] < 3 %}#f87171{% else %}#4ade80{% endif %};">
             <b>{{ s[1] }}</b> - Adet: <span style="color: {% if s[2] < 3 %}#f87171{% else %}#4ade80{% endif %}; font-weight:800; font-size:14px;">{{ s[2] }}</span> | Fiyat: <b>{{ "%.2f"|format(s[3]) }} TL</b>
-            {% if s[2] < 3 %}
-            <br><span style="color: #f87171; font-weight: 800; font-size: 11px; display:inline-block; margin-top:5px; background:rgba(248,113,113,0.15); padding:3px 6px; border-radius:5px; border:1px solid rgba(248,113,113,0.35);">⚠️ KRİTİK STOK: Bu ürün 3 adedin altında!</span>
-            {% endif %}
+            {% if s[2] < 3 %}<br><span style="color: #f87171; font-weight: 800; font-size: 11px; display:inline-block; margin-top:5px; background:rgba(248,113,113,0.15); padding:3px 6px; border-radius:5px; border:1px solid rgba(248,113,113,0.35);">⚠️ KRİTİK STOK: Bu ürün 3 adedin altında!</span>{% endif %}
         </div>
         {% endfor %}
     </div>
@@ -447,10 +382,7 @@ HTML_PANEL = """
             <b>Müşteri:</b> {{ r[1] }} ({{ r[2] }})<br>
             <b>Zaman:</b> <span style="color:var(--accent-gold); font-weight:800;">{{ r[3] }}</span>
             {% if r[4] %}<br><b>Not:</b> {{ r[4] }}{% endif %}
-            
-            <div style="margin-top: 10px;">
-                <a href="https://wa.me/{{ r[2] }}?text=Sayin%20{{ r[1] }},%20Iz%20Motorsiklet%20servisimizde%20{{ r[3] }}%20tarihli%20randevunuz%20bulunmaktadir,%20bekliyoruz." target="_blank" class="whatsapp-btn">💬 WhatsApp Hatırlat</a>
-            </div>
+            <div style="margin-top: 10px;"><a href="https://wa.me/{{ r[2] }}?text=Sayin%20{{ r[1] }},%20Iz%20Motorsiklet%20servisimizde%20{{ r[3] }}%20tarihli%20randevunuz%20bulunmaktadir,%20bekliyoruz." target="_blank" class="whatsapp-btn">💬 WhatsApp Hatırlat</a></div>
         </div>
         {% endfor %}
     </div>
@@ -464,10 +396,7 @@ HTML_PANEL = """
                 <b>Plaka:</b> <span style="color:var(--accent-gold); font-size:14px; font-weight:800;">{{ b[1] }}</span> | <b>Müşteri:</b> {{ b[2] }} ({{ b[3] }})<br>
                 <b>Son Servis Tarihi:</b> {{ b[6] }} | <b>Geçen Süre:</b> <span style="color:var(--accent-gold); font-weight:800;">{{ b.gecen_sure }}</span><br>
                 <b>Yapılan İşlem:</b> {{ b[7] }}
-                
-                <div style="margin-top: 12px;">
-                    <a href="https://wa.me/{{ b[3] }}?text=Sayin%20{{ b[2] }},%20Iz%20Motorsiklet%20servisimizdeki%20son%20bakiminizdan%20beri%20sure%20gecti,%20yag%20ve%20genel%20bakim%20vaktiniz%20yaklasmis%20olabilir,%20bekleriz." target="_blank" class="whatsapp-btn">💬 Bakım Hatırlatması Gönder (WhatsApp)</a>
-                </div>
+                <div style="margin-top: 12px;"><a href="https://wa.me/{{ b[3] }}?text=Sayin%20{{ b[2] }},%20Iz%20Motorsiklet%20servisimizdeki%20son%20bakiminizdan%20beri%20sure%20gecti,%20yag%20ve%20genel%20bakim%20vaktiniz%20yaklasmis%20olabilir,%20bekleriz." target="_blank" class="whatsapp-btn">💬 Bakım Hatırlatması Gönder (WhatsApp)</a></div>
             </div>
             {% endfor %}
         {% else %}
@@ -706,21 +635,13 @@ def arac_ekle_hizli():
 
     conn = get_db_connection()
     cursor = conn.cursor()
-    
     cursor.execute("SELECT id FROM servisler WHERE plaka = %s AND (odeme_durumu != 'Ödendi' OR odeme_durumu IS NULL)", (plaka,))
     mevcut = cursor.fetchone()
     
     if mevcut:
-        cursor.execute('''
-            UPDATE servisler 
-            SET musteri_ad = %s, musteri_tel = %s, model = %s, km = %s, tarih = %s
-            WHERE id = %s
-        ''', (musteri_ad, musteri_tel, model, km, tarih_str, mevcut[0]))
+        cursor.execute("UPDATE servisler SET musteri_ad = %s, musteri_tel = %s, model = %s, km = %s, tarih = %s WHERE id = %s", (musteri_ad, musteri_tel, model, km, tarih_str, mevcut[0]))
     else:
-        cursor.execute('''
-            INSERT INTO servisler (plaka, musteri_ad, musteri_tel, model, km, tarih, detaylar, toplam_tutar, durum, odeme_durumu, pdf_dosya)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'Bekliyor', 'Borçlu / Veresiye', NULL)
-        ''', (plaka, musteri_ad, musteri_tel, model, km, tarih_str, "Hızlı Kayıt", 0.0))
+        cursor.execute("INSERT INTO servisler (plaka, musteri_ad, musteri_tel, model, km, tarih, detaylar, toplam_tutar, durum, odeme_durumu, pdf_dosya) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'Bekliyor', 'Borçlu / Veresiye', NULL)", (plaka, musteri_ad, musteri_tel, model, km, tarih_str, "Hızlı Kayıt", 0.0))
         
     conn.commit()
     cursor.close()
@@ -736,10 +657,8 @@ def durum_guncelle():
     yeni_odeme = request.form.get('odeme_durumu')
     servis_id = request.form.get('servis_id')
     
-    if yeni_durum:
-        cursor.execute("UPDATE servisler SET durum = %s WHERE id = %s", (yeni_durum, servis_id))
-    if yeni_odeme:
-        cursor.execute("UPDATE servisler SET odeme_durumu = %s WHERE id = %s", (yeni_odeme, servis_id))
+    if yeni_durum: cursor.execute("UPDATE servisler SET durum = %s WHERE id = %s", (yeni_durum, servis_id))
+    if yeni_odeme: cursor.execute("UPDATE servisler SET odeme_durumu = %s WHERE id = %s", (yeni_odeme, servis_id))
         
     conn.commit()
     cursor.close()
@@ -774,10 +693,8 @@ def olustur():
     ad, tel, plaka, model, km = request.form.get('musteri_ad'), request.form.get('musteri_tel'), request.form.get('plaka', '').strip(), request.form.get('model'), request.form.get('km')
     odeme_durumu = request.form.get('odeme_durumu', 'Borçlu / Veresiye')
     
-    try:
-        iscilik = float(request.form.get('iscilik', 0))
-    except ValueError:
-        iscilik = 0.0
+    try: iscilik = float(request.form.get('iscilik', 0))
+    except ValueError: iscilik = 0.0
 
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -798,10 +715,8 @@ def olustur():
                 s_id = stok_idler[i] if i < len(stok_idler) else ""
                 adt = int(adetler[i]) if i < len(adetler) and adetler[i] else 1
                 fyt = float(fiyatlar[i]) if i < len(fiyatlar) and fiyatlar[i] else 0.0
-                
                 tutar = adt * fyt
                 yedek_parca_toplam += tutar
-                
                 islemler.append({'ad': ad_item, 'adet': adt, 'fiyat': fyt})
                 islem_ozeti_list.append(f"{ad_item} (x{adt})")
 
@@ -836,17 +751,9 @@ def olustur():
         m_id, eski_tutar, eski_detaylar = mevcut[0], mevcut[1], mevcut[2]
         yeni_toplam = (eski_tutar or 0.0) + genel_toplam
         yeni_detaylar = f"{eski_detaylar}, {islem_str}" if eski_detaylar and eski_detaylar != "Hızlı Kayıt" else islem_str
-        
-        cursor.execute('''
-            UPDATE servisler 
-            SET musteri_ad = %s, musteri_tel = %s, model = %s, km = %s, tarih = %s, detaylar = %s, toplam_tutar = %s, odeme_durumu = %s, pdf_dosya = %s
-            WHERE id = %s
-        ''', (ad, tel, model, km, tarih_str, yeni_detaylar, yeni_toplam, odeme_durumu, pdf_filename, m_id))
+        cursor.execute("UPDATE servisler SET musteri_ad = %s, musteri_tel = %s, model = %s, km = %s, tarih = %s, detaylar = %s, toplam_tutar = %s, odeme_durumu = %s, pdf_dosya = %s WHERE id = %s", (ad, tel, model, km, tarih_str, yeni_detaylar, yeni_toplam, odeme_durumu, pdf_filename, m_id))
     else:
-        cursor.execute('''
-            INSERT INTO servisler (plaka, musteri_ad, musteri_tel, model, km, tarih, detaylar, toplam_tutar, durum, odeme_durumu, pdf_dosya)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'Bekliyor', %s, %s)
-        ''', (plaka, ad, tel, model, km, tarih_str, islem_str, genel_toplam, odeme_durumu, pdf_filename))
+        cursor.execute("INSERT INTO servisler (plaka, musteri_ad, musteri_tel, model, km, tarih, detaylar, toplam_tutar, durum, odeme_durumu, pdf_dosya) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'Bekliyor', %s, %s)", (plaka, ad, tel, model, km, tarih_str, islem_str, genel_toplam, odeme_durumu, pdf_filename))
 
     conn.commit()
     cursor.close()
@@ -875,7 +782,7 @@ def cikis():
     session.pop('giris', None)
     return redirect(url_for('index'))
 
-# --- TELEGRAM BOTU & ARKA PLAN HATIRLATICI ---
+# --- TELEGRAM BOTu & ÇAKIŞMAYI ÖNLEYEN POLLING ---
 SIFRE_DURUMU = {}
 BOT_DURUMLARI = {}
 
@@ -1022,14 +929,11 @@ async def mesaj_yoneticisi(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
         
     elif servis_adim == 'islem_fiyat_al':
-        try:
-            fiyat = float(text.replace(',', '.'))
-        except ValueError:
-            fiyat = 0.0
+        try: fiyat = float(text.replace(',', '.'))
+        except ValueError: fiyat = 0.0
             
         islem_adi = user_state['temp_islem']
-        if 's_islemler' not in user_state:
-            user_state['s_islemler'] = []
+        if 's_islemler' not in user_state: user_state['s_islemler'] = []
             
         user_state['s_islemler'].append({'ad': islem_adi, 'adet': 1, 'fiyat': fiyat})
         BOT_DURUMLARI[user_id]['servis_adim'] = 'baska_islem_sor'
@@ -1058,7 +962,6 @@ async def mesaj_yoneticisi(update: Update, context: ContextTypes.DEFAULT_TYPE):
             tarih_str = datetime.date.today().strftime("%d.%m.%Y")
 
             pdf_filename = f"servis_formu_{s_plaka}_{int(datetime.datetime.now().timestamp())}.pdf"
-            
             try:
                 pdf_olustur(pdf_filename, {'musteri_ad': s_ad, 'musteri_tel': s_tel, 'plaka': s_plaka, 'model': s_model, 'km': s_km, 'islemler': islemler, 'iscilik': 0.0}, s_logo, None)
             except Exception as e:
@@ -1066,7 +969,6 @@ async def mesaj_yoneticisi(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             conn = get_db_connection()
             cursor = conn.cursor()
-            
             cursor.execute("SELECT id, toplam_tutar, detaylar FROM servisler WHERE plaka = %s AND (odeme_durumu != 'Ödendi' OR odeme_durumu IS NULL)", (s_plaka,))
             mevcut = cursor.fetchone()
 
@@ -1074,17 +976,9 @@ async def mesaj_yoneticisi(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 m_id, eski_tutar, eski_detaylar = mevcut[0], mevcut[1], mevcut[2]
                 yeni_toplam = (eski_tutar or 0.0) + toplam_tutar
                 yeni_detaylar = f"{eski_detaylar}, {islem_str}" if eski_detaylar and eski_detaylar != "Hızlı Kayıt" else islem_str
-                
-                cursor.execute('''
-                    UPDATE servisler 
-                    SET musteri_ad = %s, musteri_tel = %s, model = %s, km = %s, tarih = %s, detaylar = %s, toplam_tutar = %s, odeme_durumu = %s, pdf_dosya = %s
-                    WHERE id = %s
-                ''', (s_ad, s_tel, s_model, s_km, tarih_str, yeni_detaylar, yeni_toplam, 'Borçlu / Veresiye', pdf_filename, m_id))
+                cursor.execute("UPDATE servisler SET musteri_ad = %s, musteri_tel = %s, model = %s, km = %s, tarih = %s, detaylar = %s, toplam_tutar = %s, odeme_durumu = %s, pdf_dosya = %s WHERE id = %s", (s_ad, s_tel, s_model, s_km, tarih_str, yeni_detaylar, yeni_toplam, 'Borçlu / Veresiye', pdf_filename, m_id))
             else:
-                cursor.execute('''
-                    INSERT INTO servisler (plaka, musteri_ad, musteri_tel, model, km, tarih, detaylar, toplam_tutar, durum, odeme_durumu, pdf_dosya)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'Bekliyor', 'Borçlu / Veresiye', %s)
-                ''', (s_plaka, s_ad, s_tel, s_model, s_km, tarih_str, islem_str, toplam_tutar, pdf_filename))
+                cursor.execute("INSERT INTO servisler (plaka, musteri_ad, musteri_tel, model, km, tarih, detaylar, toplam_tutar, durum, odeme_durumu, pdf_dosya) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'Bekliyor', 'Borçlu / Veresiye', %s)", (s_plaka, s_ad, s_tel, s_model, s_km, tarih_str, islem_str, toplam_tutar, pdf_filename))
                 
             conn.commit()
             cursor.close()
@@ -1101,7 +995,6 @@ async def mesaj_yoneticisi(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 ["🏍️ Aktif Araçlar"]
             ]
             reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-
             BOT_DURUMLARI[user_id] = {'adim': 'menu'}
             
             await update.message.reply_text(f"✅ **Servis Formu Tamamlandı ve Kaydedildi!**\n\n- Plaka: `{s_plaka}`\n- Müşteri: {s_ad}\n- Toplam Tutar: `{toplam_tutar:.2f} TL`", parse_mode="Markdown", reply_markup=reply_markup)
@@ -1131,8 +1024,7 @@ async def mesaj_yoneticisi(update: Update, context: ContextTypes.DEFAULT_TYPE):
         cursor.close()
         conn.close()
         msg = "⚡ **İZ MOTORSİKLET - FİYAT LİSTESİ**\n\n"
-        for s in stoklar:
-            msg += f"- {s[0]}: `{s[1]} TL`\n"
+        for s in stoklar: msg += f"- {s[0]}: `{s[1]} TL`\n"
         await update.message.reply_text(msg or "Stokta ürün bulunmuyor kanka.", parse_mode="Markdown")
         
     elif text == "📊 Günlük Özet":
@@ -1168,8 +1060,7 @@ async def mesaj_yoneticisi(update: Update, context: ContextTypes.DEFAULT_TYPE):
         cursor.close()
         conn.close()
         msg = "🏍️ **Atölyedeki Aktif Araçlar:**\n\n"
-        for a in araclar:
-            msg += f"- {a[0]} | {a[1]} | {a[2]} (`{a[3]}` - {a[4] or 'Borçlu'})\n"
+        for a in araclar: msg += f"- {a[0]} | {a[1]} | {a[2]} (`{a[3]}` - {a[4] or 'Borçlu'})\n"
         await update.message.reply_text(msg or "Atölyede aktif araç yok kanka.", parse_mode="Markdown")
     else:
         await update.message.reply_text("Kanka menüden bir seçenek seçebilir veya /start yazabilirsin.")
@@ -1181,14 +1072,12 @@ def randevu_hatirlatici_thread(bot_token):
     while True:
         try:
             time.sleep(30)
-            if not TELEGRAM_ADMIN_CHAT_ID:
-                continue
+            if not TELEGRAM_ADMIN_CHAT_ID: continue
                 
             conn = get_db_connection()
             cursor = conn.cursor()
             cursor.execute("SELECT id, musteri_ad, tel, tarih_saat FROM randevular WHERE hatirlatildi = 0")
             randevular = cursor.fetchall()
-            
             simdi = datetime.datetime.now()
             
             for r in randevular:
@@ -1201,7 +1090,6 @@ def randevu_hatirlatici_thread(bot_token):
                         import asyncio
                         loop = asyncio.new_event_loop()
                         asyncio.set_event_loop(loop)
-                        
                         mesaj = f"⏰ **RANDEVU HATIRLATMASI!**\n\n- Müşteri: **{ad}**\n- Telefon: `{tel}`\n- Randevu Saati: `{tarih_saat_str}`\n\n⚠️ Yaklaşık 30 dakika içinde randevusu var kanka, dükkana haberin olsun!"
                         loop.run_until_complete(bot.send_message(chat_id=TELEGRAM_ADMIN_CHAT_ID, text=mesaj, parse_mode="Markdown"))
                         loop.close()
@@ -1221,11 +1109,11 @@ def run_telegram_bot():
     
     threading.Thread(target=randevu_hatirlatici_thread, args=(TOKEN,), daemon=True).start()
     
-    bot_app = Application.builder().token(TOKEN).build()
+    bot_app = Application.builder().token(TOKEN).drop_pending_updates(True).build()
     bot_app.add_handler(CommandHandler("start", start))
     bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, mesaj_yoneticisi))
     bot_app.add_handler(MessageHandler(filters.PHOTO, mesaj_yoneticisi))
-    bot_app.run_polling(stop_signals=None)
+    bot_app.run_polling(stop_signals=None, allowed_updates=Update.ALL_TYPES)
 
 if __name__ == '__main__':
     threading.Thread(target=run_telegram_bot, daemon=True).start()
