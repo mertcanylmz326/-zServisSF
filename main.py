@@ -14,7 +14,7 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
 app = Flask(__name__)
-app.secret_key = "iz_motor_gizli_anahtar_erp_final_v38"
+app.secret_key = "iz_motor_gizli_anahtar_erp_quickselect_v39"
 
 SIFRE = "izmotor2026*"
 TELEGRAM_ADMIN_CHAT_ID = None
@@ -279,13 +279,27 @@ HTML_PANEL = """
         
         <div style="background: rgba(22, 32, 50, 0.5); border: 1px solid rgba(250,204,21,0.3); padding: 14px; border-radius: 12px; margin-bottom: 18px;">
             <h4 style="color: var(--accent-gold); margin-top: 0; margin-bottom: 8px; font-size: 13px; font-weight: 800;">➕ Doğrudan Servise Yeni Araç Ekle</h4>
+            
+            <!-- GEÇMİŞTEN PLAKA SEÇEREK HIZLI DOLDURMA -->
+            <div class="form-group" style="margin-bottom: 10px;">
+                <label style="color: var(--accent-gold);">⚡ Daha Önce Gelen Eski Araçtan Seç</label>
+                <select id="hizliPlakaSecici" onchange="hizliAracBilgileriniDoldur(this)" style="background: rgba(3,7,18,0.9); font-size: 13px; padding: 10px;">
+                    <option value="">-- Geçmiş Araçlardan Seç (İsteğe Bağlı) --</option>
+                    {% for g in gecmis_araclar %}
+                    <option value="{{ g[1] }}" data-ad="{{ g[2] }}" data-tel="{{ g[3] }}" data-model="{{ g[4] }}" data-km="{{ g[5] }}">
+                        {{ g[1] }} - {{ g[2] }} ({{ g[4] }})
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
             <form action="/arac_ekle_hizli" method="POST">
                 <div style="display: flex; flex-direction: column; gap: 8px;">
-                    <input type="text" name="plaka" placeholder="Plaka (Örn: 34 ABC)" required>
-                    <input type="text" name="musteri_ad" placeholder="Müşteri Ad Soyad" required>
-                    <input type="text" name="musteri_tel" placeholder="Telefon (90532...)" required>
-                    <input type="text" name="model" placeholder="Model (Örn: Honda Dio)" required>
-                    <input type="text" name="km" placeholder="KM (Örn: 12000)" required>
+                    <input type="text" id="h_plaka" name="plaka" placeholder="Plaka (Örn: 34 ABC)" required>
+                    <input type="text" id="h_musteri_ad" name="musteri_ad" placeholder="Müşteri Ad Soyad" required>
+                    <input type="text" id="h_musteri_tel" name="musteri_tel" placeholder="Telefon (90532...)" required>
+                    <input type="text" id="h_model" name="model" placeholder="Model (Örn: Honda Dio)" required>
+                    <input type="text" id="h_km" name="km" placeholder="KM (Örn: 12000)" required>
                 </div>
                 <button type="submit" class="btn-action" style="margin-top: 10px; padding: 10px;">Hızlı Aracı Ekle</button>
             </form>
@@ -445,6 +459,16 @@ function aracBilgileriniDoldur(selectObj) {
         document.getElementById('musteri_tel').value = opt.getAttribute('data-tel') || '';
         document.getElementById('model').value = opt.getAttribute('data-model') || '';
         document.getElementById('km').value = opt.getAttribute('data-km') || '';
+    }
+}
+function hizliAracBilgileriniDoldur(selectObj) {
+    const opt = selectObj.options[selectObj.selectedIndex];
+    if (opt.value) {
+        document.getElementById('h_plaka').value = opt.value;
+        document.getElementById('h_musteri_ad').value = opt.getAttribute('data-ad') || '';
+        document.getElementById('h_musteri_tel').value = opt.getAttribute('data-tel') || '';
+        document.getElementById('h_model').value = opt.getAttribute('data-model') || '';
+        document.getElementById('h_km').value = opt.getAttribute('data-km') || '';
     }
 }
 function addItemRow() {
@@ -629,8 +653,12 @@ def index():
     cursor.execute("SELECT DISTINCT plaka, musteri_ad, musteri_tel, model, km FROM servisler WHERE odeme_durumu != 'Ödendi' OR odeme_durumu IS NULL ORDER BY id DESC")
     tum_servisler = cursor.fetchall()
 
+    # Hızlı araç ekleme için tüm geçmiş/tekil araçlar listesi
+    cursor.execute("SELECT DISTINCT plaka, musteri_ad, musteri_tel, model, km FROM servisler ORDER BY id DESC")
+    gecmis_araclar = cursor.fetchall()
+
     conn.close()
-    return render_template_string(HTML_PANEL, kayitlar=kayitlar, sorgu_plaka=sorgu_plaka, stoklar=stoklar, randevular=randevular, tum_servisler=tum_servisler, aktif_araclar=aktif_araclar, bakim_listesi=bakim_listesi, toplam_ciro=toplam_ciro)
+    return render_template_string(HTML_PANEL, kayitlar=kayitlar, sorgu_plaka=sorgu_plaka, stoklar=stoklar, randevular=randevular, tum_servisler=tum_servisler, aktif_araclar=aktif_araclar, gecmis_araclar=gecmis_araclar, bakim_listesi=bakim_listesi, toplam_ciro=toplam_ciro)
 
 @app.route('/arac_ekle_hizli', methods=['POST'])
 def arac_ekle_hizli():
@@ -733,7 +761,6 @@ def olustur():
                 adt = int(adetler[i]) if i < len(adetler) and adetler[i] else 1
                 fyt = float(fiyatlar[i]) if i < len(fiyatlar) and fiyatlar[i] else 0.0
                 
-                # ADET İLE FİYATI Çarpıp Toplama Yansıtma
                 tutar = adt * fyt
                 yedek_parca_toplam += tutar
                 
