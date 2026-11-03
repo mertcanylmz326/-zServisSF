@@ -2,7 +2,6 @@ import os
 import datetime
 import sqlite3
 import threading
-import asyncio
 from flask import Flask, render_template_string, request, send_file, session, redirect, url_for
 from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
@@ -17,7 +16,7 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
 app = Flask(__name__)
-app.secret_key = "iz_motor_gizli_anahtar_erp_full_v19"
+app.secret_key = "iz_motor_gizli_anahtar_erp_full_v20"
 
 SIFRE = "izmotor2026*"
 
@@ -71,7 +70,7 @@ except Exception:
     FONT_NAME = 'Helvetica'
     FONT_BOLD = 'Helvetica-Bold'
 
-# --- HTML / PROFESYONEL CAFCAFLI ARAYÜZ ---
+# --- HTML ARAYÜZ ---
 HTML_LOGIN = """
 <!DOCTYPE html>
 <html lang="tr">
@@ -598,12 +597,14 @@ def cikis():
     session.pop('giris', None)
     return redirect(url_for('index'))
 
-# --- TELEGRAM BOTU ---
+# --- TELEGRAM BOTU (TÜM BUTONLAR AKTİF) ---
 SIFRE_DURUMU = {}
+BOT_DURUMLARI = {}
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     SIFRE_DURUMU[user_id] = False
+    BOT_DURUMLARI[user_id] = {'adim': 'sifre'}
     await update.message.reply_text("Selam kanka! İz Motorsiklet Botuna hoş geldin.\nDevam etmek için önce **yönetici şifresini** gir kanka:")
 
 async def mesaj_yoneticisi(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -613,6 +614,7 @@ async def mesaj_yoneticisi(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not SIFRE_DURUMU.get(user_id, False):
         if text == SIFRE:
             SIFRE_DURUMU[user_id] = True
+            BOT_DURUMLARI[user_id] = {'adim': 'menu'}
             keyboard = [
                 ["🛠️ Servis Formu Oluştur", "📅 Randevu Ekle"],
                 ["⚡ Hızlı Fiyat Teklifi", "🔍 Plaka Sorgula"],
@@ -624,8 +626,130 @@ async def mesaj_yoneticisi(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("Hatalı şifre kanka! Tekrar dene:")
         return
 
-    # Menü İşlemleri
-    if text == "⚡ Hızlı Fiyat Teklifi":
+    durum_bilgisi = BOT_DURUMLARI.get(user_id, {}).get('adim', 'menu')
+
+    # 1. PLAKA SORGU AKIŞI
+    if durum_bilgisi == 'plaka_sor':
+        conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
+        cursor = conn.cursor()
+        cursor.execute("SELECT plaka, musteri_ad, musteri_tel, model, km, tarih, detaylar, toplam_tutar, durum FROM servisler WHERE plaka LIKE ? OR musteri_ad LIKE ? ORDER BY id DESC LIMIT 3", ('%' + text + '%', '%' + text + '%'))
+        sonuclar = cursor.fetchall()
+        conn.close()
+
+        keyboard = [
+            ["🛠️ Servis Formu Oluştur", "📅 Randevu Ekle"],
+            ["⚡ Hızlı Fiyat Teklifi", "🔍 Plaka Sorgula"],
+            ["📊 Günlük Özet", "📦 Stok Listesi"],
+            ["🏍️ Araçlar"]
+        ]
+        reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+
+        if not sonuclar:
+            await update.message.reply_text(f"❌ '{text}' ile eşleşen kayıt bulunamadı kanka.", reply_markup=reply_markup)
+        else:
+            for r in sonuclar:
+                msg = f"🔍 **Servis Geçmişi:**\n- **Plaka:** {r[0]}\n- **Müşteri:** {r[1]} ({r[2]})\n- **Model / KM:** {r[3]} - {r[4]}\n- **Tarih:** {r[5]}\n- **İşlemler:** {r[6]}\n- **Tutar:** `{r[7]:.2f} TL`\n- **Durum:** `{r[8]}`"
+                await update.message.reply_text(msg, parse_mode="Markdown")
+            await update.message.reply_text("Ana menüdesin kanka:", reply_markup=reply_markup)
+        
+        BOT_DURUMLARI[user_id] = {'adim': 'menu'}
+        return
+
+    # 2. RANDEVU EKLEME AKIŞI
+    rand_adim = BOT_DURUMLARI.get(user_id, {}).get('randevu_adim')
+    if rand_adim == 'ad_al':
+        BOT_DURUMLARI[user_id]['rand_ad'] = text
+        BOT_DURUMLARI[user_id]['randevu_adim'] = 'tel_al'
+        await update.message.reply_text("Müşteri **telefon numarasını** gir kanka (Örn: 90532...):", reply_markup=ReplyKeyboardRemove())
+        return
+    elif rand_adim == 'tel_al':
+        BOT_DURUMLARI[user_id]['rand_tel'] = text
+        BOT_DURUMLARI[user_id]['randevu_adim'] = 'zaman_al'
+        await update.message.reply_text("Randevu **tarih ve saatini** gir kanka (Örn: 05.11.2026 - 14:30):")
+        return
+    elif rand_adim == 'zaman_al':
+        ad = BOT_DURUMLARI[user_id]['rand_ad']
+        tel = BOT_DURUMLARI[user_id]['rand_tel']
+        zaman = text
+
+        conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO randevular (musteri_ad, tel, tarih_saat, notlar) VALUES (?, ?, ?, ?)", (ad, tel, zaman, "Telegram Randevusu"))
+        conn.commit()
+        conn.close()
+
+        keyboard = [
+            ["🛠️ Servis Formu Oluştur", "📅 Randevu Ekle"],
+            ["⚡ Hızlı Fiyat Teklifi", "🔍 Plaka Sorgula"],
+            ["📊 Günlük Özet", "📦 Stok Listesi"],
+            ["🏍️ Araçlar"]
+        ]
+        BOT_DURUMLARI[user_id] = {'adim': 'menu'}
+        await update.message.reply_text(f"✅ **Randevu Başarıyla Kaydedildi!**\n- Müşteri: {ad} ({tel})\n- Zaman: `{zaman}`", parse_mode="Markdown", reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True))
+        return
+
+    # 3. SERVİS FORMU OLUŞTURMA AKIŞI (TELEGRAM ÜZERİNDEN ÖZET)
+    servis_adim = BOT_DURUMLARI.get(user_id, {}).get('servis_adim')
+    if servis_adim == 'musteri_ad':
+        BOT_DURUMLARI[user_id]['s_ad'] = text
+        BOT_DURUMLARI[user_id]['servis_adim'] = 'tel'
+        await update.message.reply_text("Müşteri **telefon numarasını** yaz kanka:")
+        return
+    elif servis_adim == 'tel':
+        BOT_DURUMLARI[user_id]['s_tel'] = text
+        BOT_DURUMLARI[user_id]['servis_adim'] = 'plaka'
+        await update.message.reply_text("Motosiklet **plakasını** yaz kanka:")
+        return
+    elif servis_adim == 'plaka':
+        BOT_DURUMLARI[user_id]['s_plaka'] = text
+        BOT_DURUMLARI[user_id]['servis_adim'] = 'model'
+        await update.message.reply_text("Marka / Model bilgisini yaz kanka:")
+        return
+    elif servis_adim == 'model':
+        BOT_DURUMLARI[user_id]['s_model'] = text
+        BOT_DURUMLARI[user_id]['servis_adim'] = 'tutar'
+        await update.message.reply_text("Toplam servis ücretini (TL) yaz kanka:")
+        return
+    elif servis_adim == 'tutar':
+        try:
+            tutar = float(text.replace(',', '.'))
+            d = BOT_DURUMLARI[user_id]
+            tarih_str = datetime.date.today().strftime("%d.%m.%Y")
+
+            conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
+            cursor = conn.cursor()
+            cursor.execute("INSERT INTO servisler (plaka, musteri_ad, musteri_tel, model, km, tarih, detaylar, toplam_tutar, durum) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Bekliyor')", 
+                           (d['s_plaka'], d['s_ad'], d['s_tel'], d['s_model'], "1000", tarih_str, "Genel Bakım", tutar))
+            conn.commit()
+            conn.close()
+
+            keyboard = [
+                ["🛠️ Servis Formu Oluştur", "📅 Randevu Ekle"],
+                ["⚡ Hızlı Fiyat Teklifi", "🔍 Plaka Sorgula"],
+                ["📊 Günlük Özet", "📦 Stok Listesi"],
+                ["🏍️ Araçlar"]
+            ]
+            BOT_DURUMLARI[user_id] = {'adim': 'menu'}
+            wa_link = f"https://wa.me/{d['s_tel']}?text=Sayin%20{d['s_ad']},%20servis%20ucretiniz%20{tutar:.2f}%20TL%20olarak%20kaydedilmistir."
+            await update.message.reply_text(f"✅ **Servis Kaydı Tamamlandı!**\n- Plaka: {d['s_plaka']}\n- Tutar: `{tutar:.2f} TL`\n\n[WhatsApp Bildirimi Gönder]({wa_link})", parse_mode="Markdown", reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True))
+        except ValueError:
+            await update.message.reply_text("Lütfen geçerli bir sayı gir kanka:")
+        return
+
+    # ANA MENÜ BUTONLARI TETİKLEYİCİLERİ
+    if text == "🔍 Plaka Sorgula":
+        BOT_DURUMLARI[user_id] = {'adim': 'plaka_sor'}
+        await update.message.reply_text("Sorgulamak istediğin **Plakayı veya Müşteri Adını** yaz kanka:", reply_markup=ReplyKeyboardRemove())
+        
+    elif text == "📅 Randevu Ekle":
+        BOT_DURUMLARI[user_id] = {'adim': 'randevu', 'randevu_adim': 'ad_al'}
+        await update.message.reply_text("Randevu vereceğin **Müşteri Adı Soyadını** yaz kanka:", reply_markup=ReplyKeyboardRemove())
+
+    elif text == "🛠️ Servis Formu Oluştur":
+        BOT_DURUMLARI[user_id] = {'adim': 'servis', 'servis_adim': 'musteri_ad'}
+        await update.message.reply_text("Servis formu için **Müşteri Adı Soyadını** yaz kanka:", reply_markup=ReplyKeyboardRemove())
+
+    elif text == "⚡ Hızlı Fiyat Teklifi":
         conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
         cursor = conn.cursor()
         cursor.execute("SELECT parca_adi, fiyat FROM stok")
