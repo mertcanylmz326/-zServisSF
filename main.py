@@ -14,7 +14,7 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
 app = Flask(__name__)
-app.secret_key = "iz_motor_gizli_anahtar_erp_unique_v37"
+app.secret_key = "iz_motor_gizli_anahtar_erp_final_v38"
 
 SIFRE = "izmotor2026*"
 TELEGRAM_ADMIN_CHAT_ID = None
@@ -308,7 +308,6 @@ HTML_PANEL = """
                             <select name="durum" onchange="this.form.submit()">
                                 <option value="Bekliyor" {% if ts[9] == 'Bekliyor' %}selected{% endif %}>Bekliyor</option>
                                 <option value="İşlemde" {% if ts[9] == 'İşlemde' %}selected{% endif %}>İşlemde</option>
-                                <option value="Hazır" {% if ts[9] == 'Hazır' %}selected{% endif %}>Hazır</option>
                                 <option value="Teslime Hazır" {% if ts[9] == 'Teslime Hazır' %}selected{% endif %}>Teslime Hazır</option>
                                 <option value="Parça Bekliyor" {% if ts[9] == 'Parça Bekliyor' %}selected{% endif %}>Parça Bekliyor</option>
                             </select>
@@ -627,7 +626,6 @@ def index():
         b_item.append(sure_str)
         bakim_listesi.append(b_item)
 
-    # Benzersiz aktif plakalar listesi için (Formdaki seçici için)
     cursor.execute("SELECT DISTINCT plaka, musteri_ad, musteri_tel, model, km FROM servisler WHERE odeme_durumu != 'Ödendi' OR odeme_durumu IS NULL ORDER BY id DESC")
     tum_servisler = cursor.fetchall()
 
@@ -647,19 +645,16 @@ def arac_ekle_hizli():
     conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
     cursor = conn.cursor()
     
-    # Aynı plakaya ait aktif servis var mı kontrol et
     cursor.execute("SELECT id FROM servisler WHERE plaka = ? AND (odeme_durumu != 'Ödendi' OR odeme_durumu IS NULL)", (plaka,))
     mevcut = cursor.fetchone()
     
     if mevcut:
-        # Varsa yeni kayıt açmak yerine mevcut kaydı güncelle
         cursor.execute('''
             UPDATE servisler 
             SET musteri_ad = ?, musteri_tel = ?, model = ?, km = ?, tarih = ?
             WHERE id = ?
         ''', (musteri_ad, musteri_tel, model, km, tarih_str, mevcut[0]))
     else:
-        # Yoksa yeni ekle
         cursor.execute('''
             INSERT INTO servisler (plaka, musteri_ad, musteri_tel, model, km, tarih, detaylar, toplam_tutar, durum, odeme_durumu, pdf_dosya)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Bekliyor', 'Borçlu / Veresiye', NULL)
@@ -737,6 +732,8 @@ def olustur():
                 s_id = stok_idler[i] if i < len(stok_idler) else ""
                 adt = int(adetler[i]) if i < len(adetler) and adetler[i] else 1
                 fyt = float(fiyatlar[i]) if i < len(fiyatlar) and fiyatlar[i] else 0.0
+                
+                # ADET İLE FİYATI Çarpıp Toplama Yansıtma
                 tutar = adt * fyt
                 yedek_parca_toplam += tutar
                 
@@ -767,28 +764,20 @@ def olustur():
     pdf_filename = f"servis_formu_{plaka}_{int(datetime.datetime.now().timestamp())}.pdf"
     pdf_olustur(pdf_filename, {'musteri_ad': ad, 'musteri_tel': tel, 'plaka': plaka, 'model': model, 'km': km, 'islemler': islemler, 'iscilik': iscilik}, logo_path, hasar_path)
 
-    # Aynı plakaya ait aktif servis var mı kontrol et
     cursor.execute("SELECT id, toplam_tutar, detaylar FROM servisler WHERE plaka = ? AND (odeme_durumu != 'Ödendi' OR odeme_durumu IS NULL)", (plaka,))
     mevcut = cursor.fetchone()
 
     if mevcut:
-        # Varsa tutarları ve işlemleri birleştirerek tek kartta güncelle
         m_id, eski_tutar, eski_detaylar = mevcut[0], mevcut[1], mevcut[2]
         yeni_toplam = (eski_tutar or 0.0) + genel_toplam
+        yeni_detaylar = f"{eski_detaylar}, {islem_str}" if eski_detaylar and eski_detaylar != "Hızlı Kayıt" else islem_str
         
-        # İşlem detaylarını birleştir
-        if eski_detaylar and eski_detaylar != "Hızlı Kayıt":
-            yeni_detaylar = f"{eski_detaylar}, {islem_str}"
-        else:
-            yeni_detaylar = islem_str
-
         cursor.execute('''
             UPDATE servisler 
             SET musteri_ad = ?, musteri_tel = ?, model = ?, km = ?, tarih = ?, detaylar = ?, toplam_tutar = ?, odeme_durumu = ?, pdf_dosya = ?
             WHERE id = ?
         ''', (ad, tel, model, km, tarih_str, yeni_detaylar, yeni_toplam, odeme_durumu, pdf_filename, m_id))
     else:
-        # Yoksa yeni kayıt aç
         cursor.execute('''
             INSERT INTO servisler (plaka, musteri_ad, musteri_tel, model, km, tarih, detaylar, toplam_tutar, durum, odeme_durumu, pdf_dosya)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Bekliyor', ?, ?)
@@ -960,7 +949,7 @@ async def mesaj_yoneticisi(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif servis_adim == 'islem_ad_al':
         BOT_DURUMLARI[user_id]['temp_islem'] = text
         BOT_DURUMLARI[user_id]['servis_adim'] = 'islem_fiyat_al'
-        await update.message.reply_text(f"💰 '{text}' için **Toplam Fiyatı (TL)** yaz kanka (Örn: 400):")
+        await update.message.reply_text(f"💰 '{text}' için **Birim Fiyatını (TL)** yaz kanka (Örn: 400):")
         return
         
     elif servis_adim == 'islem_fiyat_al':
