@@ -1,5 +1,6 @@
 import os
 import datetime
+import sqlite3
 import threading
 import asyncio
 from flask import Flask, render_template_string, request, send_file, session, redirect, url_for
@@ -16,11 +17,34 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
 app = Flask(__name__)
-app.secret_key = "iz_motor_gizli_anahtar"  # Flask oturumu (şifreleme) için gerekli
+app.secret_key = "iz_motor_gizli_anahtar"
 
 SIFRE = "izmotor2026*"
+GOOGLE_MAPS_LINK = "https://maps.app.goo.gl/QxqqpoFoHuo2fFEr5?g_st=ac"
 
-# --- TÜRKÇE FONT TANIMLAMASI ---
+# --- VERİTABANI BAĞLANTI & KURULUMU ---
+def init_db():
+    conn = sqlite3.connect('servis_gecmis.db')
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS servisler (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            plaka TEXT,
+            musteri_ad TEXT,
+            musteri_tel TEXT,
+            model TEXT,
+            km TEXT,
+            tarih TEXT,
+            detaylar TEXT,
+            toplam_tutar REAL
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
+init_db()
+
+# --- TÜRKÇE FONT ---
 try:
     pdfmetrics.registerFont(TTFont('DejaVu', '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'))
     pdfmetrics.registerFont(TTFont('DejaVu-Bold', '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'))
@@ -30,7 +54,7 @@ except Exception:
     FONT_NAME = 'Helvetica'
     FONT_BOLD = 'Helvetica-Bold'
 
-# --- HTML WEB ARAYÜZÜ (ŞİFRE + DİNAMİK SATIR EKLEME) ---
+# --- HTML / CSS ARAYÜZÜ (SEKMELER, GEÇMİŞ SORGULAMA & GOOGLE YORUMLARI) ---
 HTML_LOGIN = """
 <!DOCTYPE html>
 <html lang="tr">
@@ -70,87 +94,140 @@ HTML_PANEL = """
     <title>İz Motorsiklet Servis Paneli</title>
     <style>
         body { font-family: sans-serif; background: #f4f6f9; margin: 0; padding: 20px; color: #333; }
-        .container { max-width: 600px; margin: 0 auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        h2 { text-align: center; color: #1a365d; margin-bottom: 20px; }
+        .container { max-width: 650px; margin: 0 auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h2 { text-align: center; color: #1a365d; margin-bottom: 15px; }
+        .tabs { display: flex; justify-content: center; gap: 10px; margin-bottom: 20px; }
+        .tab-btn { background: #cbd5e0; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px; }
+        .tab-btn.active { background: #1a365d; color: #fff; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
         .form-group { margin-bottom: 15px; }
         label { display: block; font-weight: bold; margin-bottom: 5px; }
         input, textarea { width: 100%; padding: 10px; border: 1px solid #cbd5e0; border-radius: 4px; box-sizing: border-box; }
         .item-row { display: flex; gap: 8px; margin-bottom: 8px; align-items: center; }
         .item-row input { flex: 2; }
         .item-row input.small { flex: 1; }
-        .btn-add { background: #319795; color: #white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; margin-bottom: 15px; width: 100%; color: #fff;}
-        .btn-add:hover { background: #285e61; }
+        .btn-add { background: #319795; color: #fff; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; margin-bottom: 15px; }
         .btn-remove { background: #e53e3e; color: #fff; border: none; padding: 10px; border-radius: 4px; cursor: pointer; }
-        button[type="submit"] { background: #1a365d; color: #fff; border: none; padding: 12px 20px; border-radius: 4px; cursor: pointer; width: 100%; font-size: 16px; font-weight: bold; margin-top: 10px; }
-        button[type="submit"]:hover { background: #2c5282; }
+        button[type="submit"], .btn-search { background: #1a365d; color: #fff; border: none; padding: 12px 20px; border-radius: 4px; cursor: pointer; width: 100%; font-size: 16px; font-weight: bold; margin-top: 10px; }
         .logout { text-align: right; margin-bottom: 10px; }
         .logout a { color: #e53e3e; text-decoration: none; font-size: 14px; font-weight: bold; }
+        .google-box { background: #ebf8ff; border: 1px solid #bee3f8; padding: 12px; border-radius: 6px; margin-bottom: 20px; text-align: center; }
+        .google-box a { color: #2b6cb0; font-weight: bold; text-decoration: none; }
+        .history-card { background: #f7fafc; border: 1px solid #e2e8f0; padding: 12px; border-radius: 6px; margin-bottom: 10px; }
     </style>
 </head>
 <body>
 <div class="container">
     <div class="logout"><a href="/cikis">Çıkış Yap</a></div>
     <h2>İZ MOTORSİKLET SERVİS PANELİ</h2>
-    <form action="/olustur" method="POST" enctype="multipart/form-data">
-        
-        <div class="form-group">
-            <label>Dükkan Logosu (Fotoğraf)</label>
-            <input type="file" name="logo" accept="image/*" required>
-        </div>
-        <div class="form-group">
-            <label>Müşteri Adı Soyadı</label>
-            <input type="text" name="musteri_ad" placeholder="Örn: Ahmet Yılmaz" required>
-        </div>
-        <div class="form-group">
-            <label>Müşteri Telefon</label>
-            <input type="text" name="musteri_tel" placeholder="Örn: 0532 000 00 00" required>
-        </div>
-        <div class="form-group">
-            <label>Motosiklet Plaka</label>
-            <input type="text" name="plaka" placeholder="Örn: 34 ABC 123" required>
-        </div>
-        <div class="form-group">
-            <label>Marka / Model</label>
-            <input type="text" name="model" placeholder="Örn: Honda PCX 125" required>
-        </div>
-        <div class="form-group">
-            <label>Kilometre (KM)</label>
-            <input type="text" name="km" placeholder="Örn: 15.000 KM" required>
-        </div>
+
+    <!-- GOOGLE YORUMLARI WIDGET ALANI -->
+    <div class="google-box">
+        ⭐ <b>Google İşletme Puanımız & Yorumlarımız:</b><br>
+        Müşteri memnuniyetimizi incelemek ve yorum bırakmak için <a href="https://maps.app.goo.gl/QxqqpoFoHuo2fFEr5?g_st=ac" target="_blank">tıklayın</a>!
+    </div>
+
+    <!-- SEKMELER -->
+    <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('formTab', this)">Yeni Servis Formu</button>
+        <button class="tab-btn" onclick="switchTab('historyTab', this)">Plaka Geçmişi Sorgula</button>
+    </div>
+
+    <!-- 1. SEKME: YENİ FORM OLUŞTURMA -->
+    <div id="formTab" class="tab-content active">
+        <form action="/olustur" method="POST" enctype="multipart/form-data">
+            <div class="form-group">
+                <label>Dükkan Logosu (Fotoğraf)</label>
+                <input type="file" name="logo" accept="image/*" required>
+            </div>
+            <div class="form-group">
+                <label>Müşteri Adı Soyadı</label>
+                <input type="text" name="musteri_ad" placeholder="Örn: Ahmet Yılmaz" required>
+            </div>
+            <div class="form-group">
+                <label>Müşteri Telefon</label>
+                <input type="text" name="musteri_tel" placeholder="Örn: 0532 000 00 00" required>
+            </div>
+            <div class="form-group">
+                <label>Motosiklet Plaka</label>
+                <input type="text" name="plaka" placeholder="Örn: 34 ABC 123" required>
+            </div>
+            <div class="form-group">
+                <label>Marka / Model</label>
+                <input type="text" name="model" placeholder="Örn: Honda PCX 125" required>
+            </div>
+            <div class="form-group">
+                <label>Kilometre (KM)</label>
+                <input type="text" name="km" placeholder="Örn: 15.000 KM" required>
+            </div>
+
+            <hr style="margin: 20px 0; border: 0; border-top: 1px solid #e2e8f0;">
+            <label><b>Yapılan İşlemler / Parçalar</b></label>
+            
+            <div id="items-container">
+                <div class="item-row">
+                    <input type="text" name="islem[]" placeholder="İşlem / Parça Adı">
+                    <input type="number" name="adet[]" class="small" placeholder="Adet" value="1">
+                    <input type="number" step="0.01" name="fiyat[]" class="small" placeholder="Fiyat (TL)">
+                </div>
+            </div>
+            
+            <button type="button" class="btn-add" onclick="addItem()">+ Yeni İşlem / Parça Satırı Ekle</button>
+
+            <div class="form-group" style="margin-top: 15px;">
+                <label>İşçilik Tutarı (TL)</label>
+                <input type="number" step="0.01" name="iscilik" placeholder="Örn: 500" value="0">
+            </div>
+
+            <div class="form-group">
+                <label>Notlar ve Tespitler</label>
+                <textarea name="notlar" rows="2" placeholder="Örn: 1.000 km sonra yağ bakımı yapılacak."></textarea>
+            </div>
+
+            <button type="submit">Servis Formu PDF İndir</button>
+        </form>
+    </div>
+
+    <!-- 2. SEKME: PLAKA GEÇMİŞİ SORGULAMA -->
+    <div id="historyTab" class="tab-content">
+        <form method="GET" action="/">
+            <input type="hidden" name="tab" value="history">
+            <div class="form-group">
+                <label>Plaka ile Sorgula</label>
+                <input type="text" name="sorgu_plaka" placeholder="Örn: 34 ABC 123" value="{{ sorgu_plaka or '' }}">
+            </div>
+            <button type="submit" class="btn-search">Geçmişi Ara</button>
+        </form>
 
         <hr style="margin: 20px 0; border: 0; border-top: 1px solid #e2e8f0;">
-        <label><b>Yapılan İşlemler / Parçalar</b></label>
-        
-        <div id="items-container">
-            <div class="item-row">
-                <input type="text" name="islem[]" placeholder="İşlem / Parça Adı">
-                <input type="number" name="adet[]" class="small" placeholder="Adet" value="1">
-                <input type="number" step="0.01" name="fiyat[]" class="small" placeholder="Fiyat (TL)">
+
+        <h3>Geçmiş Servis Kayıtları</h3>
+        {% if kayitlar %}
+            {% for k in kayitlar %}
+            <div class="history-card">
+                <b>Plaka:</b> {{ k[1] }} | <b>Tarih:</b> {{ k[6] }}<br>
+                <b>Müşteri:</b> {{ k[2] }} ({{ k[3] }})<br>
+                <b>Model / KM:</b> {{ k[4] }} - {{ k[5] }}<br>
+                <b>Yapılanlar:</b> {{ k[7] }}<br>
+                <b>Toplam Tutar:</b> <span style="color: #2b6cb0; font-weight: bold;">{{ "%.2f"|format(k[8]) }} TL</span>
             </div>
-            <div class="item-row">
-                <input type="text" name="islem[]" placeholder="İşlem / Parça Adı">
-                <input type="number" name="adet[]" class="small" placeholder="Adet" value="1">
-                <input type="number" step="0.01" name="fiyat[]" class="small" placeholder="Fiyat (TL)">
-            </div>
-        </div>
-        
-        <button type="button" class="btn-add" onclick="addItem()">+ Yeni İşlem / Parça Satırı Ekle</button>
+            {% endfor %}
+        {% else %}
+            <p style="color: #718096; text-align: center;">Kayıt bulunamadı veya arama yapılmadı.</p>
+        {% endif %}
+    </div>
 
-        <div class="form-group" style="margin-top: 15px;">
-            <label>İşçilik Tutarı (TL)</label>
-            <input type="number" step="0.01" name="iscilik" placeholder="Örn: 500" value="0">
-        </div>
-
-        <div class="form-group">
-            <label>Notlar ve Tespitler</label>
-            <textarea name="notlar" rows="2" placeholder="Örn: 1.000 km sonra yağ bakımı yapılacak."></textarea>
-        </div>
-
-        <button type="submit">Servis Formu PDF İndir</button>
-    </form>
 </div>
 
 <script>
+function switchTab(tabId, btn) {
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+    document.getElementById(tabId).classList.add('active');
+    btn.classList.add('active');
+}
+
 function addItem() {
     const container = document.getElementById('items-container');
     const row = document.createElement('div');
@@ -163,13 +240,19 @@ function addItem() {
     `;
     container.appendChild(row);
 }
+
+// URL parametresine göre doğru sekmede açılmasını sağla
+const urlParams = new URLSearchParams(window.location.search);
+if(urlParams.get('tab') === 'history') {
+    switchTab('historyTab', document.querySelectorAll('.tab-btn')[1]);
+}
 </script>
 
 </body>
 </html>
 """
 
-# --- PDF ÜRETME MOTORU ---
+# --- PDF MOTORU ---
 def pdf_olustur(filename, veri, logo_yolu):
     doc = SimpleDocTemplate(filename, pagesize=A4, rightMargin=15, leftMargin=15, topMargin=12, bottomMargin=12)
     story = []
@@ -206,7 +289,6 @@ def pdf_olustur(filename, veri, logo_yolu):
     islemler = veri.get('islemler', [])
     yedek_parca_toplam = 0.0
 
-    # Dinamik satır sayısı (en az 8 satırlık şablon görünümü korunsun)
     toplam_satir_sayisi = max(10, len(islemler))
 
     for idx in range(toplam_satir_sayisi):
@@ -293,7 +375,7 @@ def pdf_olustur(filename, veri, logo_yolu):
 
     doc.build(story)
 
-# --- WEB ROUTES (ŞİFRE KONTROLÜ) ---
+# --- WEB ROUTES ---
 @app.route('/', methods=['GET', 'POST'])
 def index():
     if request.method == 'POST':
@@ -306,8 +388,17 @@ def index():
             
     if not session.get('giris'):
         return render_template_string(HTML_LOGIN)
+
+    sorgu_plaka = request.args.get('sorgu_plaka', '').strip()
+    kayitlar = []
+    if sorgu_plaka:
+        conn = sqlite3.connect('servis_gecmis.db')
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM servisler WHERE plaka LIKE ? ORDER BY id DESC", ('%' + sorgu_plaka + '%',))
+        kayitlar = cursor.fetchall()
+        conn.close()
         
-    return render_template_string(HTML_PANEL)
+    return render_template_string(HTML_PANEL, kayitlar=kayitlar, sorgu_plaka=sorgu_plaka)
 
 @app.route('/cikis')
 def cikis():
@@ -336,14 +427,34 @@ def olustur():
     fiyat_listesi = request.form.getlist('fiyat[]')
     
     islemler = []
+    yedek_parca_toplam = 0.0
+    islem_ozeti_list = []
+
     for i in range(len(islem_adlari)):
         if islem_adlari[i].strip():
             try:
                 adt = int(adet_listesi[i]) if adet_listesi[i] else 1
                 fyt = float(fiyat_listesi[i]) if fiyat_listesi[i] else 0.0
+                tutar = adt * fyt
+                yedek_parca_toplam += tutar
                 islemler.append({'ad': islem_adlari[i], 'adet': adt, 'fiyat': fyt})
+                islem_ozeti_list.append(f"{islem_adlari[i]} (x{adt})")
             except ValueError:
                 continue
+
+    genel_toplam = yedek_parca_toplam + iscilik
+    islem_str = ", ".join(islem_ozeti_list) if islem_ozeti_list else "İşlem belirtilmedi"
+    tarih_str = datetime.date.today().strftime("%d.%m.%Y")
+
+    # Veritabanına Kaydet
+    conn = sqlite3.connect('servis_gecmis.db')
+    cursor = conn.cursor()
+    cursor.execute('''
+        INSERT INTO servisler (plaka, musteri_ad, musteri_tel, model, km, tarih, detaylar, toplam_tutar)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    ''', (plaka, musteri_ad, musteri_tel, model, km, tarih_str, islem_str, genel_toplam))
+    conn.commit()
+    conn.close()
 
     veri = {
         'musteri_ad': musteri_ad, 'musteri_tel': musteri_tel, 'plaka': plaka,
@@ -369,7 +480,7 @@ def olustur():
 
 
 # --- TELEGRAM BOTU (ŞİFRE KORUMALI) ---
-SIFRE_DURUMU = {} # Kullanıcı şifre girdi mi kontrolü
+SIFRE_DURUMU = {}
 
 LOGO_AL, MUSTERI_AD, MUSTERI_TEL, ARAÇ_PLAKA, ARAÇ_MODEL, ARAÇ_KM, ISLEM_EKLE, ISLEM_ADET, ISLEM_FIYAT, ISCILIK, NOTLAR = range(11)
 
@@ -383,7 +494,7 @@ async def sifre_kontrol(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     
     if SIFRE_DURUMU.get(user_id, False):
-        return # Şifre zaten doğrulanmışsa bu handler karışmaz
+        return
         
     if text == SIFRE:
         SIFRE_DURUMU[user_id] = True
@@ -496,9 +607,28 @@ async def notlar_ve_bitis(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     await update.message.reply_text("Servis formu hazırlanıyor...", reply_markup=ReplyKeyboardRemove())
     
-    pdf_path = f"servis_formu_{context.user_data['plaka']}.pdf"
+    plaka = context.user_data['plaka']
+    pdf_path = f"servis_formu_{plaka}.pdf"
     logo_yolu = context.user_data.get('logo_path')
     
+    islemler = context.user_data.get('islemler', [])
+    iscilik = context.user_data.get('iscilik', 0.0)
+    yedek_parca_toplam = sum(i['fiyat'] * i['adet'] for i in islemler)
+    genel_toplam = yedek_parca_toplam + iscilik
+    islem_ozeti_list = [f"{i['ad']} (x{i['adet']})" for i in islemler]
+    islem_str = ", ".join(islem_ozeti_list) if islem_ozeti_list else "İşlem belirtilmedi"
+    tarih_str = datetime.date.today().strftime("%d.%m.%Y")
+
+    # Veritabanına Telegram üzerinden kaydedilenleri de ekle
+    conn = sqlite3.connect('servis_gecmis.db')
+    cursor = conn.cursor()
+    cursor.execute('''
+        INSERT INTO servisler (plaka, musteri_ad, musteri_tel, model, km, tarih, detaylar, toplam_tutar)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    ''', (plaka, context.user_data['musteri_ad'], context.user_data['musteri_tel'], context.user_data['model'], context.user_data['km'], tarih_str, islem_str, genel_toplam))
+    conn.commit()
+    conn.close()
+
     pdf_olustur(pdf_path, context.user_data, logo_yolu)
     
     with open(pdf_path, 'rb') as doc:
@@ -550,7 +680,6 @@ def run_telegram_bot():
 
     bot_app.add_handler(CommandHandler("start", start))
     bot_app.add_handler(conv_handler)
-    # Şifre yakalayıcı metin mesajı
     bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, sifre_kontrol))
 
     print("Telegram botu thread içinde başlatılıyor...")
