@@ -17,7 +17,7 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
 app = Flask(__name__)
-app.secret_key = "iz_motor_gizli_anahtar_erp_v13"
+app.secret_key = "iz_motor_gizli_anahtar_erp_v14"
 
 SIFRE = "izmotor2026*"
 
@@ -830,13 +830,14 @@ PLAKA_SORGU = range(400, 401)
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     SIFRE_DURUMU[user_id] = False
+    print(f"DEBUG: /start komutu alındı. Kullanıcı ID: {user_id}")
     await update.message.reply_text("Selam kanka! İz Motorsiklet Botuna hoş geldin.\nDevam etmek için önce **yönetici şifresini** gir kanka:")
 
 async def sifre_kontrol(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     text = update.message.text
+    print(text)
     
-    # Eğer kullanıcı zaten giriş yapmışsa bu kontrole takılmasın
     if SIFRE_DURUMU.get(user_id, False):
         return
         
@@ -1381,7 +1382,11 @@ async def iptal(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 def run_telegram_bot():
     TOKEN = os.getenv("BOT_TOKEN")
-    if not TOKEN: return
+    if not TOKEN: 
+        print("HATA: BOT_TOKEN çevre değişkeni bulunamadı!")
+        return
+    
+    print("Telegram bot başlatılıyor...")
     bot_app = Application.builder().token(TOKEN).build()
 
     stok_conv = ConversationHandler(
