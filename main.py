@@ -13,7 +13,7 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
 app = Flask(__name__)
-app.secret_key = "iz_motor_gizli_anahtar_erp_ultra_v28"
+app.secret_key = "iz_motor_gizli_anahtar_erp_ultra_v29"
 
 SIFRE = "izmotor2026*"
 
@@ -69,7 +69,7 @@ except Exception:
     FONT_NAME = 'Helvetica'
     FONT_BOLD = 'Helvetica-Bold'
 
-# --- HTML ARAYÜZ (MOBİL UYUMLU KAYDIRILABILIR ÜST MENÜ) ---
+# --- HTML ARAYÜZ ---
 HTML_LOGIN = """
 <!DOCTYPE html>
 <html lang="tr">
@@ -125,17 +125,13 @@ HTML_PANEL = """
         body { font-family: 'Inter', 'Segoe UI', Tahoma, sans-serif; background: var(--bg-main); margin: 0; padding: 12px; color: var(--text-main); box-sizing: border-box; }
         .container { max-width: 900px; margin: 0 auto; background: var(--bg-card); backdrop-filter: blur(20px); padding: 20px; border-radius: 20px; box-shadow: 0 20px 50px rgba(0,0,0,0.8); border: 1px solid var(--border-color); }
         
-        /* ŞIK ÜST MENÜ VE YATAY KAYDIRILABİLİR SEKMELER */
         .top-navbar { display: flex; flex-direction: column; gap: 12px; background: rgba(3, 7, 18, 0.9); padding: 14px; border-radius: 14px; border: 1px solid var(--border-color); margin-bottom: 22px; }
-        
         .navbar-header { display: flex; justify-content: space-between; align-items: center; width: 100%; border-bottom: 1px solid rgba(51,65,85,0.4); padding-bottom: 10px; }
         .brand-mini { display: flex; align-items: center; gap: 10px; }
         .brand-logo { background: linear-gradient(135deg, var(--accent-gold), var(--accent-gold-dark)); width: 34px; height: 34px; border-radius: 8px; display: flex; justify-content: center; align-items: center; font-size: 18px; box-shadow: 0 0 12px rgba(250,204,21,0.3); flex-shrink: 0; }
         .brand-title h1 { color: var(--accent-gold); margin: 0; font-size: 15px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 800; }
-        
         .logout a { color: #f87171; text-decoration: none; font-size: 11px; font-weight: 700; padding: 6px 10px; background: rgba(248,113,113,0.1); border-radius: 6px; border: 1px solid rgba(248,113,113,0.3); display: inline-block; }
 
-        /* Mobilde yan yana kayan (scrollable) sekmeler */
         .nav-tabs { display: flex; gap: 6px; overflow-x: auto; white-space: nowrap; padding-bottom: 4px; scrollbar-width: none; }
         .nav-tabs::-webkit-scrollbar { display: none; }
         
@@ -184,7 +180,6 @@ HTML_PANEL = """
 </head>
 <body>
 <div class="container">
-    <!-- ÜST KOMPAKT VE ŞIK NAVBAR -->
     <div class="top-navbar">
         <div class="navbar-header">
             <div class="brand-mini">
@@ -196,7 +191,6 @@ HTML_PANEL = """
             <div class="logout"><a href="/cikis">Çıkış</a></div>
         </div>
         
-        <!-- Yatay Kaydırılabilir Sekmeler (Mobilde asla üst üste binmez) -->
         <div class="nav-tabs">
             <button class="tab-btn active" onclick="switchTab('formTab', this)">🛠️ Servis</button>
             <button class="tab-btn" onclick="switchTab('araclarTab', this)">🏍️ Araçlar</button>
@@ -729,7 +723,7 @@ def cikis():
     session.pop('giris', None)
     return redirect(url_for('index'))
 
-# --- TELEGRAM BOTU ---
+# --- TELEGRAM BOTU (SERVİS FORMU SİHİRBAZI EKLENDİ) ---
 SIFRE_DURUMU = {}
 BOT_DURUMLARI = {}
 
@@ -758,8 +752,10 @@ async def mesaj_yoneticisi(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("Hatalı şifre kanka! Tekrar dene:")
         return
 
-    durum_bilgisi = BOT_DURUMLARI.get(user_id, {}).get('adim', 'menu')
+    user_state = BOT_DURUMLARI.get(user_id, {})
+    durum_bilgisi = user_state.get('adim', 'menu')
 
+    # --- PLAKA SORGULAMA ADIMI ---
     if durum_bilgisi == 'plaka_sor':
         conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
         cursor = conn.cursor()
@@ -786,7 +782,8 @@ async def mesaj_yoneticisi(update: Update, context: ContextTypes.DEFAULT_TYPE):
         BOT_DURUMLARI[user_id] = {'adim': 'menu'}
         return
 
-    rand_adim = BOT_DURUMLARI.get(user_id, {}).get('randevu_adim')
+    # --- RANDEVU ADIMLARI ---
+    rand_adim = user_state.get('randevu_adim')
     if rand_adim == 'ad_al':
         BOT_DURUMLARI[user_id]['rand_ad'] = text
         BOT_DURUMLARI[user_id]['randevu_adim'] = 'tel_al'
@@ -798,8 +795,8 @@ async def mesaj_yoneticisi(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Randevu **tarih ve saatini** gir kanka (Örn: 05.11.2026 - 14:30):")
         return
     elif rand_adim == 'zaman_al':
-        ad = BOT_DURUMLARI[user_id]['rand_ad']
-        tel = BOT_DURUMLARI[user_id]['rand_tel']
+        ad = user_state['rand_ad']
+        tel = user_state['rand_tel']
         zaman = text
 
         conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
@@ -818,7 +815,70 @@ async def mesaj_yoneticisi(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"✅ **Randevu Başarıyla Kaydedildi!**\n- Müşteri: {ad} ({tel})\n- Zaman: `{zaman}`", parse_mode="Markdown", reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True))
         return
 
-    if text == "🔍 Plaka Sorgula":
+    # --- SERVİS FORMU SİHİRBAZI ADIMLARI ---
+    servis_adim = user_state.get('servis_adim')
+    if servis_adim == 'plaka_al':
+        BOT_DURUMLARI[user_id]['s_plaka'] = text
+        BOT_DURUMLARI[user_id]['servis_adim'] = 'ad_al'
+        await update.message.reply_text("Müşteri **Adı ve Soyadını** yaz kanka:")
+        return
+    elif servis_adim == 'ad_al':
+        BOT_DURUMLARI[user_id]['s_ad'] = text
+        BOT_DURUMLARI[user_id]['servis_adim'] = 'tel_al'
+        await update.message.reply_text("Müşteri **Telefon Numarasını** yaz kanka (Örn: 90532...):")
+        return
+    elif servis_adim == 'tel_al':
+        BOT_DURUMLARI[user_id]['s_tel'] = text
+        BOT_DURUMLARI[user_id]['servis_adim'] = 'model_al'
+        await update.message.reply_text("Motosiklet **Marka ve Modelini** yaz kanka (Örn: Honda Dio):")
+        return
+    elif servis_adim == 'model_al':
+        BOT_DURUMLARI[user_id]['s_model'] = text
+        BOT_DURUMLARI[user_id]['servis_adim'] = 'km_al'
+        await update.message.reply_text("Motosiklet **Kilometresini (KM)** yaz kanka:")
+        return
+    elif servis_adim == 'km_al':
+        BOT_DURUMLARI[user_id]['s_km'] = text
+        BOT_DURUMLARI[user_id]['servis_adim'] = 'islem_al'
+        await update.message.reply_text("Yapılan **İşlemi ve Tutarını** yaz kanka (Örn: Yağ Değişimi - 400 TL):")
+        return
+    elif servis_adim == 'islem_al':
+        s_plaka = user_state['s_plaka']
+        s_ad = user_state['s_ad']
+        s_tel = user_state['s_tel']
+        s_model = user_state['s_model']
+        s_km = user_state['s_km']
+        islem_notu = text
+        tarih_str = datetime.date.today().strftime("%d.%m.%Y")
+
+        conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO servisler (plaka, musteri_ad, musteri_tel, model, km, tarih, detaylar, toplam_tutar, durum, odeme_durumu, pdf_dosya)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Bekliyor', 'Ödendi', NULL)
+        ''', (s_plaka, s_ad, s_tel, s_model, s_km, tarih_str, islem_notu, 0.0))
+        conn.commit()
+        conn.close()
+
+        keyboard = [
+            ["🛠️ Servis Formu Oluştur", "📅 Randevu Ekle"],
+            ["⚡ Hızlı Fiyat Teklifi", "🔍 Plaka Sorgula"],
+            ["📊 Günlük Özet", "📦 Stok Listesi"],
+            ["🏍️ Araçlar"]
+        ]
+        BOT_DURUMLARI[user_id] = {'adim': 'menu'}
+        await update.message.reply_text(
+            f"✅ **Servis Formu Kaydı Başarıyla Oluşturuldu!**\n\n- Plaka: `{s_plaka}`\n- Müşteri: {s_ad} ({s_tel})\n- Model/KM: {s_model} - {s_km}\n- İşlem: {islem_notu}\n\n*(Not: Detaylı PDF çıktısı ve logolar için web panelini kullanabilirsin kanka)*",
+            parse_mode="Markdown", reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+        )
+        return
+
+    # --- ANA MENÜ SEÇİMLERİ ---
+    if text == "🛠️ Servis Formu Oluştur":
+        BOT_DURUMLARI[user_id] = {'adim': 'servis_formu', 'servis_adim': 'plaka_al'}
+        await update.message.reply_text("Servis formu için motosiklet **Plakasını** yaz kanka:", reply_markup=ReplyKeyboardRemove())
+        
+    elif text == "🔍 Plaka Sorgula":
         BOT_DURUMLARI[user_id] = {'adim': 'plaka_sor'}
         await update.message.reply_text("Sorgulamak istediğin **Plakayı veya Müşteri Adını** yaz kanka:", reply_markup=ReplyKeyboardRemove())
         
