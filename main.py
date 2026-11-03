@@ -298,6 +298,11 @@ async def logo_al(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Logo alındı! Şimdi Müşteri Adı ve Soyadını gir kanka:")
     return MUSTERI_AD
 
+# Metin gönderildiğinde uyarı veren fonksiyon
+async def logo_uyari(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Kanka yazı değil, **dükkanın logosunu fotoğraf olarak** göndermen gerekiyor! Hadi bekliyorum:")
+    return LOGO_AL
+
 async def musteri_ad_al(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['musteri_ad'] = update.message.text
     await update.message.reply_text("Müşteri Telefon Numarasını gir kanka:")
@@ -410,7 +415,10 @@ def run_telegram_bot():
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler('yeni_servis', yeni_servis)],
         states={
-            LOGO_AL: [MessageHandler(filters.PHOTO, logo_al)],
+            LOGO_AL: [
+                MessageHandler(filters.PHOTO, logo_al),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, logo_uyari)
+            ],
             MUSTERI_AD: [MessageHandler(filters.TEXT & ~filters.COMMAND, musteri_ad_al)],
             MUSTERI_TEL: [MessageHandler(filters.TEXT & ~filters.COMMAND, musteri_tel_al)],
             ARAÇ_PLAKA: [MessageHandler(filters.TEXT & ~filters.COMMAND, arac_plaka_al)],
@@ -433,7 +441,6 @@ def run_telegram_bot():
     bot_app.add_handler(conv_handler)
 
     print("Telegram botu thread içinde başlatılıyor...")
-    # Python 3.14 çakışmasını önlemek için stop_signals=None ekledik
     bot_app.run_polling(stop_signals=None)
 
 if __name__ == '__main__':
