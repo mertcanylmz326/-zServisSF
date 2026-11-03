@@ -1,5 +1,6 @@
 import os
 import threading
+import asyncio
 from flask import Flask
 from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import (
@@ -11,7 +12,7 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 
-# --- FLASK MINI SUNUCU (Render Web Service için) ---
+# --- FLASK MINI SUNUCU ---
 app_flask = Flask(__name__)
 
 @app_flask.route('/')
@@ -166,7 +167,6 @@ async def iptal(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 def main():
-    # Flask web sunucusunu ayrı bir thred'de başlatıyoruz
     threading.Thread(target=run_flask, daemon=True).start()
 
     TOKEN = os.getenv("BOT_TOKEN")
@@ -181,8 +181,8 @@ def main():
             MUSTERI: [MessageHandler(filters.TEXT & ~filters.COMMAND, musteri_al)],
             ARAÇ: [MessageHandler(filters.TEXT & ~filters.COMMAND, arac_al)],
             HIZMET_EKLE: [
-                MessageHandler(filters.Regex('^\+ Başka Hizmet Ekle$'), hizmet_karar),
-                MessageHandler(filters.Regex('^Bitti / Ödemeye Geç$'), hizmet_karar),
+                MessageHandler(filters.Regex(r'^\+ Başka Hizmet Ekle$'), hizmet_karar),
+                MessageHandler(filters.Regex(r'^Bitti / Ödemeye Geç$'), hizmet_karar),
                 MessageHandler(filters.TEXT & ~filters.COMMAND, hizmet_ad_al)
             ],
             HIZMET_FIYAT: [MessageHandler(filters.TEXT & ~filters.COMMAND, hizmet_fiyat_al)],
@@ -195,7 +195,9 @@ def main():
     app.add_handler(conv_handler)
 
     print("Bot ve Web sunucusu çalışıyor...")
-    app.run_polling()
+    
+    # Python 3.14 uyumluluğu için polling çalıştırma
+    asyncio.run(app.run_polling())
 
 if __name__ == '__main__':
     main()
