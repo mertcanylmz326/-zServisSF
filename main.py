@@ -14,7 +14,7 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
 app = Flask(__name__)
-app.secret_key = "iz_motor_gizli_anahtar_erp_lux_v40"
+app.secret_key = "iz_motor_gizli_anahtar_erp_carbon_v41"
 
 SIFRE = "izmotor2026*"
 TELEGRAM_ADMIN_CHAT_ID = None
@@ -72,7 +72,7 @@ except Exception:
     FONT_NAME = 'Helvetica'
     FONT_BOLD = 'Helvetica-Bold'
 
-# --- HTML ARAYÜZ (LÜKS GARAJ TASARIMI) ---
+# --- HTML ARAYÜZ (KARBON FİBER GARAJ TASARIMI) ---
 HTML_LOGIN = """
 <!DOCTYPE html>
 <html lang="tr">
@@ -81,14 +81,22 @@ HTML_LOGIN = """
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>İz Motorsiklet - Giriş</title>
     <style>
-        body { font-family: 'Inter', 'Segoe UI', sans-serif; background: #030712; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; color: #f8fafc; }
-        .login-box { background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(25px); border: 1px solid rgba(250, 204, 21, 0.35); padding: 45px 30px; border-radius: 28px; box-shadow: 0 30px 60px rgba(0,0,0,0.85); width: 100%; max-width: 380px; text-align: center; }
-        .logo-badge { font-size: 52px; margin-bottom: 12px; filter: drop-shadow(0 0 12px rgba(250,204,21,0.4)); }
+        body { 
+            font-family: 'Inter', 'Segoe UI', sans-serif; 
+            background-color: #0b0f19;
+            background-image: 
+                radial-gradient(rgba(250, 204, 21, 0.08) 1px, transparent 1px),
+                linear-gradient(135deg, #050811 0%, #0f172a 100%);
+            background-size: 20px 20px, 100% 100%;
+            display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; color: #f8fafc; 
+        }
+        .login-box { background: rgba(11, 15, 25, 0.92); backdrop-filter: blur(25px); border: 1px solid rgba(250, 204, 21, 0.4); padding: 45px 30px; border-radius: 28px; box-shadow: 0 30px 60px rgba(0,0,0,0.9); width: 100%; max-width: 380px; text-align: center; }
+        .logo-badge { font-size: 52px; margin-bottom: 12px; filter: drop-shadow(0 0 15px rgba(250,204,21,0.5)); }
         h2 { color: #f8fafc; margin-bottom: 6px; letter-spacing: 2px; font-weight: 800; font-size: 24px; text-transform: uppercase; }
         p { color: #94a3b8; font-size: 13px; margin-bottom: 30px; font-weight: 500; }
         input { width: 100%; padding: 16px; margin-bottom: 20px; background: rgba(3, 7, 18, 0.95); border: 1px solid #334155; border-radius: 14px; color: #fff; box-sizing: border-box; font-size: 16px; outline: none; text-align: center; letter-spacing: 2px; transition: 0.3s; }
-        input:focus { border-color: #facc15; box-shadow: 0 0 20px rgba(250,204,21,0.35); }
-        button { background: linear-gradient(135deg, #facc15 0%, #ca8a04 100%); color: #030712; border: none; padding: 16px; border-radius: 14px; width: 100%; font-size: 16px; font-weight: 800; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; box-shadow: 0 8px 25px rgba(250,204,21,0.3); transition: 0.2s; }
+        input:focus { border-color: #facc15; box-shadow: 0 0 20px rgba(250,204,21,0.4); }
+        button { background: linear-gradient(135deg, #facc15 0%, #ca8a04 100%); color: #030712; border: none; padding: 16px; border-radius: 14px; width: 100%; font-size: 16px; font-weight: 800; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; box-shadow: 0 8px 25px rgba(250,204,21,0.35); transition: 0.2s; }
         button:active { transform: scale(0.98); }
         .error { color: #ef4444; margin-bottom: 18px; font-size: 13px; font-weight: 700; background: rgba(239,68,68,0.12); padding: 12px; border-radius: 10px; border: 1px solid rgba(239,68,68,0.3); }
     </style>
@@ -97,7 +105,7 @@ HTML_LOGIN = """
 <div class="login-box">
     <div class="logo-badge">🏍️</div>
     <h2>İZ MOTORSİKLET</h2>
-    <p>Profesyonel Servis Paneli</p>
+    <p>Karbon Garaj Yönetim Paneli</p>
     {% if error %}<div class="error">{{ error }}</div>{% endif %}
     <form method="POST">
         <input type="password" name="sifre" placeholder="••••••••••••" required autofocus>
@@ -114,25 +122,34 @@ HTML_PANEL = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>İz Motorsiklet - ERP Paneli</title>
+    <title>İz Motorsiklet - Karbon ERP Paneli</title>
     <style>
         :root {
-            --bg-main: #030712;
-            --bg-card: rgba(15, 23, 42, 0.88);
-            --border-color: rgba(51, 65, 85, 0.5);
+            --bg-main: #050811;
+            --bg-card: rgba(11, 15, 25, 0.9);
+            --border-color: rgba(51, 65, 85, 0.6);
             --accent-gold: #facc15;
             --accent-gold-dark: #ca8a04;
             --text-main: #f8fafc;
             --text-muted: #94a3b8;
         }
-        body { font-family: 'Inter', 'Segoe UI', Tahoma, sans-serif; background: var(--bg-main); margin: 0; padding: 10px; color: var(--text-main); box-sizing: border-box; }
-        .container { max-width: 900px; margin: 0 auto; background: var(--bg-card); backdrop-filter: blur(25px); padding: 18px; border-radius: 22px; box-shadow: 0 25px 60px rgba(0,0,0,0.85); border: 1px solid var(--border-color); }
+        body { 
+            font-family: 'Inter', 'Segoe UI', Tahoma, sans-serif; 
+            background-color: var(--bg-main);
+            /* KARBON FİBER & NOKTALI GARAJ DOKUSU */
+            background-image: 
+                radial-gradient(rgba(250, 204, 21, 0.05) 1px, transparent 1px),
+                linear-gradient(135deg, #030712 0%, #0b0f19 50%, #050811 100%);
+            background-size: 16px 16px, 100% 100%;
+            margin: 0; padding: 10px; color: var(--text-main); box-sizing: border-box; 
+        }
+        .container { max-width: 900px; margin: 0 auto; background: var(--bg-card); backdrop-filter: blur(25px); padding: 18px; border-radius: 22px; box-shadow: 0 25px 60px rgba(0,0,0,0.9); border: 1px solid rgba(250,204,21,0.25); }
         
         /* SABİT ÜST MENÜ (STICKY NAVBAR) */
-        .top-navbar { position: sticky; top: 0; z-index: 100; display: flex; flex-direction: column; gap: 10px; background: rgba(3, 7, 18, 0.95); backdrop-filter: blur(20px); padding: 12px; border-radius: 16px; border: 1px solid rgba(250,204,21,0.25); margin-bottom: 18px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .top-navbar { position: sticky; top: 0; z-index: 100; display: flex; flex-direction: column; gap: 10px; background: rgba(5, 8, 17, 0.96); backdrop-filter: blur(20px); padding: 12px; border-radius: 16px; border: 1px solid rgba(250,204,21,0.3); margin-bottom: 18px; box-shadow: 0 10px 30px rgba(0,0,0,0.6); }
         .navbar-header { display: flex; justify-content: space-between; align-items: center; width: 100%; border-bottom: 1px solid rgba(51,65,85,0.4); padding-bottom: 8px; }
         .brand-mini { display: flex; align-items: center; gap: 10px; }
-        .brand-logo { background: linear-gradient(135deg, var(--accent-gold), var(--accent-gold-dark)); width: 34px; height: 34px; border-radius: 10px; display: flex; justify-content: center; align-items: center; font-size: 18px; box-shadow: 0 0 15px rgba(250,204,21,0.4); flex-shrink: 0; }
+        .brand-logo { background: linear-gradient(135deg, var(--accent-gold), var(--accent-gold-dark)); width: 34px; height: 34px; border-radius: 10px; display: flex; justify-content: center; align-items: center; font-size: 18px; box-shadow: 0 0 15px rgba(250,204,21,0.45); flex-shrink: 0; }
         .brand-title h1 { color: var(--accent-gold); margin: 0; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; font-weight: 800; }
         .logout a { color: #f87171; text-decoration: none; font-size: 11px; font-weight: 700; padding: 6px 10px; background: rgba(248,113,113,0.12); border-radius: 8px; border: 1px solid rgba(248,113,113,0.3); transition: 0.2s; }
         .logout a:active { transform: scale(0.95); }
@@ -140,14 +157,14 @@ HTML_PANEL = """
         .nav-tabs { display: flex; gap: 6px; overflow-x: auto; white-space: nowrap; padding-bottom: 2px; scrollbar-width: none; }
         .nav-tabs::-webkit-scrollbar { display: none; }
         
-        .tab-btn { background: rgba(17, 24, 39, 0.9); color: var(--text-muted); border: 1px solid #1f2937; padding: 8px 14px; border-radius: 10px; cursor: pointer; font-weight: 700; font-size: 12px; transition: 0.2s; flex-shrink: 0; }
-        .tab-btn:hover { color: #fff; background: rgba(30,41,59,0.9); }
-        .tab-btn.active { background: linear-gradient(135deg, var(--accent-gold), var(--accent-gold-dark)); color: #030712; border-color: var(--accent-gold); box-shadow: 0 4px 15px rgba(250,204,21,0.35); font-weight: 800; }
+        .tab-btn { background: rgba(15, 23, 42, 0.95); color: var(--text-muted); border: 1px solid #1f2937; padding: 8px 14px; border-radius: 10px; cursor: pointer; font-weight: 700; font-size: 12px; transition: 0.2s; flex-shrink: 0; }
+        .tab-btn:hover { color: #fff; background: rgba(30,41,59,0.95); }
+        .tab-btn.active { background: linear-gradient(135deg, var(--accent-gold), var(--accent-gold-dark)); color: #030712; border-color: var(--accent-gold); box-shadow: 0 4px 15px rgba(250,204,21,0.4); font-weight: 800; }
 
         .dashboard-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 18px; }
         @media(min-width: 600px) { .dashboard-grid { grid-template-columns: repeat(4, 1fr); } }
         
-        .stat-card { background: rgba(30,41,59,0.45); border: 1px solid var(--border-color); padding: 12px; border-radius: 14px; position: relative; overflow: hidden; }
+        .stat-card { background: rgba(20, 27, 45, 0.6); border: 1px solid var(--border-color); padding: 12px; border-radius: 14px; position: relative; overflow: hidden; }
         .stat-card::after { content: ''; position: absolute; top: 0; left: 0; width: 3px; height: 100%; background: var(--accent-gold); border-radius: 3px 0 0 3px; }
         .stat-card h3 { margin: 0; font-size: 17px; color: var(--accent-gold); font-weight: 800; }
         .stat-card p { margin: 4px 0 0 0; color: var(--text-muted); font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
@@ -159,13 +176,13 @@ HTML_PANEL = """
         h3 { color: var(--accent-gold); border-bottom: 1px solid rgba(51,65,85,0.6); padding-bottom: 10px; margin-top: 0; font-size: 16px; font-weight: 800; }
         .form-group { margin-bottom: 14px; }
         label { display: block; font-weight: 700; margin-bottom: 5px; font-size: 12px; color: #cbd5e1; }
-        input, textarea, select { width: 100%; padding: 12px; background: rgba(3, 7, 18, 0.9); border: 1px solid var(--border-color); border-radius: 12px; color: #fff; box-sizing: border-box; font-size: 14px; outline: none; transition: 0.2s; }
-        input:focus, textarea:focus, select:focus { border-color: var(--accent-gold); box-shadow: 0 0 12px rgba(250,204,21,0.25); }
+        input, textarea, select { width: 100%; padding: 12px; background: rgba(5, 8, 17, 0.95); border: 1px solid var(--border-color); border-radius: 12px; color: #fff; box-sizing: border-box; font-size: 14px; outline: none; transition: 0.2s; }
+        input:focus, textarea:focus, select:focus { border-color: var(--accent-gold); box-shadow: 0 0 12px rgba(250,204,21,0.3); }
         
-        .item-row { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; background: rgba(30, 41, 59, 0.35); padding: 10px; border-radius: 12px; border: 1px solid var(--border-color); }
+        .item-row { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; background: rgba(20, 27, 45, 0.5); padding: 10px; border-radius: 12px; border: 1px solid var(--border-color); }
         @media(min-width: 550px) { .item-row { flex-direction: row; align-items: center; } }
         .item-row input.name-input { flex: 2; }
-        .item-row select { flex: 1.5; background: rgba(3,7,18,0.9); font-size: 12px; }
+        .item-row select { flex: 1.5; background: rgba(5,8,17,0.95); font-size: 12px; }
         .item-row input.small { flex: 0.8; }
         
         .btn-add { background: #0d9488; color: #fff; border: none; padding: 12px; border-radius: 12px; cursor: pointer; font-weight: 800; width: 100%; margin-bottom: 14px; transition: 0.2s; }
@@ -173,23 +190,23 @@ HTML_PANEL = """
         .btn-remove { background: #dc2626; color: #fff; border: none; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-weight: 800; align-self: flex-end; }
         @media(min-width: 550px) { .btn-remove { align-self: center; } }
         
-        button[type="submit"], .btn-action { background: linear-gradient(135deg, var(--accent-gold), var(--accent-gold-dark)); color: #030712; border: none; padding: 14px; border-radius: 12px; cursor: pointer; width: 100%; font-size: 14px; font-weight: 800; margin-top: 14px; text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 6px 20px rgba(250,204,21,0.3); transition: 0.2s; }
+        button[type="submit"], .btn-action { background: linear-gradient(135deg, var(--accent-gold), var(--accent-gold-dark)); color: #030712; border: none; padding: 14px; border-radius: 12px; cursor: pointer; width: 100%; font-size: 14px; font-weight: 800; margin-top: 14px; text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 6px 20px rgba(250,204,21,0.35); transition: 0.2s; }
         button[type="submit"]:active, .btn-action:active { transform: scale(0.98); }
         
-        .card { background: rgba(22, 32, 50, 0.7); border: 1px solid var(--border-color); padding: 16px; border-radius: 16px; margin-bottom: 14px; font-size: 13px; line-height: 1.5; box-shadow: 0 10px 30px rgba(0,0,0,0.3); transition: 0.2s; }
-        .card:hover { border-color: rgba(250,204,21,0.3); }
+        .card { background: rgba(18, 24, 40, 0.75); border: 1px solid var(--border-color); padding: 16px; border-radius: 16px; margin-bottom: 14px; font-size: 13px; line-height: 1.5; box-shadow: 0 10px 30px rgba(0,0,0,0.4); transition: 0.2s; }
+        .card:hover { border-color: rgba(250,204,21,0.4); }
         
         .status-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
         .status-box label { font-size: 10px; color: var(--text-muted); margin-bottom: 3px; text-transform: uppercase; font-weight: 700; }
-        .status-box select { padding: 9px; font-size: 12px; background: rgba(3,7,18,0.95); border-radius: 10px; border: 1px solid var(--border-color); color: #fff; width: 100%; font-weight: 700; }
+        .status-box select { padding: 9px; font-size: 12px; background: rgba(5,8,17,0.98); border-radius: 10px; border: 1px solid var(--border-color); color: #fff; width: 100%; font-weight: 700; }
 
         .action-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-        .whatsapp-btn { background: #25d366; color: #fff; padding: 8px 12px; border-radius: 9px; text-decoration: none; font-size: 11px; font-weight: 800; display: inline-block; box-shadow: 0 4px 12px rgba(37,211,102,0.3); transition: 0.2s; }
+        .whatsapp-btn { background: #25d366; color: #fff; padding: 8px 12px; border-radius: 9px; text-decoration: none; font-size: 11px; font-weight: 800; display: inline-block; box-shadow: 0 4px 12px rgba(37,211,102,0.35); transition: 0.2s; }
         .whatsapp-btn:active { transform: scale(0.95); }
-        .pdf-btn { background: #0284c7; color: #fff; padding: 8px 12px; border-radius: 9px; text-decoration: none; font-size: 11px; font-weight: 800; display: inline-block; box-shadow: 0 4px 12px rgba(2,132,199,0.3); transition: 0.2s; }
+        .pdf-btn { background: #0284c7; color: #fff; padding: 8px 12px; border-radius: 9px; text-decoration: none; font-size: 11px; font-weight: 800; display: inline-block; box-shadow: 0 4px 12px rgba(2,132,199,0.35); transition: 0.2s; }
         .pdf-btn:active { transform: scale(0.95); }
         
-        .alert-box { background: rgba(250,204,21,0.12); border: 1px solid var(--accent-gold); padding: 12px; border-radius: 12px; color: var(--accent-gold); margin-bottom: 15px; font-weight: 800; text-align: center; display: none; font-size: 12px; }
+        .alert-box { background: rgba(250,204,21,0.15); border: 1px solid var(--accent-gold); padding: 12px; border-radius: 12px; color: var(--accent-gold); margin-bottom: 15px; font-weight: 800; text-align: center; display: none; font-size: 12px; }
     </style>
 </head>
 <body>
@@ -226,9 +243,9 @@ HTML_PANEL = """
 
     <!-- 1. SERVİS FORMU -->
     <div id="formTab" class="tab-content active">
-        <div style="background: rgba(22, 32, 50, 0.4); border: 1px solid rgba(250,204,21,0.25); padding: 14px; border-radius: 14px; margin-bottom: 18px;">
+        <div style="background: rgba(20, 27, 45, 0.5); border: 1px solid rgba(250,204,21,0.3); padding: 14px; border-radius: 14px; margin-bottom: 18px;">
             <label style="color: var(--accent-gold); margin-bottom: 6px;">⚡ Kayıtlı Aktif Araçtan Seç (Otomatik Doldur)</label>
-            <select id="aracSecici" onchange="aracBilgileriniDoldur(this)" style="background: rgba(3,7,18,0.9); font-size: 13px; padding: 11px;">
+            <select id="aracSecici" onchange="aracBilgileriniDoldur(this)" style="background: rgba(5,8,17,0.95); font-size: 13px; padding: 11px;">
                 <option value="">-- Listeden Araç Seç (İsteğe Bağlı) --</option>
                 {% for ts in aktif_araclar %}
                 <option value="{{ ts[1] }}" data-ad="{{ ts[2] }}" data-tel="{{ ts[3] }}" data-model="{{ ts[4] }}" data-km="{{ ts[5] }}">
@@ -249,14 +266,14 @@ HTML_PANEL = """
             
             <div class="form-group">
                 <label>Ödeme / Borç Durumu</label>
-                <select name="odeme_durumu" style="background: rgba(3,7,18,0.9);">
+                <select name="odeme_durumu" style="background: rgba(5,8,17,0.95);">
                     <option value="Borçlu / Veresiye" selected>🔴 Borçlu / Veresiye</option>
                     <option value="Parça Bekliyor">🟡 Parça Bekliyor</option>
                     <option value="Ödendi">🟢 Ödendi (Arşive Gider)</option>
                 </select>
             </div>
 
-            <hr style="margin: 20px 0; border: 0; border-top: 1px solid rgba(51,65,85,0.4);">
+            <hr style="margin: 20px 0; border: 0; border-top: 1px solid rgba(51,65,85,0.5);">
             <label><b>🛠️ Yapılan İşlemler ve Parçalar</b></label>
             <div id="items-container">
                 <div class="item-row">
@@ -284,12 +301,12 @@ HTML_PANEL = """
     <div id="araclarTab" class="tab-content">
         <h3>Atölyedeki / Servisteki Aktif Araçlar</h3>
         
-        <div style="background: rgba(22, 32, 50, 0.4); border: 1px solid rgba(250,204,21,0.25); padding: 14px; border-radius: 14px; margin-bottom: 18px;">
+        <div style="background: rgba(20, 27, 45, 0.5); border: 1px solid rgba(250,204,21,0.3); padding: 14px; border-radius: 14px; margin-bottom: 18px;">
             <h4 style="color: var(--accent-gold); margin-top: 0; margin-bottom: 8px; font-size: 13px; font-weight: 800;">➕ Doğrudan Servise Yeni Araç Ekle</h4>
             
             <div class="form-group" style="margin-bottom: 10px;">
                 <label style="color: var(--accent-gold);">⚡ Daha Önce Gelen Eski Araçtan Seç</label>
-                <select id="hizliPlakaSecici" onchange="hizliAracBilgileriniDoldur(this)" style="background: rgba(3,7,18,0.9); font-size: 13px; padding: 11px;">
+                <select id="hizliPlakaSecici" onchange="hizliAracBilgileriniDoldur(this)" style="background: rgba(5,8,17,0.95); font-size: 13px; padding: 11px;">
                     <option value="">-- Geçmiş Araçlardan Seç (İsteğe Bağlı) --</option>
                     {% for g in gecmis_araclar %}
                     <option value="{{ g[1] }}" data-ad="{{ g[2] }}" data-tel="{{ g[3] }}" data-model="{{ g[4] }}" data-km="{{ g[5] }}">
@@ -318,7 +335,7 @@ HTML_PANEL = """
                 <b>Model / KM:</b> {{ ts[4] }} - {{ ts[5] }} KM | <b>Tarih:</b> {{ ts[6] }}<br>
                 <b>Yapılanlar:</b> {{ ts[7] }} | <b>Toplam:</b> <span style="color:var(--accent-gold); font-weight:800;">{{ "%.2f"|format(ts[8]) }} TL</span><br>
                 
-                <hr style="border:0; border-top:1px solid rgba(51,65,85,0.4); margin: 10px 0;">
+                <hr style="border:0; border-top:1px solid rgba(51,65,85,0.5); margin: 10px 0;">
                 
                 <form action="/durum_guncelle" method="POST">
                     <input type="hidden" name="servis_id" value="{{ ts[0] }}">
@@ -363,7 +380,7 @@ HTML_PANEL = """
             <div class="form-group"><label>Plaka veya Müşteri Adı ile Sorgula</label><input type="text" name="sorgu_plaka" placeholder="Örn: 34 ABC veya Ahmet..." value="{{ sorgu_plaka or '' }}"></div>
             <button type="submit" class="btn-action">Ödenmiş Geçmişte Ara</button>
         </form>
-        <hr style="margin: 18px 0; border: 0; border-top: 1px solid rgba(51,65,85,0.4);">
+        <hr style="margin: 18px 0; border: 0; border-top: 1px solid rgba(51,65,85,0.5);">
         <h3>Tamamlanan & Ödenen Geçmiş Servisler</h3>
         {% if kayitlar %}
             {% for k in kayitlar %}
@@ -391,13 +408,13 @@ HTML_PANEL = """
             <div class="form-group"><input type="number" step="0.01" name="fiyat" placeholder="Birim Satış Fiyatı (TL)" required></div>
             <button type="submit" class="btn-action">Stok Ekle / Güncelle</button>
         </form>
-        <hr style="margin: 18px 0; border: 0; border-top: 1px solid rgba(51,65,85,0.4);">
+        <hr style="margin: 18px 0; border: 0; border-top: 1px solid rgba(51,65,85,0.5);">
         <h4>Mevcut Stoklar ve Uyarılar</h4>
         {% for s in stoklar %}
         <div class="card" style="border-left: 4px solid {% if s[2] < 3 %}#f87171{% else %}#4ade80{% endif %};">
             <b>{{ s[1] }}</b> - Adet: <span style="color: {% if s[2] < 3 %}#f87171{% else %}#4ade80{% endif %}; font-weight:800; font-size:14px;">{{ s[2] }}</span> | Fiyat: <b>{{ "%.2f"|format(s[3]) }} TL</b>
             {% if s[2] < 3 %}
-            <br><span style="color: #f87171; font-weight: 800; font-size: 11px; display:inline-block; margin-top:5px; background:rgba(248,113,113,0.12); padding:3px 6px; border-radius:5px; border:1px solid rgba(248,113,113,0.3);">⚠️ KRİTİK STOK: Bu ürün 3 adedin altında!</span>
+            <br><span style="color: #f87171; font-weight: 800; font-size: 11px; display:inline-block; margin-top:5px; background:rgba(248,113,113,0.15); padding:3px 6px; border-radius:5px; border:1px solid rgba(248,113,113,0.35);">⚠️ KRİTİK STOK: Bu ürün 3 adedin altında!</span>
             {% endif %}
         </div>
         {% endfor %}
@@ -413,7 +430,7 @@ HTML_PANEL = """
             <div class="form-group"><input type="text" name="notlar" placeholder="Randevu Notu"></div>
             <button type="submit" class="btn-action">Randevu Oluştur</button>
         </form>
-        <hr style="margin: 18px 0; border: 0; border-top: 1px solid rgba(51,65,85,0.4);">
+        <hr style="margin: 18px 0; border: 0; border-top: 1px solid rgba(51,65,85,0.5);">
         <h4>Aktif Randevular</h4>
         {% for r in randevular %}
         <div class="card" style="border-left: 4px solid #0d9488;">
