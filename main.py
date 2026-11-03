@@ -14,13 +14,13 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
 app = Flask(__name__)
-app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v46"
+app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v47"
 
 SIFRE = "izmotor2026*"
 TELEGRAM_ADMIN_CHAT_ID = None
 
-# Supabase Havuz (Pooler) Bağlantı Adresi (6543 portu ve güvenli şifre formatı ile)
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres.dcyoerlxjonqmbatennf:izmotor2026%2A@aws-0-eu-central-1.pooler.supabase.com:6543/postgres")
+# Doğrudan Supabase 5432 Portlu Doğrudan Bağlantı (Şifrendeki * işareti %2A yapılmıştır)
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:izmotor2026%2A@db.dcyoerlxjonqmbatennf.supabase.co:5432/postgres")
 
 def get_db_connection():
     conn = psycopg2.connect(DATABASE_URL, sslmode='require')
@@ -68,7 +68,7 @@ def init_db():
         conn.commit()
         cursor.close()
         conn.close()
-        print("Supabase Havuz Veritabanı bağlantısı ve tablolar başarılı!")
+        print("Supabase Veritabanı bağlantısı ve tablolar başarılı!")
     except Exception as e:
         print("Veritabanı kurulum hatası:", e)
 
@@ -117,7 +117,7 @@ HTML_LOGIN = """
 <div class="login-box">
     <div class="logo-badge">🏍️</div>
     <h2>İZ MOTORSİKLET</h2>
-    <p>Supabase Havuz Garaj Paneli</p>
+    <p>Supabase Garaj Paneli</p>
     {% if error %}<div class="error">{{ error }}</div>{% endif %}
     <form method="POST">
         <input type="password" name="sifre" placeholder="••••••••••••" required autofocus>
@@ -885,7 +885,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     TELEGRAM_ADMIN_CHAT_ID = update.effective_chat.id
     SIFRE_DURUMU[user_id] = False
     BOT_DURUMLARI[user_id] = {'adim': 'sifre'}
-    await update.message.reply_text("Selam kanka! İz Motorsiklet Supabase Havuz Botuna hoş geldin.\nDevam etmek için önce **yönetici şifresini** gir kanka:")
+    await update.message.reply_text("Selam kanka! İz Motorsiklet Supabase Botuna hoş geldin.\nDevam etmek için önce **yönetici şifresini** gir kanka:")
 
 async def mesaj_yoneticisi(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global TELEGRAM_ADMIN_CHAT_ID
