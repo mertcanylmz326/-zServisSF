@@ -8,22 +8,8 @@ from telegram.ext import (
     Application, CommandHandler, MessageHandler, 
     filters, ConversationHandler, ContextTypes
 )
-from reportlab.lib.pagesizes import A4
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib import colors
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
-
-# --- TÜRKÇE KARAKTER DESTEĞİ ---
-try:
-    pdfmetrics.registerFont(TTFont('DejaVu', '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'))
-    pdfmetrics.registerFont(TTFont('DejaVu-Bold', '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'))
-    FONT_NAME = 'DejaVu'
-    FONT_BOLD = 'DejaVu-Bold'
-except Exception:
-    FONT_NAME = 'Helvetica'
-    FONT_BOLD = 'Helvetica-Bold'
+from xhtml2pdf import pisa
+from io import BytesIO
 
 # --- FLASK MINI SUNUCU ---
 app_flask = Flask(__name__)
@@ -39,191 +25,258 @@ def run_flask():
 # --- ADIM KODLARI ---
 MUSTERI_AD, MUSTERI_TEL, ARAÇ_PLAKA, ARAÇ_MODEL, ARAÇ_KM, ISLEM_EKLE, ISLEM_ADET, ISLEM_FIYAT, ISCILIK, NOTLAR = range(10)
 
-# --- PDF OLUŞTURMA FONKSİYONU ---
+# --- HTML/CSS İLE PDF OLUŞTURMA FONKSİYONU ---
 def pdf_olustur(filename, veri):
-    doc = SimpleDocTemplate(
-        filename, 
-        pagesize=A4, 
-        rightMargin=15, 
-        leftMargin=15, 
-        topMargin=12, 
-        bottomMargin=12
-    )
-    story = []
-    styles = getSampleStyleSheet()
-
-    style_normal = ParagraphStyle(
-        'CustomNormal',
-        parent=styles['Normal'],
-        fontName=FONT_NAME,
-        fontSize=8.5,
-        leading=10
-    )
-    
-    style_bold_title = ParagraphStyle(
-        'CustomTitle',
-        parent=styles['Heading1'],
-        fontSize=13,
-        leading=16,
-        textColor=colors.HexColor("#1A1A1A"),
-        alignment=1,
-        spaceAfter=4,
-        fontName=FONT_BOLD
-    )
-
-    # --- LOGO EKLEME ---
-    logo_dosyasi = None
-    for uzanti in ["logo.jpg", "logo.png", "LOGO.JPG", "LOGO.PNG"]:
-        if os.path.exists(uzanti):
-            logo_dosyasi = uzanti
-            break
-
-    if logo_dosyasi:
-        try:
-            # Genişlik 565pt (A4 sayfa içi tam oturur), yükseklik orantılı
-            story.append(Image(logo_dosyasi, width=540, height=65))
-            story.append(Spacer(1, 4))
-        except Exception:
-            pass
-
-    story.append(Paragraph("MÜŞTERİ SERVİS FORMU", style_bold_title))
-
-    # --- MÜŞTERİ VE ARAÇ BİLGİLERİ ---
     tarih_str = datetime.date.today().strftime("%d.%m.%Y")
-    
-    m_text = f"<b>MÜŞTERİ BİLGİLERİ</b><br/><br/>" \
-             f"<b>Adı Soyadı :</b> {veri.get('musteri_ad', '')}<br/>" \
-             f"<b>Telefon :</b> {veri.get('musteri_tel', '')}<br/>" \
-             f"<b>Tarih :</b> {tarih_str}"
-
-    a_text = f"<b>ARAÇ BİLGİLERİ</b><br/><br/>" \
-             f"<b>Plaka :</b> {veri.get('plaka', '')}<br/>" \
-             f"<b>Marka / Model :</b> {veri.get('model', '')}<br/>" \
-             f"<b>Kilometre :</b> {veri.get('km', '')}"
-
-    p_m = Paragraph(m_text, style_normal)
-    p_a = Paragraph(a_text, style_normal)
-
-    t_bilgi = Table([[p_m, p_a]], colWidths=[275, 275])
-    t_bilgi.setStyle(TableStyle([
-        ('BOX', (0,0), (-1,-1), 0.8, colors.HexColor("#CBD5E0")),
-        ('INNERGRID', (0,0), (-1,-1), 0.8, colors.HexColor("#CBD5E0")),
-        ('PADDING', (0,0), (-1,-1), 6),
-        ('VALIGN', (0,0), (-1,-1), 'TOP'),
-        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#FAFAFA")),
-    ]))
-    story.append(t_bilgi)
-    story.append(Spacer(1, 6))
-
-    # --- YAPIŞAN İŞLEMLER TABLOSU (10 Satırlı Şablon) ---
-    hizmet_table_data = [["No", "Yapılan İşlem / Değişen Parça", "Adet / Miktar", "Tutar (TL)"]]
     
     islemler = veri.get('islemler', [])
     yedek_parca_toplam = 0.0
-
+    
+    # Tablo satırlarını oluşturuyoruz (10 satıra tamamlama)
+    rows_html = ""
     for idx in range(10):
         if idx < len(islemler):
             item = islemler[idx]
-            no = str(idx + 1)
+            no = idx + 1
             islem_adi = item['ad']
-            adet = str(item['adet'])
+            adet = item['adet']
             tutar_val = item['fiyat'] * item['adet']
             yedek_parca_toplam += tutar_val
             tutar_str = f"{tutar_val:.2f} TL"
         else:
-            no = str(idx + 1)
+            no = idx + 1
             islem_adi = ""
             adet = ""
             tutar_str = ""
-
-        hizmet_table_data.append([no, islem_adi, adet, tutar_str])
+            
+        rows_html += f"""
+        <tr>
+            <td style="text-align: center; width: 35px;">{no}</td>
+            <td>{islem_adi}</td>
+            <td style="text-align: center; width: 75px;">{adet}</td>
+            <td style="text-align: right; width: 100px;">{tutar_str}</td>
+        </tr>
+        """
 
     iscilik_tutar = veri.get('iscilik', 0.0)
     genel_toplam = yedek_parca_toplam + iscilik_tutar
-
-    hizmet_table_data.append(["", "İşçilik Tutarı", "", f"{iscilik_tutar:.2f} TL"])
-    hizmet_table_data.append(["", "Yedek Parça Tutarı", "", f"{yedek_parca_toplam:.2f} TL"])
-    hizmet_table_data.append(["", "GENEL TOPLAM", "", f"{genel_toplam:.2f} TL"])
-
-    formatted_table_data = []
-    for r_idx, row in enumerate(hizmet_table_data):
-        new_row = []
-        for c_idx, cell in enumerate(row):
-            if r_idx == 0:
-                p = Paragraph(f"<b>{cell}</b>", style_normal)
-            elif r_idx >= len(hizmet_table_data) - 3 and c_idx == 1:
-                p = Paragraph(f"<b>{cell}</b>", style_normal)
-            elif r_idx >= len(hizmet_table_data) - 3 and c_idx == 3:
-                p = Paragraph(f"<b>{cell}</b>", style_normal)
-            else:
-                p = Paragraph(str(cell), style_normal)
-            new_row.append(p)
-        formatted_table_data.append(new_row)
-
-    t_hizmet = Table(formatted_table_data, colWidths=[30, 315, 90, 115])
-    t_hizmet.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#F2F2F2")),
-        ('ALIGN', (0,0), (0,-1), 'CENTER'),
-        ('ALIGN', (2,0), (2,-4), 'CENTER'),
-        ('ALIGN', (3,0), (3,-1), 'RIGHT'),
-        ('GRID', (0,0), (-1,-4), 0.5, colors.HexColor("#CBD5E0")),
-        ('LINEBELOW', (0,-4), (-1,-1), 0.5, colors.HexColor("#CBD5E0")),
-        ('SPAN', (1,-3), (2,-3)),
-        ('SPAN', (1,-2), (2,-2)),
-        ('SPAN', (1,-1), (2,-1)),
-        ('BACKGROUND', (1,-1), (-1,-1), colors.HexColor("#E2E8F0")),
-        ('PADDING', (0,0), (-1,-1), 3.5),
-        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-    ]))
-    story.append(t_hizmet)
-    story.append(Spacer(1, 6))
-
-    # --- NOTLAR VE TESPİTLER ---
     notlar_text = veri.get('notlar', '')
-    p_notlar = Paragraph(f"<b>Notlar ve Tespitler</b><br/>{notlar_text}<br/><br/>", style_normal)
-    t_notlar = Table([[p_notlar]], colWidths=[550])
-    t_notlar.setStyle(TableStyle([
-        ('LINEBELOW', (0,0), (-1,-1), 0.5, colors.HexColor("#CBD5E0")),
-        ('PADDING', (0,0), (-1,-1), 3),
-    ]))
-    story.append(t_notlar)
-    story.append(Spacer(1, 10))
 
-    # --- İMZA VE ALT BİLGİ ---
-    imza_data = [
-        [Paragraph("<b>Müşteri Onayı</b>", style_normal), Paragraph("<b>Servis Yetkilisi</b>", style_normal)],
-        ["", ""],
-        [Paragraph("<font size=7.5 color='#666666'>Ad / Soyad / İmza</font>", style_normal),
-         Paragraph("<font size=7.5 color='#666666'>Kaşe / İmza</font>", style_normal)]
-    ]
-    t_imza = Table(imza_data, colWidths=[275, 275])
-    t_imza.setStyle(TableStyle([
-        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-        ('LINEBELOW', (0,0), (0,0), 0.5, colors.HexColor("#A0AEC0")),
-        ('LINEBELOW', (1,0), (1,0), 0.5, colors.HexColor("#A0AEC0")),
-        ('PADDING', (0,0), (-1,-1), 2),
-    ]))
-    story.append(t_imza)
-    story.append(Spacer(1, 10))
+    # HTML & CSS Tasarımı (Motor Tamirhane Konsepti)
+    html_content = f"""
+    <!DOCTYPE html>
+    <html lang="tr">
+    <head>
+        <meta charset="UTF-8">
+        <style>
+            @page {{
+                size: A4;
+                margin: 12mm;
+            }}
+            body {{
+                font-family: Helvetica, Arial, sans-serif;
+                color: #111111;
+                font-size: 10pt;
+                line-height: 1.2;
+            }}
+            .header-box {{
+                background-color: #121212;
+                color: #ffffff;
+                padding: 12px;
+                text-align: center;
+                border-bottom: 4px solid #E65100;
+                margin-bottom: 10px;
+            }}
+            .header-box h1 {{
+                margin: 0;
+                font-size: 20pt;
+                letter-spacing: 2px;
+                font-weight: bold;
+            }}
+            .header-box p {{
+                margin: 4px 0 0 0;
+                font-size: 10pt;
+                color: #FFB300;
+                letter-spacing: 1px;
+            }}
+            .form-title {{
+                text-align: center;
+                font-size: 13pt;
+                font-weight: bold;
+                background-color: #E0E0E0;
+                padding: 6px;
+                margin-bottom: 10px;
+                border: 1px solid #B0B0B0;
+                text-transform: uppercase;
+            }}
+            .info-table, .main-table, .footer-table {{
+                width: 100%;
+                border-collapse: collapse;
+                margin-bottom: 8px;
+            }}
+            .info-table td {{
+                width: 50%;
+                vertical-align: top;
+                border: 1px solid #B0B0B0;
+                padding: 8px;
+                background-color: #FAFAFA;
+            }}
+            .section-title {{
+                font-weight: bold;
+                font-size: 9.5pt;
+                border-bottom: 1px solid #CCCCCC;
+                padding-bottom: 4px;
+                margin-bottom: 6px;
+                color: #333333;
+            }}
+            .main-table th, .main-table td {{
+                border: 1px solid #B0B0B0;
+                padding: 5px 6px;
+                font-size: 9.5pt;
+            }}
+            .main-table th {{
+                background-color: #212121;
+                color: #ffffff;
+                text-align: center;
+                font-size: 9.5pt;
+            }}
+            .total-row {{
+                font-weight: bold;
+                background-color: #EEEEEE;
+            }}
+            .grand-total {{
+                font-weight: bold;
+                background-color: #FFD54F;
+                color: #000000;
+            }}
+            .notes-box {{
+                border: 1px solid #B0B0B0;
+                padding: 6px;
+                min-height: 35px;
+                margin-bottom: 10px;
+                background-color: #FAFAFA;
+            }}
+            .signature-table {{
+                width: 100%;
+                margin-top: 15px;
+            }}
+            .signature-table td {{
+                width: 50%;
+                text-align: center;
+                padding: 10px;
+                vertical-align: top;
+            }}
+            .sig-line {{
+                border-top: 1px solid #777777;
+                margin-top: 35px;
+                padding-top: 4px;
+                font-size: 8.5pt;
+                color: #555555;
+            }}
+            .footer {{
+                margin-top: 15px;
+                font-size: 8pt;
+                color: #666666;
+                border-top: 1px solid #DDDDDD;
+                padding-top: 4px;
+            }}
+        </style>
+    </head>
+    <body>
 
-    # Sayfa Alt Bilgisi
-    footer_data = [[
-        Paragraph("<font size=7.5 color='#888888'>İz Motorsiklet Çekmeköy</font>", style_normal),
-        Paragraph("<font size=7.5 color='#888888'>Sayfa 1 / 1</font>", style_normal)
-    ]]
-    t_footer = Table(footer_data, colWidths=[275, 275])
-    t_footer.setStyle(TableStyle([
-        ('ALIGN', (0,0), (0,0), 'LEFT'),
-        ('ALIGN', (1,0), (1,0), 'RIGHT'),
-        ('PADDING', (0,0), (-1,-1), 0),
-    ]))
-    story.append(t_footer)
+        <!-- ŞIK MOTORCU ÜST LOGO & BAŞLIK ALANI -->
+        <div class="header-box">
+            <h1>İZ MOTORSİKLET ÇEKMEKÖY</h1>
+            <p>TAMİR • BAKIM • ONARIM • SERVİS</p>
+        </div>
 
-    doc.build(story)
+        <div class="form-title">MÜŞTERİ SERVİS FORMU</div>
+
+        <!-- MÜŞTERİ & ARAÇ BİLGİLERİ -->
+        <table class="info-table">
+            <tr>
+                <td>
+                    <div class="section-title">MÜŞTERİ BİLGİLERİ</div>
+                    <b>Adı Soyadı :</b> {veri.get('musteri_ad', '')}<br/>
+                    <b>Telefon :</b> {veri.get('musteri_tel', '')}<br/>
+                    <b>Tarih :</b> {tarih_str}
+                </td>
+                <td>
+                    <div class="section-title">ARAÇ BİLGİLERİ</div>
+                    <b>Plaka :</b> {veri.get('plaka', '')}<br/>
+                    <b>Marka / Model :</b> {veri.get('model', '')}<br/>
+                    <b>Kilometre :</b> {veri.get('km', '')}
+                </td>
+            </tr>
+        </table>
+
+        <!-- İŞLEMLER TABLOSU -->
+        <table class="main-table">
+            <thead>
+                <tr>
+                    <th>No</th>
+                    <th>Yapılan İşlem / Değişen Parça</th>
+                    <th>Adet / Miktar</th>
+                    <th>Tutar (TL)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {rows_html}
+                <tr class="total-row">
+                    <td colspan="3" style="text-align: right;">İşçilik Tutarı:</td>
+                    <td style="text-align: right;">{iscilik_tutar:.2f} TL</td>
+                </tr>
+                <tr class="total-row">
+                    <td colspan="3" style="text-align: right;">Yedek Parça Tutarı:</td>
+                    <td style="text-align: right;">{yedek_parca_toplam:.2f} TL</td>
+                </tr>
+                <tr class="grand-total">
+                    <td colspan="3" style="text-align: right; font-size: 10pt;">GENEL TOPLAM:</td>
+                    <td style="text-align: right; font-size: 10pt;">{genel_toplam:.2f} TL</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <!-- NOTLAR VE TESPİTLER -->
+        <div style="font-size: 9pt; font-weight: bold; margin-bottom: 2px;">Notlar ve Tespitler</div>
+        <div class="notes-box">
+            {notlar_text}
+        </div>
+
+        <!-- İMZALAR -->
+        <table class="signature-table">
+            <tr>
+                <td>
+                    <b>Müşteri Onayı</b>
+                    <div class="sig-line">Ad / Soyad / İmza</div>
+                </td>
+                <td>
+                    <b>Servis Yetkilisi</b>
+                    <div class="sig-line">Kaşe / İmza</div>
+                </td>
+            </tr>
+        </table>
+
+        <!-- SAYFA ALT BİLGİSİ -->
+        <table class="footer">
+            <tr>
+                <td style="text-align: left;">İz Motorsiklet Çekmeköy Servis Sistemi</td>
+                <td style="text-align: right;">Sayfa 1 / 1</td>
+            </tr>
+        </table>
+
+    </body>
+    </html>
+    """
+
+    # PDF Derleme
+    result_file = open(filename, "w+b")
+    pisa.CreatePDF(BytesIO(html_content.encode("utf-8")), dest=result_file)
+    result_file.close()
 
 # --- BOT KOMUTLARI & AKIŞI ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Selam kanka! Logolu ve Türkçe karakter destekli servis formu için /yeni_servis yazabilirsin.")
+    await update.message.reply_text("Selam kanka! HTML tasarımlı profesyonel servis formu için /yeni_servis yazabilirsin.")
 
 async def yeni_servis(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['islemler'] = []
@@ -310,13 +363,13 @@ async def notlar_ve_bitis(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     context.user_data['notlar'] = "" if text.lower() == "yok" else text
     
-    await update.message.reply_text("Servis formu hazırlanıyor...", reply_markup=ReplyKeyboardRemove())
+    await update.message.reply_text("HTML tabanlı servis formu hazırlanıyor...", reply_markup=ReplyKeyboardRemove())
     
     pdf_path = f"servis_formu_{context.user_data['plaka']}.pdf"
     pdf_olustur(pdf_path, context.user_data)
     
     with open(pdf_path, 'rb') as doc:
-        await update.message.reply_document(document=doc, caption="İşte logolu ve tertemiz servis formu kanka!")
+        await update.message.reply_document(document=doc, caption="İşte tam istediğin HTML tasarımlı motorcu servis formu kanka!")
         
     if os.path.exists(pdf_path):
         os.remove(pdf_path)
