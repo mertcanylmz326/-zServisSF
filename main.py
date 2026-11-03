@@ -17,12 +17,11 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
 app = Flask(__name__)
-app.secret_key = "iz_motor_gizli_anahtar_erp"
+app.secret_key = "iz_motor_gizli_anahtar_erp_v2"
 
 SIFRE = "izmotor2026*"
-GOOGLE_MAPS_LINK = "https://maps.app.goo.gl/QxqqpoFoHuo2fFEr5?g_st=ac"
 
-# --- VERİTABANI ---
+# --- VERİTABANI KURULUMU ---
 def init_db():
     conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
     cursor = conn.cursor()
@@ -53,8 +52,9 @@ def init_db():
             plaka TEXT,
             musteri_ad TEXT,
             telefon TEXT,
-            sonraki_bakim_km TEXT,
-            hatirlatma_tarihi TEXT
+            son_km TEXT,
+            hedef_km TEXT,
+            servis_tarihi TEXT
         )
     ''')
     conn.commit()
@@ -72,7 +72,7 @@ except Exception:
     FONT_NAME = 'Helvetica'
     FONT_BOLD = 'Helvetica-Bold'
 
-# --- HTML / CAFCAFLI CSS ARAYÜZÜ ---
+# --- HTML / CAFCAFLI ARAYÜZ ---
 HTML_LOGIN = """
 <!DOCTYPE html>
 <html lang="tr">
@@ -129,29 +129,33 @@ HTML_PANEL = """
         .form-group { margin-bottom: 15px; }
         label { display: block; font-weight: bold; margin-bottom: 6px; font-size: 13px; color: #cbd5e1; }
         input, textarea, select { width: 100%; padding: 12px; background: #0f172a; border: 1px solid #374151; border-radius: 8px; color: #fff; box-sizing: border-box; font-size: 14px; transition: 0.3s; outline: none; }
-        input:focus, textarea:focus { border-color: #facc15; box-shadow: 0 0 8px rgba(250,204,21,0.3); }
+        input:focus, textarea:focus, select:focus { border-color: #facc15; box-shadow: 0 0 8px rgba(250,204,21,0.3); }
         
-        .item-row { display: flex; gap: 8px; margin-bottom: 10px; align-items: center; }
-        .item-row input { flex: 2; }
+        .item-row { display: flex; gap: 8px; margin-bottom: 10px; align-items: center; background: #1e293b; padding: 8px; border-radius: 8px; border: 1px solid #334155; }
+        .item-row select, .item-row input { flex: 2; background: #0f172a; }
         .item-row input.small { flex: 1; }
         
         .btn-add { background: #0d9488; color: #fff; border: none; padding: 10px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; margin-bottom: 15px; transition: 0.3s; }
         .btn-add:hover { background: #0f766e; }
         
-        .btn-remove { background: #dc2626; color: #fff; border: none; padding: 10px 14px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        .btn-remove { background: #dc2626; color: #fff; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-weight: bold; }
         
         button[type="submit"], .btn-action { background: linear-gradient(135deg, #facc15, #ca8a04); color: #0b0f19; border: none; padding: 14px; border-radius: 8px; cursor: pointer; width: 100%; font-size: 15px; font-weight: bold; margin-top: 15px; transition: 0.3s; box-shadow: 0 4px 15px rgba(250,204,21,0.3); }
         button[type="submit"]:hover, .btn-action:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(250,204,21,0.5); }
+        button:disabled { opacity: 0.6; cursor: not-allowed; }
 
         .card { background: #1e293b; border: 1px solid #334155; padding: 14px; border-radius: 10px; margin-bottom: 12px; font-size: 14px; box-shadow: 0 4px 6px rgba(0,0,0,0.2); }
         .stats-box { background: linear-gradient(135deg, #1e293b, #0f172a); border: 1px solid #facc15; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 20px; box-shadow: 0 0 15px rgba(250,204,21,0.2); }
         .whatsapp-btn { display: inline-block; margin-top: 8px; background: #25d366; color: #fff; padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 12px; font-weight: bold; box-shadow: 0 3px 10px rgba(37,211,102,0.3); }
+        .alert-box { background: rgba(250,204,21,0.1); border: 1px solid #facc15; padding: 12px; border-radius: 8px; color: #facc15; margin-bottom: 15px; font-weight: bold; text-align: center; display: none; }
     </style>
 </head>
 <body>
 <div class="container">
     <div class="logout"><a href="/cikis">Çıkış Yap</a></div>
     <h2>İZ MOTORSİKLET YÖNETİM</h2>
+
+    <div id="duplicateAlert" class="alert-box">⚠️ Bu servis formu az önce kaydedildi! Tekrar işlem yapılmadı.</div>
 
     <!-- SEKMELER -->
     <div class="tabs">
@@ -164,7 +168,7 @@ HTML_PANEL = """
 
     <!-- 1. SEKME: SERVİS FORMU -->
     <div id="formTab" class="tab-content active">
-        <form action="/olustur" method="POST" enctype="multipart/form-data">
+        <form id="serviceForm" action="/olustur" method="POST" enctype="multipart/form-data" onsubmit="handleFormSubmit(event)">
             <div class="form-group">
                 <label>Dükkan Logosu / Hasar Fotoğrafı</label>
                 <input type="file" name="logo" accept="image/*" required>
@@ -187,33 +191,48 @@ HTML_PANEL = """
             </div>
             <div class="form-group">
                 <label>Kilometre (KM)</label>
-                <input type="text" name="km" placeholder="Örn: 15.000 KM" required>
+                <input type="text" name="km" placeholder="Örn: 15000" required>
             </div>
 
             <hr style="margin: 20px 0; border: 0; border-top: 1px solid #374151;">
-            <label><b>Yapılan İşlemler / Parçalar</b></label>
             
-            <div id="items-container">
+            <!-- PARÇA SEÇİMİ (STOKTAN DÜŞER) -->
+            <label><b>📦 Stoktan Düşecek Parçalar</b></label>
+            <div id="parts-container">
                 <div class="item-row">
-                    <input type="text" name="islem[]" placeholder="Parça / İşlem Adı">
-                    <input type="number" name="adet[]" class="small" placeholder="Adet" value="1">
-                    <input type="number" step="0.01" name="fiyat[]" class="small" placeholder="Fiyat (TL)">
+                    <select name="stok_parca_id[]">
+                        <option value="">-- Stoktan Parça Seç --</option>
+                        {% for s in stoklar %}
+                        <option value="{{ s[0] }}">{{ s[1] }} (Stok: {{ s[2] }} - {{ s[3] }} TL)</option>
+                        {% endfor %}
+                    </select>
+                    <input type="number" name="stok_adet[]" class="small" placeholder="Adet" value="1" min="1">
                 </div>
             </div>
-            
-            <button type="button" class="btn-add" onclick="addItem()">+ Yeni Satır Ekle</button>
+            <button type="button" class="btn-add" style="background:#2563eb;" onclick="addPartRow()">+ Başka Parça Ekle</button>
+
+            <!-- MANUEL İŞLEM / EKSTRA HİZMET -->
+            <label style="margin-top:15px;"><b>🛠️ Ekstra İşçilik / Özel İşlemler</b></label>
+            <div id="manual-items-container">
+                <div class="item-row">
+                    <input type="text" name="manuel_islem[]" placeholder="İşlem / Hizmet Adı">
+                    <input type="number" name="manuel_adet[]" class="small" placeholder="Adet" value="1">
+                    <input type="number" step="0.01" name="manuel_fiyat[]" class="small" placeholder="Fiyat (TL)">
+                </div>
+            </div>
+            <button type="button" class="btn-add" onclick="addManualRow()">+ Manuel İşlem Ekle</button>
 
             <div class="form-group">
-                <label>İşçilik Tutarı (TL)</label>
+                <label>Ek İşçilik Tutarı (TL)</label>
                 <input type="number" step="0.01" name="iscilik" placeholder="Örn: 500" value="0">
             </div>
 
             <div class="form-group">
-                <label>Notlar ve Sonraki Bakım KM / Tarihi</label>
-                <textarea name="notlar" rows="2" placeholder="Örn: 20.000 km'de yağ değişimi yapılacak."></textarea>
+                <label>Notlar ve Sonraki Bakım Hedef KM</label>
+                <textarea name="notlar" rows="2" placeholder="Örn: 20000 km'de yağ değişimi yapılacak."></textarea>
             </div>
 
-            <button type="submit">Servis Formu PDF İndir & Kaydet</button>
+            <button type="submit" id="submitBtn">Servis Formu PDF İndir & Kaydet</button>
         </form>
     </div>
 
@@ -284,25 +303,29 @@ HTML_PANEL = """
         {% endif %}
     </div>
 
-    <!-- 5. SEKME: BAKIM HATIRLATMA -->
+    <!-- 5. SEKME: VİZYONER BAKIM HATIRLATMA -->
     <div id="reminderTab" class="tab-content">
-        <h3>Bakım ve Randevu Takibi</h3>
+        <h3>Akıllı Bakım & Randevu Takibi</h3>
+        <p style="font-size: 13px; color: #9ca3af; margin-bottom: 15px;">Müşterilerin servis KM takipleri ve zamanı gelen bakımları:</p>
         {% if randevular %}
             {% for r in randevular %}
             <div class="card" style="border-left: 4px solid #facc15;">
-                <b>Plaka:</b> {{ r[1] }} | <b>Müşteri:</b> {{ r[2] }}<br>
-                <b>Hedef Bakım KM:</b> {{ r[4] }}<br>
-                <a href="https://wa.me/{{ r[3] }}?text=Sayin%20{{ r[2] }},%20Iz%20Motorsiklet%20bakim%20vaktiniz%20yaklasmistir.%20Bekleriz." target="_blank" class="whatsapp-btn">💬 Bakım Hatırlatması Gönder</a>
+                <b>Plaka:</b> {{ r[1] }} | <b>Müşteri:</b> {{ r[2] }} ({{ r[3] }})<br>
+                <b>Son Servis KM:</b> {{ r[4] }} KM | <b>Öngörülen Bakım KM:</b> <span style="color:#facc15; font-weight:bold;">{{ r[5] }} KM</span><br>
+                <b>Son Servis Tarihi:</b> {{ r[6] }}<br>
+                <a href="https://wa.me/{{ r[3] }}?text=Sayin%20{{ r[2] }},%20Iz%20Motorsiklet%20bakim%20vaktiniz%20yaklasmistir.%20Sizi%20servisimize%20bekleriz." target="_blank" class="whatsapp-btn">💬 Bakım Hatırlatması Gönder</a>
             </div>
             {% endfor %}
         {% else %}
-            <p style="color: #9ca3af; text-align: center;">Kayıtlı bakım hatırlatması bulunmuyor.</p>
+            <p style="color: #9ca3af; text-align: center;">Aktif bakım kaydı bulunmuyor.</p>
         {% endif %}
     </div>
 
 </div>
 
 <script>
+let isSubmitted = false;
+
 function switchTab(tabId, btn) {
     document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
     document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
@@ -310,17 +333,55 @@ function switchTab(tabId, btn) {
     btn.classList.add('active');
 }
 
-function addItem() {
-    const container = document.getElementById('items-container');
+function addPartRow() {
+    const container = document.getElementById('parts-container');
     const row = document.createElement('div');
     row.className = 'item-row';
     row.innerHTML = `
-        <input type="text" name="islem[]" placeholder="Parça / İşlem Adı">
-        <input type="number" name="adet[]" class="small" placeholder="Adet" value="1">
-        <input type="number" step="0.01" name="fiyat[]" class="small" placeholder="Fiyat (TL)">
+        <select name="stok_parca_id[]">
+            <option value="">-- Stoktan Parça Seç --</option>
+            {% for s in stoklar %}
+            <option value="{{ s[0] }}">{{ s[1] }} (Stok: {{ s[2] }} - {{ s[3] }} TL)</option>
+            {% endfor %}
+        </select>
+        <input type="number" name="stok_adet[]" class="small" placeholder="Adet" value="1" min="1">
         <button type="button" class="btn-remove" onclick="this.parentElement.remove()">X</button>
     `;
     container.appendChild(row);
+}
+
+function addManualRow() {
+    const container = document.getElementById('manual-items-container');
+    const row = document.createElement('div');
+    row.className = 'item-row';
+    row.innerHTML = `
+        <input type="text" name="manuel_islem[]" placeholder="İşlem / Hizmet Adı">
+        <input type="number" name="manuel_adet[]" class="small" placeholder="Adet" value="1">
+        <input type="number" step="0.01" name="manuel_fiyat[]" class="small" placeholder="Fiyat (TL)">
+        <button type="button" class="btn-remove" onclick="this.parentElement.remove()">X</button>
+    `;
+    container.appendChild(row);
+}
+
+function handleFormSubmit(e) {
+    if (isSubmitted) {
+        e.preventDefault();
+        const alertBox = document.getElementById('duplicateAlert');
+        alertBox.style.display = 'block';
+        setTimeout(() => { alertBox.style.display = 'none'; }, 4000);
+        return false;
+    }
+    isSubmitted = true;
+    const btn = document.getElementById('submitBtn');
+    btn.innerText = "Form Kaydediliyor & İndiriliyor...";
+    btn.disabled = true;
+    
+    // 5 saniye sonra butonu tekrar aktif et ki yeni form basılabilsin ama spam engellenmiş olsun
+    setTimeout(() => {
+        isSubmitted = false;
+        btn.innerText = "Servis Formu PDF İndir & Kaydet";
+        btn.disabled = false;
+    }, 5000);
 }
 
 const urlParams = new URLSearchParams(window.location.search);
@@ -491,7 +552,7 @@ def index():
     res = cursor.fetchone()
     toplam_ciro = res[0] if res and res[0] else 0.0
 
-    cursor.execute("SELECT * FROM bakimlar")
+    cursor.execute("SELECT * FROM bakimlar ORDER BY id DESC")
     randevular = cursor.fetchall()
 
     conn.close()
@@ -526,7 +587,7 @@ def olustur():
     musteri_tel = request.form.get('musteri_tel')
     plaka = request.form.get('plaka')
     model = request.form.get('model')
-    km = request.form.get('km')
+    km = request.form.get('km', '0')
     notlar = request.form.get('notlar', '')
     
     try:
@@ -534,23 +595,51 @@ def olustur():
     except ValueError:
         iscilik = 0.0
 
-    islem_adlari = request.form.getlist('islem[]')
-    adet_listesi = request.form.getlist('adet[]')
-    fiyat_listesi = request.form.getlist('fiyat[]')
-    
+    conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
+    cursor = conn.cursor()
+
     islemler = []
     yedek_parca_toplam = 0.0
     islem_ozeti_list = []
 
-    for i in range(len(islem_adlari)):
-        if islem_adlari[i].strip():
+    # 1. Stoktan seçilen parçaları işle ve stoktan düş
+    stok_parca_ids = request.form.getlist('stok_parca_id[]')
+    stok_adetleri = request.form.getlist('stok_adet[]')
+
+    for i in range(len(stok_parca_ids)):
+        p_id = stok_parca_ids[i]
+        if p_id:
             try:
-                adt = int(adet_listesi[i]) if adet_listesi[i] else 1
-                fyt = float(fiyat_listesi[i]) if fiyat_listesi[i] else 0.0
+                p_adet = int(stok_adetleri[i]) if stok_adetleri[i] else 1
+                cursor.execute("SELECT parca_adi, adet, fiyat FROM stok WHERE id = ?", (p_id,))
+                stok_item = cursor.fetchone()
+                if stok_item:
+                    p_adi, mevcut_adet, p_fiyat = stok_item
+                    tutar = p_adet * p_fiyat
+                    yedek_parca_toplam += tutar
+                    islemler.append({'ad': p_adi, 'adet': p_adet, 'fiyat': p_fiyat})
+                    islem_ozeti_list.append(f"{p_adi} (x{p_adet})")
+                    
+                    # Stoktan düşür
+                    yeni_adet = max(0, mevcut_adet - p_adet)
+                    cursor.execute("UPDATE stok SET adet = ? WHERE id = ?", (yeni_adet, p_id))
+            except Exception:
+                continue
+
+    # 2. Manuel girilen işlemleri işle
+    manuel_adlar = request.form.getlist('manuel_islem[]')
+    manuel_adetler = request.form.getlist('manuel_adet[]')
+    manuel_fiyatlar = request.form.getlist('manuel_fiyat[]')
+
+    for i in range(len(manuel_adlar)):
+        if manuel_adlar[i].strip():
+            try:
+                adt = int(manuel_adetler[i]) if manuel_adetler[i] else 1
+                fyt = float(manuel_fiyatlar[i]) if manuel_fiyatlar[i] else 0.0
                 tutar = adt * fyt
                 yedek_parca_toplam += tutar
-                islemler.append({'ad': islem_adlari[i], 'adet': adt, 'fiyat': fyt})
-                islem_ozeti_list.append(f"{islem_adlari[i]} (x{adt})")
+                islemler.append({'ad': manuel_adlar[i], 'adet': adt, 'fiyat': fyt})
+                islem_ozeti_list.append(f"{manuel_adlar[i]} (x{adt})")
             except ValueError:
                 continue
 
@@ -558,15 +647,21 @@ def olustur():
     islem_str = ", ".join(islem_ozeti_list) if islem_ozeti_list else "İşlem belirtilmedi"
     tarih_str = datetime.date.today().strftime("%d.%m.%Y")
 
-    conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
-    cursor = conn.cursor()
+    # Servis geçmişine kaydet
     cursor.execute('''
         INSERT INTO servisler (plaka, musteri_ad, musteri_tel, model, km, tarih, detaylar, toplam_tutar)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     ''', (plaka, musteri_ad, musteri_tel, model, km, tarih_str, islem_str, genel_toplam))
-    
-    cursor.execute("INSERT INTO bakimlar (plaka, musteri_ad, telefon, sonraki_bakim_km, hatirlatma_tarihi) VALUES (?, ?, ?, ?, ?)", 
-                   (plaka, musteri_ad, musteri_tel, "5000 km sonra", "3 Ay Sonra"))
+
+    # Bakım hatırlatması için hedef KM hesapla (Örn: Mevcut KM + 3000 KM sonra)
+    try:
+        clean_km = int(''.filter(str.isdigit, km)) if any(c.isdigit() for c in km) else 0
+        hedef_km = str(clean_km + 3000) + " KM"
+    except Exception:
+        hedef_km = "Bakım Vakti"
+
+    cursor.execute("INSERT INTO bakimlar (plaka, musteri_ad, telefon, son_km, hedef_km, servis_tarihi) VALUES (?, ?, ?, ?, ?, ?)", 
+                   (plaka, musteri_ad, musteri_tel, km, hedef_km, tarih_str))
     
     conn.commit()
     conn.close()
