@@ -20,7 +20,7 @@ SIFRE = "izmotor2026*"
 TELEGRAM_ADMIN_CHAT_ID = None
 
 # Doğrudan Supabase 5432 Portlu Doğrudan Bağlantı (Şifrendeki * işareti %2A yapılmıştır)
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:izmotor2026%2A@db.dcyoerlxjonqmbatennf.supabase.co:5432/postgres")
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres.dcyoerlxjonqmbatennf:izmotor2026%2A@aws-0-eu-central-1.pooler.supabase.com:6543/postgres")
 
 def get_db_connection():
     conn = psycopg2.connect(DATABASE_URL, sslmode='require')
