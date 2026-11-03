@@ -14,7 +14,7 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
 app = Flask(__name__)
-app.secret_key = "iz_motor_gizli_anahtar_erp_bakim_v35"
+app.secret_key = "iz_motor_gizli_anahtar_erp_final_v36"
 
 SIFRE = "izmotor2026*"
 TELEGRAM_ADMIN_CHAT_ID = None
@@ -420,7 +420,7 @@ HTML_PANEL = """
                 <b>Yapılan İşlem:</b> {{ b[7] }}
                 
                 <div style="margin-top: 12px;">
-                    <a href="https://wa.me/{{ b[3] }}?text=Sayin%20{{ b[2] }},%20Iz%20Motorsiklet%20servisimizdeki%20son%20bakiminizdan%20beri%20sure% gecti,%20yag%20ve%20genel%20bakim%20vaktiniz%20yaklasmis%20olabilir,%20bekleriz." target="_blank" class="whatsapp-btn">💬 Bakım Hatırlatması Gönder (WhatsApp)</a>
+                    <a href="https://wa.me/{{ b[3] }}?text=Sayin%20{{ b[2] }},%20Iz%20Motorsiklet%20servisimizdeki%20son%20bakiminizdan%20beri%20sure%20gecti,%20yag%20ve%20genel%20bakim%20vaktiniz%20yaklasmis%20olabilir,%20bekleriz." target="_blank" class="whatsapp-btn">💬 Bakım Hatırlatması Gönder (WhatsApp)</a>
                 </div>
             </div>
             {% endfor %}
@@ -607,7 +607,6 @@ def index():
     cursor.execute("SELECT * FROM randevular ORDER BY id DESC")
     randevular = cursor.fetchall()
     
-    # BAKIM LİSTESİ: Sadece ödeme durumu 'Ödendi' olan eski araçlar listelenir!
     cursor.execute("SELECT * FROM servisler WHERE odeme_durumu = 'Ödendi' ORDER BY id DESC")
     odenen_servisler = cursor.fetchall()
 
