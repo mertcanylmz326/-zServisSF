@@ -17,7 +17,7 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
 app = Flask(__name__)
-app.secret_key = "iz_motor_gizli_anahtar_erp_v5"
+app.secret_key = "iz_motor_gizli_anahtar_erp_v6"
 
 SIFRE = "izmotor2026*"
 
@@ -162,8 +162,12 @@ HTML_PANEL = """
     <div id="formTab" class="tab-content active">
         <form id="serviceForm" action="/olustur" method="POST" enctype="multipart/form-data" onsubmit="handleFormSubmit(event)">
             <div class="form-group">
-                <label>Dükkan Logosu / Hasar Fotoğrafı</label>
+                <label>Dükkan Logosu <span style="color:#facc15;">(Zorunlu)</span></label>
                 <input type="file" name="logo" accept="image/*" required>
+            </div>
+            <div class="form-group">
+                <label>Hasar / Durum Fotoğrafı <span style="color:#9ca3af; font-weight:normal;">(İsteğe Bağlı)</span></label>
+                <input type="file" name="hasar_foto" accept="image/*">
             </div>
             <div class="form-group">
                 <label>Müşteri Adı Soyadı</label>
@@ -397,8 +401,8 @@ else if(tab === 'reminder') switchTab('reminderTab', document.querySelectorAll('
 </html>
 """
 
-# --- PDF MOTORU ---
-def pdf_olustur(filename, veri, logo_yolu):
+# --- PDF MOTORU (HASAR FOTOĞRAFI DESTEKLİ) ---
+def pdf_olustur(filename, veri, logo_yolu, hasar_foto_yolu):
     doc = SimpleDocTemplate(filename, pagesize=A4, rightMargin=15, leftMargin=15, topMargin=12, bottomMargin=12)
     story = []
     
@@ -493,7 +497,17 @@ def pdf_olustur(filename, veri, logo_yolu):
     t_notlar = Table([[p_notlar]], colWidths=[550])
     t_notlar.setStyle(TableStyle([('LINEBELOW', (0,0), (-1,-1), 0.5, colors.HexColor("#CBD5E0")), ('PADDING', (0,0), (-1,-1), 3)]))
     story.append(t_notlar)
-    story.append(Spacer(1, 8))
+    story.append(Spacer(1, 4))
+
+    # EĞER HASAR FOTOĞRAFI YÜKLENDİYSE PDF'İN EN ALTINA EKLE
+    if hasar_foto_yolu and os.path.exists(hasar_foto_yolu):
+        try:
+            story.append(Paragraph("<b>Hasar / Durum Ek Fotoğrafı</b>", style_bold))
+            story.append(Spacer(1, 2))
+            story.append(Image(hasar_foto_yolu, width=200, height=120))
+            story.append(Spacer(1, 4))
+        except Exception:
+            pass
 
     imza_data = [
         [Paragraph("<b>Müşteri Onayı</b>", style_bold), Paragraph("<b>Servis Yetkilisi</b>", style_bold)],
@@ -508,7 +522,7 @@ def pdf_olustur(filename, veri, logo_yolu):
         ('PADDING', (0,0), (-1,-1), 2),
     ]))
     story.append(t_imza)
-    story.append(Spacer(1, 8))
+    story.append(Spacer(1, 6))
 
     footer_data = [[
         Paragraph("<font size=7.5 color='#888888'>İz Motorsiklet Çekmeköy Servis Sistemi</font>", style_normal),
@@ -693,21 +707,28 @@ def olustur():
         logo_path = f"temp_logo_web_{plaka}.jpg"
         logo_file.save(logo_path)
 
+    hasar_file = request.files.get('hasar_foto')
+    hasar_path = None
+    if hasar_file and hasar_file.filename != '':
+        hasar_path = f"temp_hasar_web_{plaka}.jpg"
+        hasar_file.save(hasar_path)
+
     pdf_path = f"servis_formu_{plaka}.pdf"
-    pdf_olustur(pdf_path, veri, logo_path)
+    pdf_olustur(pdf_path, veri, logo_path, hasar_path)
 
     response = send_file(pdf_path, as_attachment=True)
     @response.call_on_close
     def cleanup():
         if os.path.exists(pdf_path): os.remove(pdf_path)
         if logo_path and os.path.exists(logo_path): os.remove(logo_path)
+        if hasar_path and os.path.exists(hasar_path): os.remove(hasar_path)
 
     return response
 
 
 # --- TELEGRAM BOTU ---
 SIFRE_DURUMU = {}
-LOGO_AL, MUSTERI_AD, MUSTERI_TEL, ARAÇ_PLAKA, ARAÇ_MODEL, ARAÇ_KM, ISLEM_EKLE, ISLEM_FIYAT, ISLEM_ADET, ISCILIK, NOTLAR = range(11)
+LOGO_AL, HASAR_AL, MUSTERI_AD, MUSTERI_TEL, ARAÇ_PLAKA, ARAÇ_MODEL, ARAÇ_KM, ISLEM_EKLE, ISLEM_FIYAT, ISLEM_ADET, ISCILIK, NOTLAR = range(12)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -821,7 +842,8 @@ async def yeni_servis(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Önce şifreyi girmen gerekiyor kanka! /start yaz.")
         return ConversationHandler.END
     context.user_data['islemler'] = []
-    await update.message.reply_text("Önce dükkanın logosunu veya hasar fotoğrafını **fotoğraf olarak** gönder kanka:")
+    context.user_data['hasar_path'] = None
+    await update.message.reply_text("1️⃣ Önce dükkanın **logosunu** fotoğraf olarak gönder kanka (Zorunlu):")
     return LOGO_AL
 
 async def logo_al(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -829,12 +851,30 @@ async def logo_al(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logo_path = f"temp_logo_tg_{update.effective_user.id}.jpg"
     await photo_file.download_to_drive(logo_path)
     context.user_data['logo_path'] = logo_path
-    await update.message.reply_text("Logo alındı! Şimdi Müşteri Adı ve Soyadını gir kanka:")
-    return MUSTERI_AD
+    
+    keyboard = [['Fotoğraf Yok / Geç']]
+    reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
+    await update.message.reply_text("Logo alındı! Şimdi varsa **hasar / durum fotoğrafını** gönder kanka (İsteğe bağlı, geçebilirsin):", reply_markup=reply_markup)
+    return HASAR_AL
 
 async def logo_uyari(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Kanka yazı değil, **fotoğraf** göndermen gerekiyor! Hadi bekliyorum:")
+    await update.message.reply_text("Kanka yazı değil, **logo fotoğrafı** göndermen gerekiyor:")
     return LOGO_AL
+
+async def hasar_al(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message.photo:
+        photo_file = await update.message.photo[-1].get_file()
+        hasar_path = f"temp_hasar_tg_{update.effective_user.id}.jpg"
+        await photo_file.download_to_drive(hasar_path)
+        context.user_data['hasar_path'] = hasar_path
+    
+    await update.message.reply_text("Hasar fotoğrafı kaydedildi! Şimdi **Müşteri Adı ve Soyadını** gir kanka:", reply_markup=ReplyKeyboardRemove())
+    return MUSTERI_AD
+
+async def hasar_gec(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data['hasar_path'] = None
+    await update.message.reply_text("Tamamdir. Şimdi **Müşteri Adı ve Soyadını** gir kanka:", reply_markup=ReplyKeyboardRemove())
+    return MUSTERI_AD
 
 async def musteri_ad_al(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['musteri_ad'] = update.message.text
@@ -918,6 +958,7 @@ async def notlar_ve_bitis(update: Update, context: ContextTypes.DEFAULT_TYPE):
     plaka = context.user_data['plaka']
     pdf_path = f"servis_formu_{plaka}.pdf"
     logo_yolu = context.user_data.get('logo_path')
+    hasar_yolu = context.user_data.get('hasar_path')
     
     islemler = context.user_data.get('islemler', [])
     iscilik = context.user_data.get('iscilik', 0.0)
@@ -936,19 +977,22 @@ async def notlar_ve_bitis(update: Update, context: ContextTypes.DEFAULT_TYPE):
     conn.commit()
     conn.close()
 
-    pdf_olustur(pdf_path, context.user_data, logo_yolu)
+    pdf_olustur(pdf_path, context.user_data, logo_yolu, hasar_yolu)
     
     with open(pdf_path, 'rb') as doc:
         await update.message.reply_document(document=doc, caption="İşte servis formu kanka!")
         
     if os.path.exists(pdf_path): os.remove(pdf_path)
     if logo_yolu and os.path.exists(logo_yolu): os.remove(logo_yolu)
+    if hasar_yolu and os.path.exists(hasar_yolu): os.remove(hasar_yolu)
         
     return ConversationHandler.END
 
 async def iptal(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logo_yolu = context.user_data.get('logo_path')
+    hasar_yolu = context.user_data.get('hasar_path')
     if logo_yolu and os.path.exists(logo_yolu): os.remove(logo_yolu)
+    if hasar_yolu and os.path.exists(hasar_yolu): os.remove(hasar_yolu)
     await update.message.reply_text("İşlem iptal edildi kanka.", reply_markup=ReplyKeyboardRemove())
     return ConversationHandler.END
 
@@ -961,6 +1005,7 @@ def run_telegram_bot():
         entry_points=[CommandHandler('yeni_servis', yeni_servis)],
         states={
             LOGO_AL: [MessageHandler(filters.PHOTO, logo_al), MessageHandler(filters.TEXT & ~filters.COMMAND, logo_uyari)],
+            HASAR_AL: [MessageHandler(filters.PHOTO, hasar_al), MessageHandler(filters.Regex(r'^Fotoğraf Yok / Geç$'), hasar_gec)],
             MUSTERI_AD: [MessageHandler(filters.TEXT & ~filters.COMMAND, musteri_ad_al)],
             MUSTERI_TEL: [MessageHandler(filters.TEXT & ~filters.COMMAND, musteri_tel_al)],
             ARAÇ_PLAKA: [MessageHandler(filters.TEXT & ~filters.COMMAND, arac_plaka_al)],
