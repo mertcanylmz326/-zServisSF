@@ -1,4 +1,6 @@
 import os
+import threading
+from flask import Flask
 from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import (
     Application, CommandHandler, MessageHandler, 
@@ -8,6 +10,17 @@ from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
+
+# --- FLASK MINI SUNUCU (Render Web Service için) ---
+app_flask = Flask(__name__)
+
+@app_flask.route('/')
+def home():
+    return "Bot aktif ve çalışıyor kanka!"
+
+def run_flask():
+    port = int(os.environ.get("PORT", 10000))
+    app_flask.run(host='0.0.0.0', port=port)
 
 # --- ADIM KODLARI ---
 MUSTERI, ARAÇ, HIZMET_EKLE, HIZMET_FIYAT, ODEME = range(5)
@@ -153,7 +166,9 @@ async def iptal(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 def main():
-    # Token'ı Render Environment Variables üzerinden alıyoruz
+    # Flask web sunucusunu ayrı bir thred'de başlatıyoruz
+    threading.Thread(target=run_flask, daemon=True).start()
+
     TOKEN = os.getenv("BOT_TOKEN")
     if not TOKEN:
         raise ValueError("BOT_TOKEN ortam değişkeni bulunamadı!")
@@ -179,7 +194,7 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(conv_handler)
 
-    print("Bot çalışıyor...")
+    print("Bot ve Web sunucusu çalışıyor...")
     app.run_polling()
 
 if __name__ == '__main__':
