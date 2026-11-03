@@ -14,7 +14,7 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
 app = Flask(__name__)
-app.secret_key = "iz_motor_gizli_anahtar_erp_final_v36"
+app.secret_key = "iz_motor_gizli_anahtar_erp_unique_v37"
 
 SIFRE = "izmotor2026*"
 TELEGRAM_ADMIN_CHAT_ID = None
@@ -220,10 +220,10 @@ HTML_PANEL = """
     <!-- 1. SERVİS FORMU -->
     <div id="formTab" class="tab-content active">
         <div style="background: rgba(22, 32, 50, 0.5); border: 1px solid rgba(250,204,21,0.3); padding: 14px; border-radius: 12px; margin-bottom: 18px;">
-            <label style="color: var(--accent-gold); margin-bottom: 6px;">⚡ Kayıtlı Araçtan Seç (Otomatik Doldur)</label>
+            <label style="color: var(--accent-gold); margin-bottom: 6px;">⚡ Kayıtlı Aktif Araçtan Seç (Otomatik Doldur)</label>
             <select id="aracSecici" onchange="aracBilgileriniDoldur(this)" style="background: rgba(3,7,18,0.9); font-size: 13px; padding: 10px;">
                 <option value="">-- Listeden Araç Seç (İsteğe Bağlı) --</option>
-                {% for ts in tum_servisler %}
+                {% for ts in aktif_araclar %}
                 <option value="{{ ts[1] }}" data-ad="{{ ts[2] }}" data-tel="{{ ts[3] }}" data-model="{{ ts[4] }}" data-km="{{ ts[5] }}">
                     {{ ts[1] }} - {{ ts[2] }} ({{ ts[4] }})
                 </option>
@@ -409,7 +409,7 @@ HTML_PANEL = """
         {% endfor %}
     </div>
 
-    <!-- 6. BAKIM HATIRLAT (SADECE ÖDENMİŞ ESKİ ARAÇLAR & WHATSAPP BUTONU) -->
+    <!-- 6. BAKIM HATIRLAT -->
     <div id="reminderTab" class="tab-content">
         <h3>Akıllı Bakım Hatırlatıcı (Ödenmiş Araçlar)</h3>
         {% if bakim_listesi %}
@@ -627,7 +627,8 @@ def index():
         b_item.append(sure_str)
         bakim_listesi.append(b_item)
 
-    cursor.execute("SELECT * FROM servisler ORDER BY id DESC")
+    # Benzersiz aktif plakalar listesi için (Formdaki seçici için)
+    cursor.execute("SELECT DISTINCT plaka, musteri_ad, musteri_tel, model, km FROM servisler WHERE odeme_durumu != 'Ödendi' OR odeme_durumu IS NULL ORDER BY id DESC")
     tum_servisler = cursor.fetchall()
 
     conn.close()
@@ -636,7 +637,7 @@ def index():
 @app.route('/arac_ekle_hizli', methods=['POST'])
 def arac_ekle_hizli():
     if not session.get('giris'): return redirect(url_for('index'))
-    plaka = request.form.get('plaka')
+    plaka = request.form.get('plaka', '').strip()
     musteri_ad = request.form.get('musteri_ad')
     musteri_tel = request.form.get('musteri_tel')
     model = request.form.get('model')
@@ -645,10 +646,25 @@ def arac_ekle_hizli():
 
     conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
     cursor = conn.cursor()
-    cursor.execute('''
-        INSERT INTO servisler (plaka, musteri_ad, musteri_tel, model, km, tarih, detaylar, toplam_tutar, durum, odeme_durumu, pdf_dosya)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Bekliyor', 'Borçlu / Veresiye', NULL)
-    ''', (plaka, musteri_ad, musteri_tel, model, km, tarih_str, "Hızlı Kayıt", 0.0))
+    
+    # Aynı plakaya ait aktif servis var mı kontrol et
+    cursor.execute("SELECT id FROM servisler WHERE plaka = ? AND (odeme_durumu != 'Ödendi' OR odeme_durumu IS NULL)", (plaka,))
+    mevcut = cursor.fetchone()
+    
+    if mevcut:
+        # Varsa yeni kayıt açmak yerine mevcut kaydı güncelle
+        cursor.execute('''
+            UPDATE servisler 
+            SET musteri_ad = ?, musteri_tel = ?, model = ?, km = ?, tarih = ?
+            WHERE id = ?
+        ''', (musteri_ad, musteri_tel, model, km, tarih_str, mevcut[0]))
+    else:
+        # Yoksa yeni ekle
+        cursor.execute('''
+            INSERT INTO servisler (plaka, musteri_ad, musteri_tel, model, km, tarih, detaylar, toplam_tutar, durum, odeme_durumu, pdf_dosya)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Bekliyor', 'Borçlu / Veresiye', NULL)
+        ''', (plaka, musteri_ad, musteri_tel, model, km, tarih_str, "Hızlı Kayıt", 0.0))
+        
     conn.commit()
     conn.close()
     return redirect(url_for('index') + '?tab=araclar')
@@ -694,7 +710,7 @@ def randevu_ekle():
 @app.route('/olustur', methods=['POST'])
 def olustur():
     if not session.get('giris'): return redirect(url_for('index'))
-    ad, tel, plaka, model, km = request.form.get('musteri_ad'), request.form.get('musteri_tel'), request.form.get('plaka'), request.form.get('model'), request.form.get('km')
+    ad, tel, plaka, model, km = request.form.get('musteri_ad'), request.form.get('musteri_tel'), request.form.get('plaka', '').strip(), request.form.get('model'), request.form.get('km')
     odeme_durumu = request.form.get('odeme_durumu', 'Borçlu / Veresiye')
     
     try:
@@ -751,10 +767,33 @@ def olustur():
     pdf_filename = f"servis_formu_{plaka}_{int(datetime.datetime.now().timestamp())}.pdf"
     pdf_olustur(pdf_filename, {'musteri_ad': ad, 'musteri_tel': tel, 'plaka': plaka, 'model': model, 'km': km, 'islemler': islemler, 'iscilik': iscilik}, logo_path, hasar_path)
 
-    cursor.execute('''
-        INSERT INTO servisler (plaka, musteri_ad, musteri_tel, model, km, tarih, detaylar, toplam_tutar, durum, odeme_durumu, pdf_dosya)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Bekliyor', ?, ?)
-    ''', (plaka, ad, tel, model, km, tarih_str, islem_str, genel_toplam, odeme_durumu, pdf_filename))
+    # Aynı plakaya ait aktif servis var mı kontrol et
+    cursor.execute("SELECT id, toplam_tutar, detaylar FROM servisler WHERE plaka = ? AND (odeme_durumu != 'Ödendi' OR odeme_durumu IS NULL)", (plaka,))
+    mevcut = cursor.fetchone()
+
+    if mevcut:
+        # Varsa tutarları ve işlemleri birleştirerek tek kartta güncelle
+        m_id, eski_tutar, eski_detaylar = mevcut[0], mevcut[1], mevcut[2]
+        yeni_toplam = (eski_tutar or 0.0) + genel_toplam
+        
+        # İşlem detaylarını birleştir
+        if eski_detaylar and eski_detaylar != "Hızlı Kayıt":
+            yeni_detaylar = f"{eski_detaylar}, {islem_str}"
+        else:
+            yeni_detaylar = islem_str
+
+        cursor.execute('''
+            UPDATE servisler 
+            SET musteri_ad = ?, musteri_tel = ?, model = ?, km = ?, tarih = ?, detaylar = ?, toplam_tutar = ?, odeme_durumu = ?, pdf_dosya = ?
+            WHERE id = ?
+        ''', (ad, tel, model, km, tarih_str, yeni_detaylar, yeni_toplam, odeme_durumu, pdf_filename, m_id))
+    else:
+        # Yoksa yeni kayıt aç
+        cursor.execute('''
+            INSERT INTO servisler (plaka, musteri_ad, musteri_tel, model, km, tarih, detaylar, toplam_tutar, durum, odeme_durumu, pdf_dosya)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Bekliyor', ?, ?)
+        ''', (plaka, ad, tel, model, km, tarih_str, islem_str, genel_toplam, odeme_durumu, pdf_filename))
+
     conn.commit()
     conn.close()
 
@@ -947,7 +986,7 @@ async def mesaj_yoneticisi(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("🛠️ Sonraki **İşlemi veya Parça Adını** yaz kanka:", reply_markup=ReplyKeyboardRemove())
             return
         else:
-            s_plaka = user_state.get('s_plaka', '34TEST')
+            s_plaka = user_state.get('s_plaka', '34TEST').strip()
             s_ad = user_state.get('s_ad', 'Müşteri')
             s_tel = user_state.get('s_tel', '05000000000')
             s_model = user_state.get('s_model', 'Honda')
@@ -969,10 +1008,26 @@ async def mesaj_yoneticisi(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
             cursor = conn.cursor()
-            cursor.execute('''
-                INSERT INTO servisler (plaka, musteri_ad, musteri_tel, model, km, tarih, detaylar, toplam_tutar, durum, odeme_durumu, pdf_dosya)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Bekliyor', 'Borçlu / Veresiye', ?)
-            ''', (s_plaka, s_ad, s_tel, s_model, s_km, tarih_str, islem_str, toplam_tutar, pdf_filename))
+            
+            cursor.execute("SELECT id, toplam_tutar, detaylar FROM servisler WHERE plaka = ? AND (odeme_durumu != 'Ödendi' OR odeme_durumu IS NULL)", (s_plaka,))
+            mevcut = cursor.fetchone()
+
+            if mevcut:
+                m_id, eski_tutar, eski_detaylar = mevcut[0], mevcut[1], mevcut[2]
+                yeni_toplam = (eski_tutar or 0.0) + toplam_tutar
+                yeni_detaylar = f"{eski_detaylar}, {islem_str}" if eski_detaylar and eski_detaylar != "Hızlı Kayıt" else islem_str
+                
+                cursor.execute('''
+                    UPDATE servisler 
+                    SET musteri_ad = ?, musteri_tel = ?, model = ?, km = ?, tarih = ?, detaylar = ?, toplam_tutar = ?, odeme_durumu = ?, pdf_dosya = ?
+                    WHERE id = ?
+                ''', (s_ad, s_tel, s_model, s_km, tarih_str, yeni_detaylar, yeni_toplam, 'Borçlu / Veresiye', pdf_filename, m_id))
+            else:
+                cursor.execute('''
+                    INSERT INTO servisler (plaka, musteri_ad, musteri_tel, model, km, tarih, detaylar, toplam_tutar, durum, odeme_durumu, pdf_dosya)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Bekliyor', 'Borçlu / Veresiye', ?)
+                ''', (s_plaka, s_ad, s_tel, s_model, s_km, tarih_str, islem_str, toplam_tutar, pdf_filename))
+                
             conn.commit()
             conn.close()
 
