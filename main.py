@@ -14,13 +14,13 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
 app = Flask(__name__)
-app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v53"
+app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v58"
 
 SIFRE = "izmotor2026*"
 TELEGRAM_ADMIN_CHAT_ID = None
 
-# Kesinleşen Havuz Bağlantı Adresi (Frankfurt Havuz & Yeni Şifre)
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres.dcyoerlxjonqmbatennf:izmotor20261@aws-0-eu-central-1.pooler.supabase.com:6543/postgres")
+# Supabase Frankfurt Session Pooler (Doğru Port: 6543)
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres.viewtgvofqdoqgodbbne:izmotor20261@aws-1-eu-central-1.pooler.supabase.com:6543/postgres")
 
 def get_db_connection():
     return psycopg2.connect(DATABASE_URL, sslmode='require')
