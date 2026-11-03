@@ -22,12 +22,10 @@ app.secret_key = "iz_motor_gizli_anahtar_erp"
 SIFRE = "izmotor2026*"
 GOOGLE_MAPS_LINK = "https://maps.app.goo.gl/QxqqpoFoHuo2fFEr5?g_st=ac"
 
-# --- VERİTABANI BAĞLANTI & KURULUMU ---
+# --- VERİTABANI ---
 def init_db():
     conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
     cursor = conn.cursor()
-    
-    # 1. Servis Geçmişi (Çift INTEGER hatası giderildi)
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS servisler (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -41,8 +39,6 @@ def init_db():
             toplam_tutar REAL
         )
     ''')
-    
-    # 2. Stok / Parça Takibi
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS stok (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -51,8 +47,6 @@ def init_db():
             fiyat REAL
         )
     ''')
-    
-    # 3. Bakım / Randevu Takibi
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS bakimlar (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -63,7 +57,6 @@ def init_db():
             hatirlatma_tarihi TEXT
         )
     ''')
-    
     conn.commit()
     conn.close()
 
@@ -79,7 +72,7 @@ except Exception:
     FONT_NAME = 'Helvetica'
     FONT_BOLD = 'Helvetica-Bold'
 
-# --- HTML / CSS GELİŞMİŞ ERP PANELİ ---
+# --- HTML / CAFCAFLI CSS ARAYÜZÜ ---
 HTML_LOGIN = """
 <!DOCTYPE html>
 <html lang="tr">
@@ -88,13 +81,14 @@ HTML_LOGIN = """
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>İz Motorsiklet - Giriş</title>
     <style>
-        body { font-family: sans-serif; background: #f4f6f9; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        .login-box { background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 100%; max-width: 350px; text-align: center; }
-        h2 { color: #1a365d; margin-bottom: 20px; }
-        input { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #cbd5e0; border-radius: 4px; box-sizing: border-box; font-size: 16px; }
-        button { background: #1a365d; color: #fff; border: none; padding: 12px; border-radius: 4px; width: 100%; font-size: 16px; font-weight: bold; cursor: pointer; }
-        button:hover { background: #2c5282; }
-        .error { color: #e53e3e; margin-bottom: 10px; font-size: 14px; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0f172a; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; color: #f8fafc; }
+        .login-box { background: rgba(30, 41, 59, 0.85); backdrop-filter: blur(10px); padding: 40px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); width: 100%; max-width: 350px; text-align: center; border: 1px solid rgba(255,215,0,0.3); }
+        h2 { color: #facc15; margin-bottom: 25px; letter-spacing: 1px; text-transform: uppercase; font-size: 22px; }
+        input { width: 100%; padding: 14px; margin-bottom: 20px; background: #0f172a; border: 1px solid #475569; border-radius: 8px; color: #fff; box-sizing: border-box; font-size: 16px; outline: none; transition: 0.3s; }
+        input:focus { border-color: #facc15; box-shadow: 0 0 10px rgba(250,204,21,0.4); }
+        button { background: linear-gradient(135deg, #facc15, #ca8a04); color: #0f172a; border: none; padding: 14px; border-radius: 8px; width: 100%; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        button:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(250,204,21,0.4); }
+        .error { color: #f87171; margin-bottom: 15px; font-size: 14px; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -102,8 +96,8 @@ HTML_LOGIN = """
     <h2>İZ MOTORSİKLET</h2>
     {% if error %}<div class="error">{{ error }}</div>{% endif %}
     <form method="POST">
-        <input type="password" name="sifre" placeholder="Şifreyi girin..." required autofocus>
-        <button type="submit">Giriş Yap</button>
+        <input type="password" name="sifre" placeholder="🔒 Yönetici Şifresi..." required autofocus>
+        <button type="submit">Sisteme Giriş Yap</button>
     </form>
 </div>
 </body>
@@ -118,40 +112,46 @@ HTML_PANEL = """
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>İz Motorsiklet ERP Paneli</title>
     <style>
-        body { font-family: sans-serif; background: #f4f6f9; margin: 0; padding: 15px; color: #333; }
-        .container { max-width: 700px; margin: 0 auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        h2 { text-align: center; color: #1a365d; margin-bottom: 15px; }
-        .tabs { display: flex; flex-wrap: wrap; justify-content: center; gap: 5px; margin-bottom: 20px; }
-        .tab-btn { background: #cbd5e0; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 13px; }
-        .tab-btn.active { background: #1a365d; color: #fff; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0b0f19; margin: 0; padding: 15px; color: #f1f5f9; }
+        .container { max-width: 720px; margin: 0 auto; background: #111827; padding: 25px; border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,0.6); border: 1px solid rgba(250,204,21,0.2); }
+        h2 { text-align: center; color: #facc15; margin-bottom: 20px; font-size: 24px; text-transform: uppercase; letter-spacing: 1px; text-shadow: 0 0 10px rgba(250,204,21,0.3); }
+        
+        .logout { text-align: right; margin-bottom: 10px; }
+        .logout a { color: #f87171; text-decoration: none; font-size: 13px; font-weight: bold; padding: 5px 10px; background: rgba(248,113,113,0.1); border-radius: 6px; border: 1px solid rgba(248,113,113,0.3); }
+
+        .tabs { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-bottom: 25px; }
+        .tab-btn { background: #1f2937; color: #9ca3af; border: 1px solid #374151; padding: 10px 14px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 13px; transition: 0.3s; }
+        .tab-btn.active { background: linear-gradient(135deg, #facc15, #ca8a04); color: #0b0f19; border-color: #facc15; box-shadow: 0 0 15px rgba(250,204,21,0.4); }
         .tab-content { display: none; }
-        .tab-content.active { display: block; }
-        .form-group { margin-bottom: 12px; }
-        label { display: block; font-weight: bold; margin-bottom: 4px; font-size: 14px; }
-        input, textarea, select { width: 100%; padding: 9px; border: 1px solid #cbd5e0; border-radius: 4px; box-sizing: border-box; }
-        .item-row { display: flex; gap: 6px; margin-bottom: 8px; align-items: center; }
+        .tab-content.active { display: block; animation: fadeIn 0.4s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+        .form-group { margin-bottom: 15px; }
+        label { display: block; font-weight: bold; margin-bottom: 6px; font-size: 13px; color: #cbd5e1; }
+        input, textarea, select { width: 100%; padding: 12px; background: #0f172a; border: 1px solid #374151; border-radius: 8px; color: #fff; box-sizing: border-box; font-size: 14px; transition: 0.3s; outline: none; }
+        input:focus, textarea:focus { border-color: #facc15; box-shadow: 0 0 8px rgba(250,204,21,0.3); }
+        
+        .item-row { display: flex; gap: 8px; margin-bottom: 10px; align-items: center; }
         .item-row input { flex: 2; }
         .item-row input.small { flex: 1; }
-        .btn-add { background: #319795; color: #fff; border: none; padding: 8px; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; margin-bottom: 15px; }
-        .btn-remove { background: #e53e3e; color: #fff; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; }
-        button[type="submit"], .btn-action { background: #1a365d; color: #fff; border: none; padding: 11px; border-radius: 4px; cursor: pointer; width: 100%; font-size: 15px; font-weight: bold; margin-top: 10px; }
-        .logout { text-align: right; margin-bottom: 5px; }
-        .logout a { color: #e53e3e; text-decoration: none; font-size: 13px; font-weight: bold; }
-        .google-box { background: #ebf8ff; border: 1px solid #bee3f8; padding: 10px; border-radius: 6px; margin-bottom: 15px; text-align: center; font-size: 14px; }
-        .google-box a { color: #2b6cb0; font-weight: bold; text-decoration: none; }
-        .card { background: #f7fafc; border: 1px solid #e2e8f0; padding: 10px; border-radius: 6px; margin-bottom: 8px; font-size: 14px; }
-        .stats-box { background: #fffaf0; border: 1px solid #feebc8; padding: 15px; border-radius: 6px; text-align: center; margin-bottom: 15px; }
+        
+        .btn-add { background: #0d9488; color: #fff; border: none; padding: 10px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; margin-bottom: 15px; transition: 0.3s; }
+        .btn-add:hover { background: #0f766e; }
+        
+        .btn-remove { background: #dc2626; color: #fff; border: none; padding: 10px 14px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        
+        button[type="submit"], .btn-action { background: linear-gradient(135deg, #facc15, #ca8a04); color: #0b0f19; border: none; padding: 14px; border-radius: 8px; cursor: pointer; width: 100%; font-size: 15px; font-weight: bold; margin-top: 15px; transition: 0.3s; box-shadow: 0 4px 15px rgba(250,204,21,0.3); }
+        button[type="submit"]:hover, .btn-action:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(250,204,21,0.5); }
+
+        .card { background: #1e293b; border: 1px solid #334155; padding: 14px; border-radius: 10px; margin-bottom: 12px; font-size: 14px; box-shadow: 0 4px 6px rgba(0,0,0,0.2); }
+        .stats-box { background: linear-gradient(135deg, #1e293b, #0f172a); border: 1px solid #facc15; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 20px; box-shadow: 0 0 15px rgba(250,204,21,0.2); }
+        .whatsapp-btn { display: inline-block; margin-top: 8px; background: #25d366; color: #fff; padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 12px; font-weight: bold; box-shadow: 0 3px 10px rgba(37,211,102,0.3); }
     </style>
 </head>
 <body>
 <div class="container">
     <div class="logout"><a href="/cikis">Çıkış Yap</a></div>
-    <h2>İZ MOTORSİKLET YÖNETİM PANELİ</h2>
-
-    <!-- GOOGLE YORUMLARI WIDGET -->
-    <div class="google-box">
-        ⭐ <b>Google İşletme Değerlendirmeleri:</b> Puanımızı incelemek için <a href="https://maps.app.goo.gl/QxqqpoFoHuo2fFEr5?g_st=ac" target="_blank">tıklayın</a>!
-    </div>
+    <h2>İZ MOTORSİKLET YÖNETİM</h2>
 
     <!-- SEKMELER -->
     <div class="tabs">
@@ -174,7 +174,7 @@ HTML_PANEL = """
                 <input type="text" name="musteri_ad" placeholder="Örn: Ahmet Yılmaz" required>
             </div>
             <div class="form-group">
-                <label>Müşteri Telefon (WhatsApp için)</label>
+                <label>Müşteri Telefon (WhatsApp)</label>
                 <input type="text" name="musteri_tel" placeholder="Örn: 905320000000" required>
             </div>
             <div class="form-group">
@@ -190,7 +190,7 @@ HTML_PANEL = """
                 <input type="text" name="km" placeholder="Örn: 15.000 KM" required>
             </div>
 
-            <hr style="margin: 15px 0; border: 0; border-top: 1px solid #e2e8f0;">
+            <hr style="margin: 20px 0; border: 0; border-top: 1px solid #374151;">
             <label><b>Yapılan İşlemler / Parçalar</b></label>
             
             <div id="items-container">
@@ -227,7 +227,7 @@ HTML_PANEL = """
             </div>
             <button type="submit" class="btn-action">Geçmişi Ara</button>
         </form>
-        <hr style="margin: 15px 0; border: 0; border-top: 1px solid #e2e8f0;">
+        <hr style="margin: 20px 0; border: 0; border-top: 1px solid #374151;">
         <h3>Kayıtlar</h3>
         {% if kayitlar %}
             {% for k in kayitlar %}
@@ -236,12 +236,12 @@ HTML_PANEL = """
                 <b>Müşteri:</b> {{ k[2] }} ({{ k[3] }})<br>
                 <b>Model / KM:</b> {{ k[4] }} - {{ k[5] }}<br>
                 <b>Yapılanlar:</b> {{ k[7] }}<br>
-                <b>Toplam Tutar:</b> <span style="color: #2b6cb0; font-weight: bold;">{{ "%.2f"|format(k[8]) }} TL</span><br>
-                <a href="https://wa.me/{{ k[3] }}?text=Sayin%20{{ k[2] }},%20Iz%20Motorsiklet%20servis%20formunuz%20hazirdir.%20Iyi%20gunler%20dileriz." target="_blank" style="display:inline-block; margin-top:5px; background:#25d366; color:#fff; padding:4px 8px; border-radius:4px; text-decoration:none; font-size:12px; font-weight:bold;">💬 WhatsApp Mesajı Gönder</a>
+                <b>Toplam Tutar:</b> <span style="color: #facc15; font-weight: bold;">{{ "%.2f"|format(k[8]) }} TL</span><br>
+                <a href="https://wa.me/{{ k[3] }}?text=Sayin%20{{ k[2] }},%20Iz%20Motorsiklet%20servis%20formunuz%20hazirdir.%20Iyi%20gunler%20dileriz." target="_blank" class="whatsapp-btn">💬 WhatsApp Mesajı Gönder</a>
             </div>
             {% endfor %}
         {% else %}
-            <p style="color: #718096; text-align: center;">Kayıt bulunamadı.</p>
+            <p style="color: #9ca3af; text-align: center;">Kayıt bulunamadı.</p>
         {% endif %}
     </div>
 
@@ -254,16 +254,16 @@ HTML_PANEL = """
             <div class="form-group"><input type="number" step="0.01" name="fiyat" placeholder="Birim Satış Fiyatı (TL)" required></div>
             <button type="submit" class="btn-action">Stok Ekle / Güncelle</button>
         </form>
-        <hr style="margin: 15px 0; border: 0; border-top: 1px solid #e2e8f0;">
+        <hr style="margin: 20px 0; border: 0; border-top: 1px solid #374151;">
         <h4>Mevcut Stoklar</h4>
         {% if stoklar %}
             {% for s in stoklar %}
             <div class="card">
-                <b>{{ s[1] }}</b> - Adet: <span style="color: {% if s[2] < 3 %}red{% else %}green{% endif %}; font-weight:bold;">{{ s[2] }}</span> | Fiyat: {{ "%.2f"|format(s[3]) }} TL
+                <b>{{ s[1] }}</b> - Adet: <span style="color: {% if s[2] < 3 %}#f87171{% else %}#4ade80{% endif %}; font-weight:bold;">{{ s[2] }}</span> | Fiyat: {{ "%.2f"|format(s[3]) }} TL
             </div>
             {% endfor %}
         {% else %}
-            <p style="color: #718096; text-align: center;">Stokta ürün bulunmuyor.</p>
+            <p style="color: #9ca3af; text-align: center;">Stokta ürün bulunmuyor.</p>
         {% endif %}
     </div>
 
@@ -271,14 +271,14 @@ HTML_PANEL = """
     <div id="financeTab" class="tab-content">
         <h3>Finansal Özet ve Ciro</h3>
         <div class="stats-box">
-            <h2 style="color: #d69e2e; margin: 0;">{{ "%.2f"|format(toplam_ciro) }} TL</h2>
-            <p style="margin: 5px 0 0 0; font-weight: bold; color: #4a5568;">Toplam Servis Cirosu</p>
+            <h2 style="color: #facc15; margin: 0; font-size: 28px;">{{ "%.2f"|format(toplam_ciro) }} TL</h2>
+            <p style="margin: 5px 0 0 0; font-weight: bold; color: #94a3b8;">Toplam Servis Cirosu</p>
         </div>
         <h4>Son Yapılan İşlemler</h4>
         {% if tum_servisler %}
             {% for ts in tum_servisler[:10] %}
             <div class="card">
-                <b>{{ ts[1] }}</b> - {{ ts[6] }} : <span style="color: #2b6cb0; font-weight: bold;">{{ "%.2f"|format(ts[8]) }} TL</span>
+                <b>{{ ts[1] }}</b> - {{ ts[6] }} : <span style="color: #facc15; font-weight: bold;">{{ "%.2f"|format(ts[8]) }} TL</span>
             </div>
             {% endfor %}
         {% endif %}
@@ -289,14 +289,14 @@ HTML_PANEL = """
         <h3>Bakım ve Randevu Takibi</h3>
         {% if randevular %}
             {% for r in randevular %}
-            <div class="card" style="border-left: 4px solid #319795;">
+            <div class="card" style="border-left: 4px solid #facc15;">
                 <b>Plaka:</b> {{ r[1] }} | <b>Müşteri:</b> {{ r[2] }}<br>
                 <b>Hedef Bakım KM:</b> {{ r[4] }}<br>
-                <a href="https://wa.me/{{ r[3] }}?text=Sayin%20{{ r[2] }},%20Iz%20Motorsiklet%20bakim%20vaktiniz%20yaklasmistir.%20Bekleriz." target="_blank" style="display:inline-block; margin-top:5px; background:#25d366; color:#fff; padding:4px 8px; border-radius:4px; text-decoration:none; font-size:12px; font-weight:bold;">💬 Bakım Hatırlatması Gönder</a>
+                <a href="https://wa.me/{{ r[3] }}?text=Sayin%20{{ r[2] }},%20Iz%20Motorsiklet%20bakim%20vaktiniz%20yaklasmistir.%20Bekleriz." target="_blank" class="whatsapp-btn">💬 Bakım Hatırlatması Gönder</a>
             </div>
             {% endfor %}
         {% else %}
-            <p style="color: #718096; text-align: center;">Kayıtlı bakım hatırlatması bulunmuyor.</p>
+            <p style="color: #9ca3af; text-align: center;">Kayıtlı bakım hatırlatması bulunmuyor.</p>
         {% endif %}
     </div>
 
