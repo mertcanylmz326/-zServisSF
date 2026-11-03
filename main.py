@@ -17,7 +17,7 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
 app = Flask(__name__)
-app.secret_key = "iz_motor_gizli_anahtar_erp_v6"
+app.secret_key = "iz_motor_gizli_anahtar_erp_v7"
 
 SIFRE = "izmotor2026*"
 
@@ -401,7 +401,7 @@ else if(tab === 'reminder') switchTab('reminderTab', document.querySelectorAll('
 </html>
 """
 
-# --- PDF MOTORU (HASAR FOTOĞRAFI DESTEKLİ) ---
+# --- PDF MOTORU ---
 def pdf_olustur(filename, veri, logo_yolu, hasar_foto_yolu):
     doc = SimpleDocTemplate(filename, pagesize=A4, rightMargin=15, leftMargin=15, topMargin=12, bottomMargin=12)
     story = []
@@ -499,7 +499,6 @@ def pdf_olustur(filename, veri, logo_yolu, hasar_foto_yolu):
     story.append(t_notlar)
     story.append(Spacer(1, 4))
 
-    # EĞER HASAR FOTOĞRAFI YÜKLENDİYSE PDF'İN EN ALTINA EKLE
     if hasar_foto_yolu and os.path.exists(hasar_foto_yolu):
         try:
             story.append(Paragraph("<b>Hasar / Durum Ek Fotoğrafı</b>", style_bold))
@@ -728,21 +727,14 @@ def olustur():
 
 # --- TELEGRAM BOTU ---
 SIFRE_DURUMU = {}
-LOGO_AL, HASAR_AL, MUSTERI_AD, MUSTERI_TEL, ARAÇ_PLAKA, ARAÇ_MODEL, ARAÇ_KM, ISLEM_EKLE, ISLEM_FIYAT, ISLEM_ADET, ISCILIK, NOTLAR = range(12)
+STOK_EKLE_AD = range(1, 4) # Stok ekleme conversation adımları için
+LOGO_AL, HASAR_AL, MUSTERI_AD, MUSTERI_TEL, ARAÇ_PLAKA, ARAÇ_MODEL, ARAÇ_KM, ISLEM_EKLE, ISLEM_FIYAT, ISLEM_ADET, ISCILIK, NOTLAR = range(100, 112)
+STOK_AD, STOK_ADET, STOK_FIYAT = range(200, 203)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     SIFRE_DURUMU[user_id] = False
-    keyboard = [
-        ["/yeni_servis", "/araclar"],
-        ["/stok", "/ciro"]
-    ]
-    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-    await update.message.reply_text(
-        "Selam kanka! İz Motorsiklet Botuna hoş geldin.\n"
-        "Devam etmek için önce **şifreyi** gir kanka:",
-        reply_markup=reply_markup
-    )
+    await update.message.reply_text("Selam kanka! İz Motorsiklet Botuna hoş geldin.\nDevam etmek için önce **yönetici şifresini** gir kanka:")
 
 async def sifre_kontrol(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -750,16 +742,78 @@ async def sifre_kontrol(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if SIFRE_DURUMU.get(user_id, False): return
     if text == SIFRE:
         SIFRE_DURUMU[user_id] = True
-        await update.message.reply_text("Şifre doğru kanka! Yeni servis formu için `/yeni_servis` yazabilir, araç durumları için `/araclar` diyebilirsin.")
+        keyboard = [
+            ["🛠️ Servis Formu Oluştur"],
+            ["🏍️ Araçlar", "📦 Stok Ekle"],
+            ["💰 Ciro Raporu", "📦 Stok Listesi"]
+        ]
+        reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+        await update.message.reply_text("Şifre doğru kanka! Aşağıdaki butonlardan yapmak istediğin işlemi seçebilirsin:", reply_markup=reply_markup)
     else:
         await update.message.reply_text("Hatalı şifre kanka! Tekrar dene:")
 
-async def bot_araclar(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# Buton Yönlendiricileri
+async def ana_menu_yoneticisi(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if not SIFRE_DURUMU.get(user_id, False):
         await update.message.reply_text("Önce şifreyi girmen gerekiyor kanka! /start yaz.")
         return
     
+    text = update.message.text
+    if text == "🛠️ Servis Formu Oluştur":
+        # /yeni_servis komutunu tetikler gibi akışı başlatıyoruz
+        return await yeni_servis_baslat(update, context)
+    elif text == "🏍️ Araçlar":
+        return await bot_araclar(update, context)
+    elif text == "📦 Stok Ekle":
+        await update.message.reply_text("Eklenecek **Parça Adını** yaz kanka:", reply_markup=ReplyKeyboardRemove())
+        return STOK_AD
+    elif text == "💰 Ciro Raporu":
+        return await bot_ciro(update, context)
+    elif text == "📦 Stok Listesi":
+        return await bot_stok(update, context)
+
+# --- STOK EKLEME CONVERSATION ---
+async def stok_ad_al(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data['stok_parca'] = update.message.text
+    await update.message.reply_text("Stok **adet miktarını** gir kanka (Örn: 10):")
+    return STOK_ADET
+
+async def stok_adet_al(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        context.user_data['stok_adet'] = int(update.message.text)
+        await update.message.reply_text("Birim **satış fiyatını (TL)** gir kanka (Örn: 250):")
+        return STOK_FIYAT
+    except ValueError:
+        await update.message.reply_text("Geçerli bir sayı gir kanka:")
+        return STOK_ADET
+
+async def stok_fiyat_al(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        fiyat = float(update.message.text.replace(',', '.'))
+        parca = context.user_data['stok_parca']
+        adet = context.user_data['stok_adet']
+
+        conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO stok (parca_adi, adet, fiyat) VALUES (?, ?, ?)", (parca, adet, fiyat))
+        conn.commit()
+        conn.close()
+
+        keyboard = [
+            ["🛠️ Servis Formu Oluştur"],
+            ["🏍️ Araçlar", "📦 Stok Ekle"],
+            ["💰 Ciro Raporu", "📦 Stok Listesi"]
+        ]
+        reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+        await update.message.reply_text(f"✅ Başarıyla eklendi kanka!\n- **{parca}**: {adet} adet ({fiyat} TL)", parse_mode="Markdown", reply_markup=reply_markup)
+        return ConversationHandler.END
+    except ValueError:
+        await update.message.reply_text("Geçerli bir fiyat gir kanka:")
+        return STOK_FIYAT
+
+# --- ARAÇLAR LİSTESİ (BOT) ---
+async def bot_araclar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
     cursor = conn.cursor()
     cursor.execute("SELECT id, plaka, musteri_ad, model, durum FROM servisler ORDER BY id DESC LIMIT 5")
@@ -809,8 +863,6 @@ async def durum_degistir_callback(update: Update, context: ContextTypes.DEFAULT_
     await query.edit_message_text(text=f"✅ Araç durumu güncellendi: *{yeni_durum}*", parse_mode="Markdown")
 
 async def bot_stok(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    if not SIFRE_DURUMU.get(user_id, False): return
     conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
     cursor = conn.cursor()
     cursor.execute("SELECT parca_adi, adet, fiyat FROM stok")
@@ -826,8 +878,6 @@ async def bot_stok(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(msg, parse_mode="Markdown")
 
 async def bot_ciro(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    if not SIFRE_DURUMU.get(user_id, False): return
     conn = sqlite3.connect('iz_motor_servis.db', check_same_thread=False)
     cursor = conn.cursor()
     cursor.execute("SELECT SUM(toplam_tutar) FROM servisler")
@@ -836,14 +886,11 @@ async def bot_ciro(update: Update, context: ContextTypes.DEFAULT_TYPE):
     conn.close()
     await update.message.reply_text(f"💰 **Toplam Servis Cirosu:** `{toplam:.2f} TL`", parse_mode="Markdown")
 
-async def yeni_servis(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    if not SIFRE_DURUMU.get(user_id, False):
-        await update.message.reply_text("Önce şifreyi girmen gerekiyor kanka! /start yaz.")
-        return ConversationHandler.END
+# --- SERVİS FORMU OLUŞTURMA AKIŞI ---
+async def yeni_servis_baslat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['islemler'] = []
     context.user_data['hasar_path'] = None
-    await update.message.reply_text("1️⃣ Önce dükkanın **logosunu** fotoğraf olarak gönder kanka (Zorunlu):")
+    await update.message.reply_text("1️⃣ Önce dükkanın **logosunu** fotoğraf olarak gönder kanka (Zorunlu):", reply_markup=ReplyKeyboardRemove())
     return LOGO_AL
 
 async def logo_al(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -980,7 +1027,13 @@ async def notlar_ve_bitis(update: Update, context: ContextTypes.DEFAULT_TYPE):
     pdf_olustur(pdf_path, context.user_data, logo_yolu, hasar_yolu)
     
     with open(pdf_path, 'rb') as doc:
-        await update.message.reply_document(document=doc, caption="İşte servis formu kanka!")
+        keyboard = [
+            ["🛠️ Servis Formu Oluştur"],
+            ["🏍️ Araçlar", "📦 Stok Ekle"],
+            ["💰 Ciro Raporu", "📦 Stok Listesi"]
+        ]
+        reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+        await update.message.reply_document(document=doc, caption="İşte servis formu kanka!", reply_markup=reply_markup)
         
     if os.path.exists(pdf_path): os.remove(pdf_path)
     if logo_yolu and os.path.exists(logo_yolu): os.remove(logo_yolu)
@@ -993,7 +1046,14 @@ async def iptal(update: Update, context: ContextTypes.DEFAULT_TYPE):
     hasar_yolu = context.user_data.get('hasar_path')
     if logo_yolu and os.path.exists(logo_yolu): os.remove(logo_yolu)
     if hasar_yolu and os.path.exists(hasar_yolu): os.remove(hasar_yolu)
-    await update.message.reply_text("İşlem iptal edildi kanka.", reply_markup=ReplyKeyboardRemove())
+    
+    keyboard = [
+        ["🛠️ Servis Formu Oluştur"],
+        ["🏍️ Araçlar", "📦 Stok Ekle"],
+        ["💰 Ciro Raporu", "📦 Stok Listesi"]
+    ]
+    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+    await update.message.reply_text("İşlem iptal edildi kanka.", reply_markup=reply_markup)
     return ConversationHandler.END
 
 def run_telegram_bot():
@@ -1001,8 +1061,20 @@ def run_telegram_bot():
     if not TOKEN: return
     bot_app = Application.builder().token(TOKEN).build()
 
-    conv_handler = ConversationHandler(
-        entry_points=[CommandHandler('yeni_servis', yeni_servis)],
+    # Stok Ekleme Konuşması
+    stok_conv = ConversationHandler(
+        entry_points=[MessageHandler(filters.Regex('^📦 Stok Ekle$'), lambda u, c: (u.message.reply_text("Eklenecek **Parça Adını** yaz kanka:", reply_markup=ReplyKeyboardRemove()), STOK_AD)[1])],
+        states={
+            STOK_AD: [MessageHandler(filters.TEXT & ~filters.COMMAND, stok_ad_al)],
+            STOK_ADET: [MessageHandler(filters.TEXT & ~filters.COMMAND, stok_adet_al)],
+            STOK_FIYAT: [MessageHandler(filters.TEXT & ~filters.COMMAND, stok_fiyat_al)],
+        },
+        fallbacks=[CommandHandler('iptal', iptal)]
+    )
+
+    # Servis Formu Konuşması
+    servis_conv = ConversationHandler(
+        entry_points=[MessageHandler(filters.Regex('^🛠️ Servis Formu Oluştur$'), yeni_servis_baslat)],
         states={
             LOGO_AL: [MessageHandler(filters.PHOTO, logo_al), MessageHandler(filters.TEXT & ~filters.COMMAND, logo_uyari)],
             HASAR_AL: [MessageHandler(filters.PHOTO, hasar_al), MessageHandler(filters.Regex(r'^Fotoğraf Yok / Geç$'), hasar_gec)],
@@ -1025,11 +1097,12 @@ def run_telegram_bot():
     )
 
     bot_app.add_handler(CommandHandler("start", start))
-    bot_app.add_handler(CommandHandler("araclar", bot_araclar))
-    bot_app.add_handler(CommandHandler("stok", bot_stok))
-    bot_app.add_handler(CommandHandler("ciro", bot_ciro))
+    bot_app.add_handler(stok_conv)
+    bot_app.add_handler(servis_conv)
     bot_app.add_handler(CallbackQueryHandler(durum_degistir_callback, pattern="^durum_"))
-    bot_app.add_handler(conv_handler)
+    bot_app.add_handler(MessageHandler(filters.Regex('^🏍️ Araçlar$'), bot_araclar))
+    bot_app.add_handler(MessageHandler(filters.Regex('^📦 Stok Listesi$'), bot_stok))
+    bot_app.add_handler(MessageHandler(filters.Regex('^💰 Ciro Raporu$'), bot_ciro))
     bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, sifre_kontrol))
 
     bot_app.run_polling(stop_signals=None)
