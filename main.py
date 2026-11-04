@@ -103,7 +103,7 @@ HTML_LOGIN = """
 </head>
 <body>
 <div class="login-box">
-    <h2>IZ MOTORSİKLET</h2>
+    <h2>IZ MOTORSIKLET</h2>
     <p style="color:#94a3b8; font-size:13px; margin-bottom:20px;">Tam Donanımlı Garaj Paneli</p>
     {% if error %}<div class="error">{{ error }}</div>{% endif %}
     <form method="POST">
@@ -232,8 +232,8 @@ HTML_PANEL = """
     <div class="sticky-header">
         <div class="header-box">
             <div class="brand-title">
-                <div class="brand-icon">⚡🏍️🛠</div>
-                <h1 class="graffiti-text">IZ MOTORSİKLET</h1>
+                <div class="brand-icon">🏍️🛠</div>
+                <h1 class="graffiti-text">IZ MOTORSIKLET</h1>
             </div>
             <a href="/cikis" class="logout">Çıkış Yap</a>
         </div>
