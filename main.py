@@ -23,7 +23,7 @@ except:
     OCR_AKTIF = False
 
 app = Flask(__name__)
-app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v80"
+app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v81"
 
 SIFRE = "izmotor2026*"
 
@@ -218,7 +218,7 @@ HTML_PANEL = """
         <div class="card">
             <h3>⚡ Yeni Servis Formu Oluştur</h3>
             <div style="margin-bottom: 12px;">
-                <label>Kayıtlı Araçtan Seç (Otomatik Doldur)</label>
+                <label>Kayıtlı / Aktif Araçtan Seç (Hızlı Doldur)</label>
                 <select id="kayitliAracSec" onchange="aracBilgileriniDoldur()">
                     <option value="">-- Listeden Araç Seç (İsteğe Bağlı) --</option>
                     {% for ar in tum_araclar %}
@@ -274,6 +274,9 @@ HTML_PANEL = """
     <!-- 2. AKTİF ARAÇLAR -->
     <div id="araclarTab" class="tab-content {% if aktif_tab == 'araclar' %}active{% endif %}">
         <h3>Atölyedeki / Servisteki Aktif Araçlar</h3>
+        <div style="margin-bottom:15px;">
+            <a href="/?tab=servis" class="btn-action" style="text-align:center; text-decoration:none; display:block; background:linear-gradient(135deg, #0284c7, #0369a1); color:#fff; padding:11px;">⚡ Yeni Form / Aktif Araçtan Hızlı İşlem Başlat</a>
+        </div>
         {% if aktif_araclar %}
             {% for ts in aktif_araclar %}
             <div class="card" style="border-left: 4px solid {% if ts[11] == 'Borçlu / Veresiye' %}#f87171{% else %}#4ade80{% endif %};">
@@ -304,6 +307,7 @@ HTML_PANEL = """
                 </form>
 
                 <div style="margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap;">
+                    <a href="/?tab=servis&secilen_plaka={{ ts[1] }}" class="btn-action" style="background:#0d9488; color:#fff; padding:6px 10px; font-size:11px; width:auto; margin:0;" onclick="araciSecVeFormaGit('{{ ts[1] }}', '{{ ts[2] }}', '{{ ts[3] }}', '{{ ts[4] }}', '{{ ts[5] }}')">⚡ Bu Araca Yeni İşlem Aç</a>
                     <a href="https://wa.me/{{ ts[3] }}?text=Sayin%20{{ ts[2] }},%20Iz%20Motorsiklet%20servis%20ucretiniz%20{{ "%.2f"|format(ts[9]|float) }}%20TL." target="_blank" class="whatsapp-btn">💬 WhatsApp</a>
                     <a href="/pdf_indir/{{ ts[0] }}" class="pdf-btn">📄 PDF İndir</a>
                     <a href="/duzenle/{{ ts[0] }}" class="edit-btn">✏️ Düzenle</a>
@@ -415,6 +419,21 @@ function aracBilgileriniDoldur() {
         document.getElementById('model').value = opt.getAttribute('data-model') || '';
         document.getElementById('km').value = opt.getAttribute('data-km') || '';
     }
+}
+function araciSecVeFormaGit(plaka, ad, tel, model, km) {
+    var select = document.getElementById('kayitliAracSec');
+    for (var i = 0; i < select.options.length; i++) {
+        if (select.options[i].value === plaka) {
+            select.selectedIndex = i;
+            break;
+        }
+    }
+    document.getElementById('plaka').value = plaka;
+    document.getElementById('musteri_ad').value = ad;
+    document.getElementById('musteri_tel').value = tel;
+    document.getElementById('model').value = model;
+    document.getElementById('km').value = km;
+    switchTab('servisTab', document.querySelectorAll('.tab-btn')[0]);
 }
 function islemEkle(isim) {
     var satirlar = document.querySelectorAll('.parca-satir');
