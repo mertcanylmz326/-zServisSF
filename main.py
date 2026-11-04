@@ -23,7 +23,7 @@ except:
     OCR_AKTIF = False
 
 app = Flask(__name__)
-app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v90"
+app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v91"
 
 SIFRE = "izmotor2026*"
 
@@ -1085,12 +1085,13 @@ def run_telegram_bot():
         print("Telegram bot çalışma uyarısı/hatası:", e)
 
 if __name__ == '__main__':
+    # Render üzerinde tekil instance çalışmasını garantilemek için kilit portu
     lock_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
-        lock_socket.bind(("127.0.0.1", 49152))
+        lock_socket.bind(("127.0.0.1", 49153))
         threading.Thread(target=run_telegram_bot, daemon=True).start()
     except socket.error:
-        pass
+        print("Telegram bot zaten başka bir thread/process üzerinde çalışıyor, ikinci tetikleme engellendi.")
 
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
