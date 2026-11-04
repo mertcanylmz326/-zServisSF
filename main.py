@@ -23,7 +23,7 @@ except:
     OCR_AKTIF = False
 
 app = Flask(__name__)
-app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v87"
+app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v88"
 
 SIFRE = "izmotor2026*"
 
@@ -48,13 +48,13 @@ def init_db():
                 detaylar TEXT,
                 notlar TEXT,
                 toplam_tutar REAL,
-                durum TEXT DEFAULT 'Bekliyor',
+                durum TEXT DEFAULT 'Serviste',
                 odeme_durumu TEXT DEFAULT 'Borçlu / Veresiye',
                 pdf_dosya TEXT
             )
         ''')
         cursor.execute('ALTER TABLE servisler ADD COLUMN IF NOT EXISTS notlar TEXT;')
-        cursor.execute('ALTER TABLE servisler ADD COLUMN IF NOT EXISTS durum TEXT DEFAULT \'Bekliyor\';')
+        cursor.execute('ALTER TABLE servisler ADD COLUMN IF NOT EXISTS durum TEXT DEFAULT \'Serviste\';')
         cursor.execute('ALTER TABLE servisler ADD COLUMN IF NOT EXISTS odeme_durumu TEXT DEFAULT \'Borçlu / Veresiye\';')
         cursor.execute('ALTER TABLE servisler ADD COLUMN IF NOT EXISTS pdf_dosya TEXT;')
 
@@ -164,14 +164,17 @@ HTML_PANEL = """
         .edit-btn { background: #d97706; color: #fff; padding: 8px 12px; border-radius: 8px; text-decoration: none; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 5px; margin-top: 6px; border: none; cursor: pointer; }
         .delete-btn { background: #ef4444; color: #fff; padding: 8px 12px; border-radius: 8px; text-decoration: none; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 5px; margin-top: 6px; border: none; cursor: pointer; }
         
-        /* AKTİF DURUM VURGULU BUTONLAR */
+        /* MEVCUT DURUM BİLDİRİM ROZETİ */
+        .status-badge { display: inline-block; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 900; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .badge-serviste { background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid #3b82f6; }
+        .badge-parca { background: rgba(234, 179, 8, 0.2); color: #facc15; border: 1px solid #eab308; }
+        .badge-teslim { background: rgba(34, 197, 94, 0.2); color: #4ade80; border: 1px solid #22c55e; }
+
+        /* BUTONLAR */
         .status-group { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 8px; }
         .status-pill { background: #1e293b; border: 1px solid #475569; color: #cbd5e1; padding: 8px 12px; border-radius: 8px; font-size: 11px; cursor: pointer; font-weight: 700; text-decoration: none; display: inline-block; transition: all 0.2s; }
         
-        /* Seçili Çalışma Durumu */
         .status-pill.active-status { background: var(--accent) !important; color: #030712 !important; border-color: var(--accent) !important; font-weight: 900 !important; box-shadow: 0 0 12px rgba(250, 204, 21, 0.4); }
-        
-        /* Seçili Ödeme Durumları */
         .status-pill.active-payment-borclu { background: #ef4444 !important; color: #fff !important; border-color: #ef4444 !important; font-weight: 900 !important; box-shadow: 0 0 12px rgba(239, 68, 68, 0.5); }
         .status-pill.active-payment-odendi { background: #22c55e !important; color: #fff !important; border-color: #22c55e !important; font-weight: 900 !important; box-shadow: 0 0 12px rgba(34, 197, 94, 0.5); }
 
@@ -314,15 +317,26 @@ HTML_PANEL = """
                 <b>Plaka:</b> <span style="color:var(--accent); font-size:14px;">{{ ts[1] }}</span> | <b>Müşteri:</b> {{ ts[2] }} ({{ ts[3] }})<br>
                 <b>Model / KM:</b> {{ ts[4] }} - {{ ts[5] }} KM | <b>Tarih:</b> {{ ts[6] }}<br>
                 <b>Yapılanlar:</b> {{ ts[7] }} | <b>Notlar:</b> {{ ts[8] or '-' }}<br>
-                <b>Tutar:</b> <span style="color:var(--accent); font-weight:800;">{{ "%.2f"|format(ts[9]|float) }} TL</span><br>
+                <b>Tutar:</b> <span style="color:var(--accent); font-weight:800;">{{ "%.2f"|format(ts[9]|float) }} TL</span><br><br>
                 
-                <!-- SEÇİLİ OLANI VURGULAYAN DURUM BUTONLARI -->
-                <div style="margin-top: 12px;">
+                <!-- DURUM BİLDİRİM ROZETİ (BUTONLARIN HEMEN ÜSTÜNDE) -->
+                <div>
+                    <span style="font-size:10px; color:#94a3b8; display:block; margin-bottom:3px;">MEVCUT DURUM BİLDİRİMİ:</span>
+                    {% if ts[10] == 'Parça Bekliyor' %}
+                        <div class="status-badge badge-parca">🟡 Parça Bekliyor</div>
+                    {% elif ts[10] == 'Teslime Hazır' %}
+                        <div class="status-badge badge-teslim">⚡ Teslime Hazır</div>
+                    {% else %}
+                        <div class="status-badge badge-serviste">🛠️ Serviste</div>
+                    {% endif %}
+                </div>
+
+                <!-- ÇALIŞMA DURUMU BUTONLARI -->
+                <div style="margin-top: 5px;">
                     <label style="font-size:9px; color:#94a3b8; margin-bottom:2px;">ÇALIŞMA DURUMU</label>
                     <div class="status-group">
-                        <a href="/durum_degistir/{{ ts[0] }}?durum=Bekliyor" onclick="showLoading()" class="status-pill {% if ts[10] == 'Bekliyor' %}active-status{% endif %}">⏳ Bekliyor</a>
+                        <a href="/durum_degistir/{{ ts[0] }}?durum=Serviste" onclick="showLoading()" class="status-pill {% if ts[10] == 'Serviste' or not ts[10] %}active-status{% endif %}">🛠️ Serviste</a>
                         <a href="/durum_degistir/{{ ts[0] }}?durum=Parça Bekliyor" onclick="showLoading()" class="status-pill {% if ts[10] == 'Parça Bekliyor' %}active-status{% endif %}">🟡 Parça Bekliyor</a>
-                        <a href="/durum_degistir/{{ ts[0] }}?durum=Hazır" onclick="showLoading()" class="status-pill {% if ts[10] == 'Hazır' %}active-status{% endif %}">🔵 Hazır</a>
                         <a href="/durum_degistir/{{ ts[0] }}?durum=Teslime Hazır" onclick="showLoading()" class="status-pill {% if ts[10] == 'Teslime Hazır' %}active-status{% endif %}">⚡ Teslime Hazır</a>
                     </div>
 
@@ -674,7 +688,7 @@ def hizli_arac_ekle():
     cursor.execute("""
         INSERT INTO servisler (plaka, musteri_ad, musteri_tel, model, km, tarih, detaylar, notlar, toplam_tutar, durum, odeme_durumu, pdf_dosya) 
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-    """, (plaka, musteri_ad, musteri_tel, model, km, datetime.date.today().strftime("%d.%m.%Y"), "Yeni Servis Kabul", notlar, 0.0, 'Bekliyor', 'Borçlu / Veresiye', ''))
+    """, (plaka, musteri_ad, musteri_tel, model, km, datetime.date.today().strftime("%d.%m.%Y"), "Yeni Servis Kabul", notlar, 0.0, 'Serviste', 'Borçlu / Veresiye', ''))
     conn.commit()
     cursor.close()
     conn.close()
@@ -749,7 +763,7 @@ def olustur():
     pdf_filename = f"servis_formu_{plaka}_{int(time.time())}.pdf"
     pdf_olustur(pdf_filename, {'musteri_ad': ad, 'musteri_tel': tel, 'plaka': plaka, 'model': model, 'km': km, 'islemler': islemler, 'notlar': notlar}, logo_path)
 
-    cursor.execute("INSERT INTO servisler (plaka, musteri_ad, musteri_tel, model, km, tarih, detaylar, notlar, toplam_tutar, durum, odeme_durumu, pdf_dosya) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'Bekliyor', %s, %s)", 
+    cursor.execute("INSERT INTO servisler (plaka, musteri_ad, musteri_tel, model, km, tarih, detaylar, notlar, toplam_tutar, durum, odeme_durumu, pdf_dosya) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'Serviste', %s, %s)", 
                    (plaka, ad, tel, model, km, datetime.date.today().strftime("%d.%m.%Y"), detaylar_str, notlar, toplam_fiyat, odeme_durumu, pdf_filename))
     conn.commit()
     cursor.close()
