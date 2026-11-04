@@ -23,7 +23,7 @@ except:
     OCR_AKTIF = False
 
 app = Flask(__name__)
-app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v101"
+app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v102"
 
 SIFRE = "izmotor2026*"
 
@@ -103,28 +103,62 @@ HTML_LOGIN = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🛵Iz Motorsıklet - Giriş🏍</title>
+    <title>Iz Motorsıklet - Giriş</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Inter:wght@400;700;900&display=swap');
-        body { font-family: 'Inter', sans-serif; background-color: #06080f; background-image: radial-gradient(rgba(250, 204, 21, 0.08) 1px, transparent 1px); display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; color: #f8fafc; }
-        .login-box { background: rgba(13, 17, 28, 0.95); border: 1px solid rgba(250, 204, 21, 0.4); padding: 40px; border-radius: 20px; width: 100%; max-width: 350px; text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.8); }
+        body { font-family: 'Inter', sans-serif; background-color: #06080f; background-image: radial-gradient(rgba(250, 204, 21, 0.08) 1px, transparent 1px); display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; color: #f8fafc; overflow: hidden; }
+        
+        .login-box { background: rgba(13, 17, 28, 0.95); border: 1px solid rgba(250, 204, 21, 0.4); padding: 40px; border-radius: 20px; width: 100%; max-width: 350px; text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.8); animation: revUp 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+        
+        @keyframes revUp {
+            0% { transform: scale(0.8) translateY(30px); opacity: 0; }
+            100% { transform: scale(1) translateY(0); opacity: 1; }
+        }
+
+        .engine-transition {
+            animation: motorGazla 0.5s ease-in-out forwards !important;
+        }
+
+        @keyframes motorGazla {
+            0% { transform: scale(1) translateX(0); filter: brightness(1); }
+            30% { transform: scale(1.05) translateX(-10px); filter: brightness(1.2); }
+            60% { transform: scale(0.95) translateX(15px); filter: brightness(1.4); }
+            100% { transform: scale(1.2) translateX(100vw); opacity: 0; filter: brightness(2); }
+        }
+
         h2 { font-family: 'Permanent Marker', cursive; color: #facc15; font-size: 26px; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 2px; text-shadow: 0 0 10px rgba(250,204,21,0.5); }
         input { width: 100%; padding: 14px; margin-bottom: 20px; background: #030712; border: 1px solid #334155; border-radius: 10px; color: #fff; text-align: center; font-size: 16px; outline: none; }
-        input:focus { border-color: #facc15; }
-        button { background: linear-gradient(135deg, #facc15 0%, #ca8a04 100%); color: #030712; border: none; padding: 14px; border-radius: 10px; width: 100%; font-size: 16px; font-weight: 800; cursor: pointer; text-transform: uppercase; }
+        input:focus { border-color: #facc15; box-shadow: 0 0 10px rgba(250,204,21,0.3); }
+        button { background: linear-gradient(135deg, #facc15 0%, #ca8a04 100%); color: #030712; border: none; padding: 14px; border-radius: 10px; width: 100%; font-size: 16px; font-weight: 800; cursor: pointer; text-transform: uppercase; transition: transform 0.1s; }
+        button:active { transform: scale(0.96); }
         .error { color: #ef4444; margin-bottom: 15px; font-size: 13px; font-weight: 700; }
     </style>
 </head>
 <body>
-<div class="login-box">
-    <h2 font-size:18px;>🏍IZ MOTORSIKLET🛵</h2>
-    <p style="color:#94a3b8; font-size:8px; margin-bottom:19px;">Tam Donanımlı Garaj Paneli</p>
+<div class="login-box" id="loginBox">
+    <h2>IZ MOTORSIKLET</h2>
+    <p style="color:#94a3b8; font-size:13px; margin-bottom:20px;">Tam Donanımlı Garaj Paneli</p>
     {% if error %}<div class="error">{{ error }}</div>{% endif %}
-    <form method="POST">
-        <input type="password" name="sifre" placeholder="••••••••" required autofocus>
-        <button type="submit">Güvenli Giriş Yap</button>
+    <form method="POST" onsubmit="motorCalistir(event)">
+        <input type="password" name="sifre" id="sifreInput" placeholder="••••••••" required autofocus>
+        <button type="submit" id="girisBtn">🏍️ Vınla & Giriş Yap</button>
     </form>
 </div>
+
+<script>
+function motorCalistir(event) {
+    event.preventDefault();
+    var box = document.getElementById('loginBox');
+    var btn = document.getElementById('girisBtn');
+    
+    btn.innerHTML = "⚡ VÖÖÖRT! Gaz Kesici...";
+    box.classList.add('engine-transition');
+    
+    setTimeout(function() {
+        event.target.submit();
+    }, 450);
+}
+</script>
 </body>
 </html>
 """
@@ -135,7 +169,7 @@ HTML_PANEL = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🏍Iz Motorsıklet-Garaj Paneli🛵</title>
+    <title>Iz Motorsıklet - Garaj Paneli</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Inter:wght@400;600;800;900&display=swap');
         :root { --bg-main: #04060b; --card-bg: rgba(13, 18, 30, 0.95); --accent: #facc15; --text-main: #f8fafc; --text-muted: #94a3b8; --border-color: #1e293b; }
@@ -219,8 +253,8 @@ HTML_PANEL = """
     <div class="sticky-header">
         <div class="header-box">
             <div class="brand-title">
-                <div class="brand-icon">⚡🏍️</div>
-                <h1 class="graffiti-text">🏍IZ MOTORSIKLET🛵</h1>
+                <div class="brand-icon">🏍️</div>
+                <h1 class="graffiti-text">IZ MOTORSIKLET</h1>
             </div>
             <a href="/cikis" class="logout">Çıkış Yap</a>
         </div>
@@ -306,7 +340,7 @@ HTML_PANEL = """
                     {% endfor %}
                     <!-- ÖZEL İŞÇİLİK SATIRI -->
                     <div class="parca-satir" style="border: 1px dashed var(--accent);">
-                        <input type="text" name="islem_ad[]" value="Atölye İşçilik / Emek Bedeli" style="margin:0; flex:2; color:var(--accent); font-weight:700;">
+                        <input type="text" name="islem_ad[]" value="İşçilik" style="margin:0; flex:2; color:var(--accent); font-weight:700;">
                         <input type="text" name="adet[]" value="1" style="margin:0; flex:1;" placeholder="Adet/Süre">
                         <input type="number" step="0.01" name="fiyat[]" placeholder="İşçilik Ücreti (TL)" style="margin:0; flex:1;">
                     </div>
@@ -1263,10 +1297,9 @@ def run_telegram_bot():
         print("Telegram bot çalışma uyarısı/hatası:", e)
 
 if __name__ == '__main__':
-    # Render üzerinde çakışma (Conflict) olmaması için tekil port kilidi
     lock_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
-        lock_socket.bind(("127.0.0.1", 49162))
+        lock_socket.bind(("127.0.0.1", 49163))
         threading.Thread(target=run_telegram_bot, daemon=True).start()
     except socket.error:
         print("Telegram bot zaten aktif.")
