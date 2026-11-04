@@ -23,7 +23,7 @@ except:
     OCR_AKTIF = False
 
 app = Flask(__name__)
-app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v100"
+app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v101"
 
 SIFRE = "izmotor2026*"
 
@@ -839,15 +839,12 @@ def index():
     cursor.execute("SELECT id, plaka, musteri_ad, musteri_tel, model, km, tarih, detaylar, notlar, toplam_tutar, durum, odeme_durumu, pdf_dosya FROM servisler ORDER BY id DESC")
     tum_araclar = [dict_factory(cursor, r) for r in cursor.fetchall()]
 
-    # Aktif Araçlar: Ödendi olmayanlar (Atölyedekiler)
     cursor.execute("SELECT id, plaka, musteri_ad, musteri_tel, model, km, tarih, detaylar, notlar, toplam_tutar, durum, odeme_durumu, pdf_dosya FROM servisler WHERE odeme_durumu != 'Ödendi' OR odeme_durumu IS NULL ORDER BY id DESC")
     aktif_araclar = [dict_factory(cursor, r) for r in cursor.fetchall()]
 
-    # Borçlular: Sadece ödeme durumu Borçlu / Veresiye olanlar
     cursor.execute("SELECT id, plaka, musteri_ad, musteri_tel, model, km, tarih, detaylar, notlar, toplam_tutar, durum, odeme_durumu, pdf_dosya FROM servisler WHERE odeme_durumu = 'Borçlu / Veresiye' ORDER BY id DESC")
     borclular = [dict_factory(cursor, r) for r in cursor.fetchall()]
 
-    # Geçmiş Servisler: Sadece ödemesi Ödendi olanlar (Teslim edilenler)
     cursor.execute("SELECT id, plaka, musteri_ad, musteri_tel, model, km, tarih, detaylar, notlar, toplam_tutar, durum, odeme_durumu, pdf_dosya FROM servisler WHERE odeme_durumu = 'Ödendi' ORDER BY id DESC")
     gecmis_kayitlar = [dict_factory(cursor, r) for r in cursor.fetchall()]
 
@@ -941,7 +938,6 @@ def olustur():
             islemler.append((isim, adet_Str, tutar))
             toplam_fiyat += tutar
             
-            # Stoktan düşme işlemi (İşçilik veya yağ metni içinde geçiyorsa stoğu otomatik düşme veya adede göre düş)
             if "işçilik" not in isim.lower() and "emek" not in isim.lower():
                 cursor.execute("SELECT id, adet FROM stok WHERE parca_adi ILIKE %s", (isim,))
                 stok_kayit = cursor.fetchone()
@@ -1267,9 +1263,10 @@ def run_telegram_bot():
         print("Telegram bot çalışma uyarısı/hatası:", e)
 
 if __name__ == '__main__':
+    # Render üzerinde çakışma (Conflict) olmaması için tekil port kilidi
     lock_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
-        lock_socket.bind(("127.0.0.1", 49161))
+        lock_socket.bind(("127.0.0.1", 49162))
         threading.Thread(target=run_telegram_bot, daemon=True).start()
     except socket.error:
         print("Telegram bot zaten aktif.")
