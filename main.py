@@ -118,7 +118,7 @@ HTML_LOGIN = """
 <body>
 <div class="login-box">
     <h2>🏍IZ MOTORSIKLET🛵</h2>
-    <p style="color:#94a3b8; font-size:13px; margin-bottom:20px;">Tam Donanımlı Garaj Paneli</p>
+    <p style="color:#94a3b8; font-size:11px; margin-bottom:19px;">Tam Donanımlı Garaj Paneli</p>
     {% if error %}<div class="error">{{ error }}</div>{% endif %}
     <form method="POST">
         <input type="password" name="sifre" placeholder="••••••••" required autofocus>
