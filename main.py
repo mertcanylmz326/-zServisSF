@@ -920,7 +920,8 @@ async def telegram_mesaj(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 def run_telegram_bot():
     TOKEN = os.getenv("BOT_TOKEN")
-    if !TOKEN: return
+    if not TOKEN: 
+        return
     try:
         bot_app = Application.builder().token(TOKEN).drop_pending_updates(True).build()
         bot_app.add_handler(CommandHandler("start", start))
