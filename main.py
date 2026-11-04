@@ -103,7 +103,7 @@ HTML_LOGIN = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>İz Motorsiklet - Giriş</title>
+    <title>🛵Iz Motorsıklet - Giriş🏍</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Inter:wght@400;700;900&display=swap');
         body { font-family: 'Inter', sans-serif; background-color: #06080f; background-image: radial-gradient(rgba(250, 204, 21, 0.08) 1px, transparent 1px); display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; color: #f8fafc; }
@@ -117,7 +117,7 @@ HTML_LOGIN = """
 </head>
 <body>
 <div class="login-box">
-    <h2>İZ MOTORSİKLET</h2>
+    <h2>🏍IZ MOTORSIKLET🛵</h2>
     <p style="color:#94a3b8; font-size:13px; margin-bottom:20px;">Tam Donanımlı Garaj Paneli</p>
     {% if error %}<div class="error">{{ error }}</div>{% endif %}
     <form method="POST">
@@ -135,7 +135,7 @@ HTML_PANEL = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>İz Motorsiklet - Garaj Paneli</title>
+    <title>🏍Iz Motorsıklet-Garaj Paneli🛵</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Inter:wght@400;600;800;900&display=swap');
         :root { --bg-main: #04060b; --card-bg: rgba(13, 18, 30, 0.95); --accent: #facc15; --text-main: #f8fafc; --text-muted: #94a3b8; --border-color: #1e293b; }
@@ -220,7 +220,7 @@ HTML_PANEL = """
         <div class="header-box">
             <div class="brand-title">
                 <div class="brand-icon">⚡🏍️</div>
-                <h1 class="graffiti-text">İZ MOTORSİKLET</h1>
+                <h1 class="graffiti-text">🏍IZ MOTORSIKLET🛵</h1>
             </div>
             <a href="/cikis" class="logout">Çıkış Yap</a>
         </div>
