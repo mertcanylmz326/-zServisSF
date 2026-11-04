@@ -23,7 +23,7 @@ except:
     OCR_AKTIF = False
 
 app = Flask(__name__)
-app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v94"
+app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v95"
 
 SIFRE = "izmotor2026*"
 
@@ -314,17 +314,17 @@ HTML_PANEL = """
 
         {% if aktif_araclar %}
             {% for ts in aktif_araclar %}
-            <div class="card" style="border-left: 4px solid {% if ts[11] == 'Borçlu / Veresiye' %}#f87171{% else %}#4ade80{% endif %};">
-                <b>Plaka:</b> <span style="color:var(--accent); font-size:14px;">{{ ts[1] }}</span> | <b>Müşteri:</b> {{ ts[2] }} ({{ ts[3] }})<br>
-                <b>Model / KM:</b> {{ ts[4] }} - {{ ts[5] }} KM | <b>Tarih:</b> {{ ts[6] }}<br>
-                <b>Yapılanlar:</b> {{ ts[7] }} | <b>Notlar:</b> {{ ts[8] or '-' }}<br>
-                <b>Tutar:</b> <span style="color:var(--accent); font-weight:800;">{{ "%.2f"|format(ts[9]|float) }} TL</span> | <b>Ödeme:</b> <span style="color:{% if ts[11] == 'Ödendi' %}#4ade80{% else %}#f87171{% endif %}; font-weight:800;">{{ ts[11] }}</span><br><br>
+            <div class="card" style="border-left: 4px solid {% if ts.odeme_durumu == 'Borçlu / Veresiye' %}#f87171{% else %}#4ade80{% endif %};">
+                <b>Plaka:</b> <span style="color:var(--accent); font-size:14px;">{{ ts.plaka }}</span> | <b>Müşteri:</b> {{ ts.musteri_ad }} ({{ ts.musteri_tel }})<br>
+                <b>Model / KM:</b> {{ ts.model }} - {{ ts.km }} KM | <b>Tarih:</b> {{ ts.tarih }}<br>
+                <b>Yapılanlar:</b> {{ ts.detaylar }} | <b>Notlar:</b> {{ ts.notlar or '-' }}<br>
+                <b>Tutar:</b> <span style="color:var(--accent); font-weight:800;">{{ "%.2f"|format(ts.toplam_tutar|float) }} TL</span> | <b>Ödeme:</b> <span style="color:{% if ts.odeme_durumu == 'Ödendi' %}#4ade80{% else %}#f87171{% endif %}; font-weight:800;">{{ ts.odeme_durumu }}</span><br><br>
                 
                 <div>
                     <span style="font-size:10px; color:#94a3b8; display:block; margin-bottom:3px;">MEVCUT DURUM BİLDİRİMİ:</span>
-                    {% if ts[10] == 'Parça Bekliyor' %}
+                    {% if ts.durum == 'Parça Bekliyor' %}
                         <div class="status-badge badge-parca">🟡 Parça Bekliyor</div>
-                    {% elif ts[10] == 'Teslime Hazır' %}
+                    {% elif ts.durum == 'Teslime Hazır' %}
                         <div class="status-badge badge-teslim">⚡ Teslime Hazır</div>
                     {% else %}
                         <div class="status-badge badge-serviste">🛠️ Serviste</div>
@@ -334,23 +334,23 @@ HTML_PANEL = """
                 <div style="margin-top: 5px;">
                     <label style="font-size:9px; color:#94a3b8; margin-bottom:2px;">ÇALIŞMA DURUMU</label>
                     <div class="status-group">
-                        <a href="/durum_degistir/{{ ts[0] }}?durum=Serviste&tab=araclar" onclick="showLoading()" class="status-pill {% if ts[10] == 'Serviste' or not ts[10] %}active-status{% endif %}">🛠️ Serviste</a>
-                        <a href="/durum_degistir/{{ ts[0] }}?durum=Parça Bekliyor&tab=araclar" onclick="showLoading()" class="status-pill {% if ts[10] == 'Parça Bekliyor' %}active-status{% endif %}">🟡 Parça Bekliyor</a>
-                        <a href="/durum_degistir/{{ ts[0] }}?durum=Teslime Hazır&tab=araclar" onclick="showLoading()" class="status-pill {% if ts[10] == 'Teslime Hazır' %}active-status{% endif %}">⚡ Teslime Hazır</a>
+                        <a href="/durum_degistir/{{ ts.id }}?durum=Serviste&tab=araclar" onclick="showLoading()" class="status-pill {% if ts.durum == 'Serviste' or not ts.durum %}active-status{% endif %}">🛠️ Serviste</a>
+                        <a href="/durum_degistir/{{ ts.id }}?durum=Parça Bekliyor&tab=araclar" onclick="showLoading()" class="status-pill {% if ts.durum == 'Parça Bekliyor' %}active-status{% endif %}">🟡 Parça Bekliyor</a>
+                        <a href="/durum_degistir/{{ ts.id }}?durum=Teslime Hazır&tab=araclar" onclick="showLoading()" class="status-pill {% if ts.durum == 'Teslime Hazır' %}active-status{% endif %}">⚡ Teslime Hazır</a>
                     </div>
 
                     <label style="font-size:9px; color:#94a3b8; margin-top:6px; margin-bottom:2px;">ÖDEME DURUMU</label>
                     <div class="status-group">
-                        <a href="/durum_degistir/{{ ts[0] }}?odeme=Borçlu / Veresiye&tab=araclar" onclick="showLoading()" class="status-pill {% if ts[11] == 'Borçlu / Veresiye' %}active-payment-borclu{% endif %}">🔴 Borçlu / Veresiye</a>
-                        <a href="/durum_degistir/{{ ts[0] }}?odeme=Ödendi&tab=araclar" onclick="showLoading()" class="status-pill {% if ts[11] == 'Ödendi' %}active-payment-odendi{% endif %}">🟢 Ödendi</a>
+                        <a href="/durum_degistir/{{ ts.id }}?odeme=Borçlu / Veresiye&tab=araclar" onclick="showLoading()" class="status-pill {% if ts.odeme_durumu == 'Borçlu / Veresiye' %}active-payment-borclu{% endif %}">🔴 Borçlu / Veresiye</a>
+                        <a href="/durum_degistir/{{ ts.id }}?odeme=Ödendi&tab=araclar" onclick="showLoading()" class="status-pill {% if ts.odeme_durumu == 'Ödendi' %}active-payment-odendi{% endif %}">🟢 Ödendi</a>
                     </div>
                 </div>
 
                 <div style="margin-top: 10px; display: flex; gap: 6px; flex-wrap: wrap;">
-                    <a href="https://wa.me/{{ ts[3] }}?text=Sayin%20{{ ts[2] }},%20Iz%20Motorsiklet%20servis%20ucretiniz%20{{ "%.2f"|format(ts[9]|float) }}%20TL." target="_blank" class="whatsapp-btn">💬 WhatsApp</a>
-                    <a href="/pdf_indir/{{ ts[0] }}" class="pdf-btn">📄 PDF İndir</a>
-                    <a href="/duzenle/{{ ts[0] }}" class="edit-btn">✏️ Düzenle</a>
-                    <a href="/sil/{{ ts[0] }}" class="delete-btn" onclick="return confirm('Bu kaydı silmek istediğine emin misin?')">🗑️ Sil</a>
+                    <a href="https://wa.me/{{ ts.musteri_tel }}?text=Sayin%20{{ ts.musteri_ad }},%20Iz%20Motorsiklet%20servis%20ucretiniz%20{{ "%.2f"|format(ts.toplam_tutar|float) }}%20TL." target="_blank" class="whatsapp-btn">💬 WhatsApp</a>
+                    <a href="/pdf_indir/{{ ts.id }}" class="pdf-btn">📄 PDF İndir</a>
+                    <a href="/duzenle/{{ ts.id }}" class="edit-btn">✏️ Düzenle</a>
+                    <a href="/sil/{{ ts.id }}" class="delete-btn" onclick="return confirm('Bu kaydı silmek istediğine emin misin?')">🗑️ Sil</a>
                 </div>
             </div>
             {% endfor %}
@@ -365,23 +365,23 @@ HTML_PANEL = """
         {% if borclular %}
             {% for b in borclular %}
             <div class="card" style="border-left: 4px solid #ef4444;">
-                <b>Plaka:</b> <span style="color:var(--accent);">{{ b[1] }}</span> | <b>Tarih:</b> {{ b[6] }}<br>
-                <b>Müşteri:</b> {{ b[2] }} ({{ b[3] }})<br>
-                <b>İşlemler:</b> {{ b[7] }} | <b>Notlar:</b> {{ b[8] or '-' }}<br>
-                <b>Toplam Borç:</b> <span style="color:#ef4444; font-size:14px; font-weight:800;">{{ "%.2f"|format(b[9]|float) }} TL</span>
+                <b>Plaka:</b> <span style="color:var(--accent);">{{ b.plaka }}</span> | <b>Tarih:</b> {{ b.tarih }}<br>
+                <b>Müşteri:</b> {{ b.musteri_ad }} ({{ b.musteri_tel }})<br>
+                <b>İşlemler:</b> {{ b.detaylar }} | <b>Notlar:</b> {{ b.notlar or '-' }}<br>
+                <b>Toplam Borç:</b> <span style="color:#ef4444; font-size:14px; font-weight:800;">{{ "%.2f"|format(b.toplam_tutar|float) }} TL</span>
                 
                 <div style="margin-top: 8px;">
                     <label style="font-size:9px; color:#94a3b8; margin-bottom:2px;">ÖDEME DURUMUNU GÜNCELLE</label>
                     <div class="status-group">
-                        <a href="/durum_degistir/{{ b[0] }}?odeme=Ödendi&tab=borclar" onclick="showLoading()" class="status-pill active-payment-borclu">Tahsil Et (Ödendi Yap)🟢</a>
+                        <a href="/durum_degistir/{{ b.id }}?odeme=Ödendi&tab=borclar" onclick="showLoading()" class="status-pill active-payment-borclu">Tahsil Et (Ödendi Yap)🟢</a>
                     </div>
                 </div>
 
                 <div style="margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap;">
-                    <a href="https://wa.me/{{ b[3] }}?text=Sayin%20{{ b[2] }},%20Iz%20Motorsiklet%20servis%20borc%20bakiyeniz%20{{ "%.2f"|format(b[9]|float) }}%20TL'dir." target="_blank" class="whatsapp-btn">💬 Borç Hatırlat</a>
-                    <a href="/pdf_indir/{{ b[0] }}" class="pdf-btn">📄 Formu İndir</a>
-                    <a href="/duzenle/{{ b[0] }}" class="edit-btn">✏️ Düzenle</a>
-                    <a href="/sil/{{ b[0] }}" class="delete-btn" onclick="return confirm('Bu kaydı silmek istediğine emin misin?')">🗑️ Sil</a>
+                    <a href="https://wa.me/{{ b.musteri_tel }}?text=Sayin%20{{ b.musteri_ad }},%20Iz%20Motorsiklet%20servis%20borc%20bakiyeniz%20{{ "%.2f"|format(b.toplam_tutar|float) }}%20TL'dir." target="_blank" class="whatsapp-btn">💬 Borç Hatırlat</a>
+                    <a href="/pdf_indir/{{ b.id }}" class="pdf-btn">📄 Formu İndir</a>
+                    <a href="/duzenle/{{ b.id }}" class="edit-btn">✏️ Düzenle</a>
+                    <a href="/sil/{{ b.id }}" class="delete-btn" onclick="return confirm('Bu kaydı silmek istediğine emin misin?')">🗑️ Sil</a>
                 </div>
             </div>
             {% endfor %}
@@ -403,14 +403,14 @@ HTML_PANEL = """
         {% if gecmis_kayitlar %}
             {% for k in gecmis_kayitlar %}
             <div class="card" style="border-left: 4px solid #4ade80;">
-                <b>Plaka:</b> <span style="color:var(--accent);">{{ k[1] }}</span> | <b>Tarih:</b> {{ k[6] }}<br>
-                <b>Müşteri:</b> {{ k[2] }} ({{ k[3] }})<br>
-                <b>İşlemler:</b> {{ k[7] }} | <b>Notlar:</b> {{ k[8] or '-' }}<br>
-                <b>Toplam Tutar:</b> <span style="color:var(--accent);">{{ "%.2f"|format(k[9]|float) }} TL</span> | <b>Ödeme:</b> <span style="color:#4ade80; font-weight:800;">{{ k[11] }}</span>
+                <b>Plaka:</b> <span style="color:var(--accent);">{{ k.plaka }}</span> | <b>Tarih:</b> {{ k.tarih }}<br>
+                <b>Müşteri:</b> {{ k.musteri_ad }} ({{ k.musteri_tel }})<br>
+                <b>İşlemler:</b> {{ k.detaylar }} | <b>Notlar:</b> {{ k.notlar or '-' }}<br>
+                <b>Toplam Tutar:</b> <span style="color:var(--accent);">{{ "%.2f"|format(k.toplam_tutar|float) }} TL</span> | <b>Ödeme:</b> <span style="color:#4ade80; font-weight:800;">{{ k.odeme_durumu }}</span>
                 <div style="margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap;">
-                    <a href="/pdf_indir/{{ k[0] }}" class="pdf-btn">📄 Formu İndir</a>
-                    <a href="/duzenle/{{ k[0] }}" class="edit-btn">✏️ Düzenle</a>
-                    <a href="/sil/{{ k[0] }}" class="delete-btn" onclick="return confirm('Bu kaydı silmek istediğine emin misin?')">🗑️ Sil</a>
+                    <a href="/pdf_indir/{{ k.id }}" class="pdf-btn">📄 Formu İndir</a>
+                    <a href="/duzenle/{{ k.id }}" class="edit-btn">✏️ Düzenle</a>
+                    <a href="/sil/{{ k.id }}" class="delete-btn" onclick="return confirm('Bu kaydı silmek istediğine emin misin?')">🗑️ Sil</a>
                 </div>
             </div>
             {% endfor %}
@@ -539,18 +539,18 @@ HTML_DUZENLE = """
 <div class="box">
     <h3>✏️ Düzenle</h3>
     <form method="POST">
-        <label>Müşteri Ad</label><input type="text" name="musteri_ad" value="{{ kayit[2] }}" required>
-        <label>Telefon</label><input type="text" name="musteri_tel" value="{{ kayit[3] }}" required>
-        <label>Plaka</label><input type="text" name="plaka" value="{{ kayit[1] }}" required>
-        <label>Model / KM</label><input type="text" name="model" value="{{ kayit[4] }}" required>
-        <label>Yapılan İşlem</label><textarea name="detaylar" rows="3" required>{{ kayit[7] }}</textarea>
-        <label>Notlar</label><textarea name="notlar" rows="2">{{ kayit[8] }}</textarea>
-        <label>Toplam Tutar (TL)</label><input type="number" step="0.01" name="toplam_tutar" value="{{ kayit[9] }}" required>
+        <label>Müşteri Ad</label><input type="text" name="musteri_ad" value="{{ kayit.musteri_ad }}" required>
+        <label>Telefon</label><input type="text" name="musteri_tel" value="{{ kayit.musteri_tel }}" required>
+        <label>Plaka</label><input type="text" name="plaka" value="{{ kayit.plaka }}" required>
+        <label>Model / KM</label><input type="text" name="model" value="{{ kayit.model }}" required>
+        <label>Yapılan İşlem</label><textarea name="detaylar" rows="3" required>{{ kayit.detaylar }}</textarea>
+        <label>Notlar</label><textarea name="notlar" rows="2">{{ kayit.notlar }}</textarea>
+        <label>Toplam Tutar (TL)</label><input type="number" step="0.01" name="toplam_tutar" value="{{ kayit.toplam_tutar }}" required>
         <label>Ödeme Durumu</label>
         <select name="odeme_durumu">
-            <option value="Borçlu / Veresiye" {% if kayit[11] == 'Borçlu / Veresiye' %}selected{% endif %}>🔴 Borçlu</option>
-            <option value="Parça Bekliyor" {% if kayit[11] == 'Parça Bekliyor' %}selected{% endif %}>🟡 Parça Bekliyor</option>
-            <option value="Ödendi" {% if kayit[11] == 'Ödendi' %}selected{% endif %}>🟢 Ödendi</option>
+            <option value="Borçlu / Veresiye" {% if kayit.odeme_durumu == 'Borçlu / Veresiye' %}selected{% endif %}>🔴 Borçlu</option>
+            <option value="Parça Bekliyor" {% if kayit.odeme_durumu == 'Parça Bekliyor' %}selected{% endif %}>🟡 Parça Bekliyor</option>
+            <option value="Ödendi" {% if kayit.odeme_durumu == 'Ödendi' %}selected{% endif %}>🟢 Ödendi</option>
         </select>
         <button type="submit" class="btn">Kaydet</button>
     </form>
@@ -661,6 +661,12 @@ def pdf_olustur(filename, veri, logo_yolu):
 
     doc.build(story)
 
+def dict_factory(cursor, row):
+    d = {}
+    for idx, col in enumerate(cursor.description):
+        d[col[0]] = row[idx]
+    return d
+
 @app.route('/', methods=['GET', 'POST'])
 def index():
     if request.method == 'POST':
@@ -678,25 +684,25 @@ def index():
     okunan_plaka = session.pop('okunan_plaka', None)
     
     if sorgu_plaka:
-        cursor.execute("SELECT * FROM servisler WHERE (plaka ILIKE %s OR musteri_ad ILIKE %s) ORDER BY id DESC", ('%' + sorgu_plaka + '%', '%' + sorgu_plaka + '%'))
-        kayitlar = cursor.fetchall()
+        cursor.execute("SELECT id, plaka, musteri_ad, musteri_tel, model, km, tarih, detaylar, notlar, toplam_tutar, durum, odeme_durumu, pdf_dosya FROM servisler WHERE (plaka ILIKE %s OR musteri_ad ILIKE %s) ORDER BY id DESC", ('%' + sorgu_plaka + '%', '%' + sorgu_plaka + '%'))
+        kayitlar = [dict_factory(cursor, r) for r in cursor.fetchall()]
     else:
         kayitlar = []
 
-    cursor.execute("SELECT * FROM servisler ORDER BY id DESC")
-    tum_araclar = cursor.fetchall()
+    cursor.execute("SELECT id, plaka, musteri_ad, musteri_tel, model, km, tarih, detaylar, notlar, toplam_tutar, durum, odeme_durumu, pdf_dosya FROM servisler ORDER BY id DESC")
+    tum_araclar = [dict_factory(cursor, r) for r in cursor.fetchall()]
 
     # Aktif Araçlar: Ödendi olmayanlar (Atölyedekiler)
-    cursor.execute("SELECT * FROM servisler WHERE odeme_durumu != 'Ödendi' OR odeme_durumu IS NULL ORDER BY id DESC")
-    aktif_araclar = cursor.fetchall()
+    cursor.execute("SELECT id, plaka, musteri_ad, musteri_tel, model, km, tarih, detaylar, notlar, toplam_tutar, durum, odeme_durumu, pdf_dosya FROM servisler WHERE odeme_durumu != 'Ödendi' OR odeme_durumu IS NULL ORDER BY id DESC")
+    aktif_araclar = [dict_factory(cursor, r) for r in cursor.fetchall()]
 
     # Borçlular: Sadece ödeme durumu Borçlu / Veresiye olanlar
-    cursor.execute("SELECT * FROM servisler WHERE odeme_durumu = 'Borçlu / Veresiye' ORDER BY id DESC")
-    borclular = cursor.fetchall()
+    cursor.execute("SELECT id, plaka, musteri_ad, musteri_tel, model, km, tarih, detaylar, notlar, toplam_tutar, durum, odeme_durumu, pdf_dosya FROM servisler WHERE odeme_durumu = 'Borçlu / Veresiye' ORDER BY id DESC")
+    borclular = [dict_factory(cursor, r) for r in cursor.fetchall()]
 
     # Geçmiş Servisler: Sadece ödemesi Ödendi olanlar (Teslim edilenler)
-    cursor.execute("SELECT * FROM servisler WHERE odeme_durumu = 'Ödendi' ORDER BY id DESC")
-    gecmis_kayitlar = cursor.fetchall()
+    cursor.execute("SELECT id, plaka, musteri_ad, musteri_tel, model, km, tarih, detaylar, notlar, toplam_tutar, durum, odeme_durumu, pdf_dosya FROM servisler WHERE odeme_durumu = 'Ödendi' ORDER BY id DESC")
+    gecmis_kayitlar = [dict_factory(cursor, r) for r in cursor.fetchall()]
 
     cursor.execute("SELECT * FROM stok ORDER BY id DESC")
     stoklar = cursor.fetchall()
@@ -824,8 +830,8 @@ def duzenle(kayit_id):
         cursor.close()
         conn.close()
         return redirect(url_for('index', tab='gecmis'))
-    cursor.execute("SELECT * FROM servisler WHERE id = %s", (kayit_id,))
-    kayit = cursor.fetchone()
+    cursor.execute("SELECT id, plaka, musteri_ad, musteri_tel, model, km, tarih, detaylar, notlar, toplam_tutar, durum, odeme_durumu, pdf_dosya FROM servisler WHERE id = %s", (kayit_id,))
+    kayit = dict_factory(cursor, cursor.fetchone())
     cursor.close()
     conn.close()
     return render_template_string(HTML_DUZENLE, kayit=kayit)
@@ -1092,7 +1098,7 @@ def run_telegram_bot():
 if __name__ == '__main__':
     lock_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
-        lock_socket.bind(("127.0.0.1", 49155))
+        lock_socket.bind(("127.0.0.1", 49156))
         threading.Thread(target=run_telegram_bot, daemon=True).start()
     except socket.error:
         print("Telegram bot zaten aktif.")
