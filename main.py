@@ -23,7 +23,7 @@ except:
     OCR_AKTIF = False
 
 app = Flask(__name__)
-app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v93"
+app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v94"
 
 SIFRE = "izmotor2026*"
 
@@ -58,7 +58,8 @@ def init_db():
         cursor.execute('ALTER TABLE servisler ADD COLUMN IF NOT EXISTS odeme_durumu TEXT DEFAULT \'Borçlu / Veresiye\';')
         cursor.execute('ALTER TABLE servisler ADD COLUMN IF NOT EXISTS pdf_dosya TEXT;')
         
-        cursor.execute("UPDATE servisler SET durum = 'Serviste' WHERE durum IS NULL OR durum = '' OR durum = 'Bekliyor' OR durum = 'Hazır';")
+        cursor.execute("UPDATE servisler SET durum = 'Serviste' WHERE durum IS NULL OR durum = '';")
+        cursor.execute("UPDATE servisler SET odeme_durumu = 'Borçlu / Veresiye' WHERE odeme_durumu IS NULL OR odeme_durumu = '';")
 
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS stok (
@@ -317,7 +318,7 @@ HTML_PANEL = """
                 <b>Plaka:</b> <span style="color:var(--accent); font-size:14px;">{{ ts[1] }}</span> | <b>Müşteri:</b> {{ ts[2] }} ({{ ts[3] }})<br>
                 <b>Model / KM:</b> {{ ts[4] }} - {{ ts[5] }} KM | <b>Tarih:</b> {{ ts[6] }}<br>
                 <b>Yapılanlar:</b> {{ ts[7] }} | <b>Notlar:</b> {{ ts[8] or '-' }}<br>
-                <b>Tutar:</b> <span style="color:var(--accent); font-weight:800;">{{ "%.2f"|format(ts[9]|float) }} TL</span><br><br>
+                <b>Tutar:</b> <span style="color:var(--accent); font-weight:800;">{{ "%.2f"|format(ts[9]|float) }} TL</span> | <b>Ödeme:</b> <span style="color:{% if ts[11] == 'Ödendi' %}#4ade80{% else %}#f87171{% endif %}; font-weight:800;">{{ ts[11] }}</span><br><br>
                 
                 <div>
                     <span style="font-size:10px; color:#94a3b8; display:block; margin-bottom:3px;">MEVCUT DURUM BİLDİRİMİ:</span>
@@ -398,14 +399,14 @@ HTML_PANEL = """
             <button type="submit" class="btn-action">HIZLI ARAMA YAP</button>
         </form>
         <hr style="border:0; border-top:1px solid #334155; margin: 15px 0;">
-        <h3 style="color:var(--accent);">🔍 Tamamlanan Geçmiş Servis Kayıtları</h3>
-        {% if kayitlar %}
-            {% for k in kayitlar %}
-            <div class="card" style="border-left: 4px solid {% if k[11] == 'Ödendi' %}#4ade80{% else %}#f87171{% endif %};">
+        <h3 style="color:var(--accent);">🔍 Tamamlanan & Teslim Edilen Geçmiş Servisler</h3>
+        {% if gecmis_kayitlar %}
+            {% for k in gecmis_kayitlar %}
+            <div class="card" style="border-left: 4px solid #4ade80;">
                 <b>Plaka:</b> <span style="color:var(--accent);">{{ k[1] }}</span> | <b>Tarih:</b> {{ k[6] }}<br>
                 <b>Müşteri:</b> {{ k[2] }} ({{ k[3] }})<br>
                 <b>İşlemler:</b> {{ k[7] }} | <b>Notlar:</b> {{ k[8] or '-' }}<br>
-                <b>Toplam Tutar:</b> <span style="color:var(--accent);">{{ "%.2f"|format(k[9]|float) }} TL</span> | <b>Ödeme:</b> <span style="color:{% if k[11] == 'Ödendi' %}#4ade80{% else %}#f87171{% endif %}; font-weight:800;">{{ k[11] }}</span>
+                <b>Toplam Tutar:</b> <span style="color:var(--accent);">{{ "%.2f"|format(k[9]|float) }} TL</span> | <b>Ödeme:</b> <span style="color:#4ade80; font-weight:800;">{{ k[11] }}</span>
                 <div style="margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap;">
                     <a href="/pdf_indir/{{ k[0] }}" class="pdf-btn">📄 Formu İndir</a>
                     <a href="/duzenle/{{ k[0] }}" class="edit-btn">✏️ Düzenle</a>
@@ -414,7 +415,7 @@ HTML_PANEL = """
             </div>
             {% endfor %}
         {% else %}
-            <p style="color: var(--text-muted); text-align: center;">Geçmiş kayıt bulunamadı.</p>
+            <p style="color: var(--text-muted); text-align: center;">Geçmişte tamamlanmış/ödenmiş kayıt bulunamadı.</p>
         {% endif %}
     </div>
 
@@ -678,26 +679,32 @@ def index():
     
     if sorgu_plaka:
         cursor.execute("SELECT * FROM servisler WHERE (plaka ILIKE %s OR musteri_ad ILIKE %s) ORDER BY id DESC", ('%' + sorgu_plaka + '%', '%' + sorgu_plaka + '%'))
+        kayitlar = cursor.fetchall()
     else:
-        cursor.execute("SELECT * FROM servisler ORDER BY id DESC")
-    kayitlar = cursor.fetchall()
+        kayitlar = []
 
     cursor.execute("SELECT * FROM servisler ORDER BY id DESC")
     tum_araclar = cursor.fetchall()
 
+    # Aktif Araçlar: Ödendi olmayanlar (Atölyedekiler)
     cursor.execute("SELECT * FROM servisler WHERE odeme_durumu != 'Ödendi' OR odeme_durumu IS NULL ORDER BY id DESC")
     aktif_araclar = cursor.fetchall()
 
+    # Borçlular: Sadece ödeme durumu Borçlu / Veresiye olanlar
     cursor.execute("SELECT * FROM servisler WHERE odeme_durumu = 'Borçlu / Veresiye' ORDER BY id DESC")
     borclular = cursor.fetchall()
+
+    # Geçmiş Servisler: Sadece ödemesi Ödendi olanlar (Teslim edilenler)
+    cursor.execute("SELECT * FROM servisler WHERE odeme_durumu = 'Ödendi' ORDER BY id DESC")
+    gecmis_kayitlar = cursor.fetchall()
 
     cursor.execute("SELECT * FROM stok ORDER BY id DESC")
     stoklar = cursor.fetchall()
     cursor.execute("SELECT * FROM randevular ORDER BY id DESC")
     randevular = cursor.fetchall()
+    
     cursor.execute("SELECT SUM(toplam_tutar) FROM servisler")
     res = cursor.fetchone()
-    
     try:
         toplam_ciro = float(res[0]) if res and res[0] is not None else 0.0
     except:
@@ -705,7 +712,7 @@ def index():
 
     cursor.close()
     conn.close()
-    return render_template_string(HTML_PANEL, kayitlar=kayitlar, borclular=borclular, sorgu_plaka=sorgu_plaka, stoklar=stoklar, randevular=randevular, aktif_araclar=aktif_araclar, tum_araclar=tum_araclar, toplam_ciro=toplam_ciro, aktif_tab=aktif_tab, okunan_plaka=okunan_plaka)
+    return render_template_string(HTML_PANEL, kayitlar=kayitlar, borclular=borclular, gecmis_kayitlar=gecmis_kayitlar, sorgu_plaka=sorgu_plaka, stoklar=stoklar, randevular=randevular, aktif_araclar=aktif_araclar, tum_araclar=tum_araclar, toplam_ciro=toplam_ciro, aktif_tab=aktif_tab, okunan_plaka=okunan_plaka)
 
 @app.route('/hizli_arac_ekle', methods=['POST'])
 def hizli_arac_ekle():
@@ -1083,13 +1090,12 @@ def run_telegram_bot():
         print("Telegram bot çalışma uyarısı/hatası:", e)
 
 if __name__ == '__main__':
-    # Render üzerinde çakışmayı önlemek için güvenli kilit mekanizması
     lock_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
-        lock_socket.bind(("127.0.0.1", 49154))
+        lock_socket.bind(("127.0.0.1", 49155))
         threading.Thread(target=run_telegram_bot, daemon=True).start()
     except socket.error:
-        print("Telegram bot zaten aktif, mükerrer başlatma engellendi.")
+        print("Telegram bot zaten aktif.")
 
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
