@@ -14,7 +14,7 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
 app = Flask(__name__)
-app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v59"
+app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v60"
 
 SIFRE = "izmotor2026*"
 TELEGRAM_ADMIN_CHAT_ID = None
@@ -176,7 +176,7 @@ HTML_PANEL = """
 
     <div class="stat-grid">
         <div class="stat-box"><h4>{{ "%.2f"|format(toplam_ciro) }} TL</h4><p>Toplam Ciro</p></div>
-        <div class="stat-box"><h4>{{ aktif_araclar|length }}</h4><p>Toplam Araç</p></div>
+        <div class="stat-box"><h4>{{ aktif_araclar|length }}</h4><p>Aktif Araç</p></div>
         <div class="stat-box"><h4>{{ stoklar|length }}</h4><p>Stok Çeşit</p></div>
         <div class="stat-box"><h4>{{ randevular|length }}</h4><p>Randevular</p></div>
     </div>
@@ -187,10 +187,10 @@ HTML_PANEL = """
             <h3>⚡ Yeni Servis Formu Oluştur</h3>
             
             <div style="margin-bottom: 12px;">
-                <label>Kayıtlı Araçtan Seç (Otomatik Doldur)</label>
+                <label>Kayıtlı Araçtan Seç (Geçmiş Dahil Otomatik Doldur)</label>
                 <select id="kayitliAracSec" onchange="aracBilgileriniDoldur()">
                     <option value="">-- Listeden Araç Seç (İsteğe Bağlı) --</option>
-                    {% for ar in aktif_araclar %}
+                    {% for ar in tum_araclar %}
                     <option value="{{ ar[1] }}" data-ad="{{ ar[2] }}" data-tel="{{ ar[3] }}" data-model="{{ ar[4] }}" data-km="{{ ar[5] }}">
                         {{ ar[1] }} - {{ ar[2] }} ({{ ar[4] }})
                     </option>
@@ -346,8 +346,8 @@ HTML_PANEL = """
     <div id="bakimTab" class="tab-content {% if aktif_tab == 'bakim' %}active{% endif %}">
         <h3 style="color:var(--accent);">Akıllı Bakım Hatırlatıcı</h3>
         <p style="color:var(--text-muted); font-size:12px;">Daha önce servis kaydı açılmış motorlar için periyodik bakım hatırlatması gönderebilirsiniz.</p>
-        {% if aktif_araclar %}
-            {% for ts in aktif_araclar %}
+        {% if tum_araclar %}
+            {% for ts in tum_araclar %}
             <div class="card" style="border-left: 4px solid var(--accent);">
                 <b>Plaka:</b> <span style="color:var(--accent);">{{ ts[1] }}</span> | <b>Müşteri:</b> {{ ts[2] }} ({{ ts[3] }})<br>
                 <b>Model / KM:</b> {{ ts[4] }} - {{ ts[5] }} KM<br>
@@ -357,7 +357,7 @@ HTML_PANEL = """
             </div>
             {% endfor %}
         {% else %}
-            <p style="color: var(--text-muted); text-align: center;">Kayıtlı aktif araç bulunmuyor.</p>
+            <p style="color: var(--text-muted); text-align: center;">Kayıtlı araç bulunmuyor.</p>
         {% endif %}
     </div>
 </div>
@@ -446,6 +446,10 @@ def index():
     cursor.execute("SELECT * FROM servisler WHERE odeme_durumu != 'Ödendi' OR odeme_durumu IS NULL ORDER BY id DESC")
     aktif_araclar = cursor.fetchall()
 
+    # Tüm geçmiş dahil araçlar (Form seçiminde ve bakım listesinde kullanmak için)
+    cursor.execute("SELECT * FROM servisler ORDER BY id DESC")
+    tum_araclar = cursor.fetchall()
+
     cursor.execute("SELECT * FROM stok")
     stoklar = cursor.fetchall()
     cursor.execute("SELECT * FROM randevular ORDER BY id DESC")
@@ -457,7 +461,7 @@ def index():
 
     cursor.close()
     conn.close()
-    return render_template_string(HTML_PANEL, kayitlar=kayitlar, sorgu_plaka=sorgu_plaka, stoklar=stoklar, randevular=randevular, aktif_araclar=aktif_araclar, toplam_ciro=toplam_ciro, aktif_tab=aktif_tab)
+    return render_template_string(HTML_PANEL, kayitlar=kayitlar, sorgu_plaka=sorgu_plaka, stoklar=stoklar, randevular=randevular, aktif_araclar=aktif_araclar, tum_araclar=tum_araclar, toplam_ciro=toplam_ciro, aktif_tab=aktif_tab)
 
 @app.route('/olustur', methods=['POST'])
 def olustur():
