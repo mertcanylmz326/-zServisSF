@@ -21,7 +21,7 @@ except:
     OCR_AKTIF = False
 
 app = Flask(__name__)
-app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v74"
+app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v72"
 
 SIFRE = "izmotor2026*"
 
@@ -77,6 +77,7 @@ def init_db():
 
 init_db()
 
+# --- TÜRKÇE FONT KAYDI ---
 try:
     pdfmetrics.registerFont(TTFont('DejaVu', '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'))
     pdfmetrics.registerFont(TTFont('DejaVu-Bold', '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'))
@@ -241,20 +242,20 @@ HTML_PANEL = """
                     <option value="Ödendi">🟢 Ödendi (Arşive Gider)</option>
                 </select>
 
-                <label style="margin-top: 15px;">Stoktan Hızlı Parça Seç (Tıkla ve Ekle):</label>
+                <label style="margin-top: 15px;">Stoktan Hızlı İşlem Seç:</label>
                 <div class="quick-chips">
                     {% for st in stoklar %}
-                    <div class="chip" onclick="islemEkle('{{ st[1] }}')">📦 {{ st[1] }} (Stok: {{ st[2] }})</div>
+                    <div class="chip" onclick="islemEkle('{{ st[1] }}', {{ st[3] }})">📦 {{ st[1] }} ({{ "%.0f"|format(st[3]) }} TL)</div>
                     {% endfor %}
                 </div>
 
-                <label style="margin-top:15px;">Yapılan İşlemler / Değişen Parçalar</label>
+                <label style="margin-top:15px;">Yapılan İşlemler / Parçalar</label>
                 <div id="parcaListesiContainer">
                     {% for i in range(5) %}
                     <div class="parca-satir">
                         <input type="text" name="islem_ad[]" placeholder="İşlem veya Parça Adı" {% if i == 0 %}required{% endif %} style="margin:0; flex:2;">
-                        <input type="number" step="1" name="adet[]" placeholder="Adet" value="1" oninput="tutarHesapla(this)" style="margin:0; flex:1;" {% if i == 0 %}required{% endif %}>
-                        <input type="number" step="0.01" name="fiyat[]" placeholder="Tutar (TL)" oninput="tutarHesapla(this)" style="margin:0; flex:1;" {% if i == 0 %}required{% endif %}>
+                        <input type="number" step="0.01" name="adet[]" placeholder="Adet" value="1" style="margin:0; flex:1;">
+                        <input type="number" step="0.01" name="fiyat[]" placeholder="Tutar (TL)" {% if i == 0 %}required{% endif %} style="margin:0; flex:1;">
                     </div>
                     {% endfor %}
                 </div>
@@ -408,27 +409,20 @@ function aracBilgileriniDoldur() {
         document.getElementById('km').value = opt.getAttribute('data-km') || '';
     }
 }
-function islemEkle(isim) {
+function islemEkle(isim, fiyat) {
     var satirlar = document.querySelectorAll('.parca-satir');
     for (var i = 0; i < satirlar.length; i++) {
         var inputAd = satirlar[i].querySelector('input[name="islem_ad[]"]');
-        var inputAdet = satirlar[i].querySelector('input[name="adet[]"]');
-        if (!inputAd.value) { 
-            inputAd.value = isim; 
-            inputAdet.value = 1;
-            return; 
-        }
+        var inputFiyat = satirlar[i].querySelector('input[name="fiyat[]"]');
+        if (!inputAd.value) { inputAd.value = isim; inputFiyat.value = fiyat; return; }
     }
-}
-function tutarHesapla(element) {
-    // Fiyat alanı doğrudan toplam tutar olarak işleniyor
 }
 function yeniSatirEkle() {
     var container = document.getElementById('parcaListesiContainer');
     var div = document.createElement('div');
     div.className = 'parca-satir';
     div.innerHTML = '<input type="text" name="islem_ad[]" placeholder="İşlem veya Parça Adı" style="margin:0; flex:2;">' +
-                    '<input type="number" step="1" name="adet[]" placeholder="Adet" value="1" style="margin:0; flex:1;">' +
+                    '<input type="number" step="0.01" name="adet[]" placeholder="Adet" value="1" style="margin:0; flex:1;">' +
                     '<input type="number" step="0.01" name="fiyat[]" placeholder="Tutar (TL)" style="margin:0; flex:1;">';
     container.appendChild(div);
 }
@@ -476,14 +470,18 @@ HTML_DUZENLE = """
 </html>
 """
 
+# --- YENİ PDF ŞABLONU (İSTEDİĞİN GİBİ DÜZENLENDİ) ---
 def pdf_olustur(filename, veri, logo_yolu):
     doc = SimpleDocTemplate(filename, pagesize=A4, rightMargin=20, leftMargin=20, topMargin=20, bottomMargin=20)
     story = []
     
+    # Türkçe Karakter Uyumlu Stiller
     style_normal = ParagraphStyle('Norm', fontName=FONT_NAME, fontSize=9, leading=12, textColor=colors.HexColor("#111111"))
     style_bold = ParagraphStyle('Bold', fontName=FONT_BOLD, fontSize=9, leading=12, textColor=colors.HexColor("#111111"))
     style_title = ParagraphStyle('Tit', fontName=FONT_BOLD, fontSize=13, leading=16, textColor=colors.HexColor("#1A1A1A"), alignment=1, spaceAfter=8)
+    style_header_box = ParagraphStyle('HBox', fontName=FONT_BOLD, fontSize=10, leading=13, textColor=colors.HexColor("#000000"))
 
+    # 1. Logo
     if logo_yolu and os.path.exists(logo_yolu):
         try:
             story.append(Image(logo_yolu, width=550, height=65))
@@ -493,6 +491,7 @@ def pdf_olustur(filename, veri, logo_yolu):
     story.append(Paragraph("MÜŞTERİ SERVİS FORMU", style_title))
     story.append(Spacer(1, 4))
 
+    # 2. Müşteri Bilgileri ve Araç Bilgileri Kutuları (Yan Yana)
     tarih_str = veri.get('tarih', datetime.date.today().strftime('%d.%m.%Y'))
     mus_bilgi = Paragraph(f"<b>MÜŞTERİ BİLGİLERİ</b><br/><br/><b>Adı Soyadı:</b> {veri.get('musteri_ad', '')}<br/><b>Telefon:</b> {veri.get('musteri_tel', '')}<br/><b>Tarih:</b> {tarih_str}", style_normal)
     arac_bilgi = Paragraph(f"<b>ARAÇ BİLGİLERİ</b><br/><br/><b>Plaka:</b> {veri.get('plaka', '')}<br/><b>Marka / Model:</b> {veri.get('model', '')}<br/><b>Kilometre:</b> {veri.get('km', '')}", style_normal)
@@ -508,6 +507,7 @@ def pdf_olustur(filename, veri, logo_yolu):
     story.append(info_table)
     story.append(Spacer(1, 10))
 
+    # 3. Hizmet ve Parça Tablosu (Tam 10 Satır Sabit Şablon)
     hizmet_data = [[
         Paragraph("<b>No</b>", style_bold), 
         Paragraph("<b>Yapılan İşlem / Değişen Parça</b>", style_bold), 
@@ -536,6 +536,7 @@ def pdf_olustur(filename, veri, logo_yolu):
                 Paragraph("", style_normal)
             ])
 
+    # Toplam Satırları
     hizmet_data.append(["", Paragraph("<b>GENEL TOPLAM</b>", style_bold), "", Paragraph(f"<b>{toplam_tutar:.2f} TL</b>", style_bold)])
 
     t_hizmet = Table(hizmet_data, colWidths=[30, 330, 90, 100])
@@ -549,6 +550,7 @@ def pdf_olustur(filename, veri, logo_yolu):
     story.append(t_hizmet)
     story.append(Spacer(1, 12))
 
+    # 4. Notlar ve Tespitler Alanı
     notlar_data = [
         [Paragraph("<b>Notlar ve Tespitler</b>", style_bold)],
         [Paragraph("<br/><br/><br/>", style_normal)]
@@ -562,6 +564,7 @@ def pdf_olustur(filename, veri, logo_yolu):
     story.append(t_notlar)
     story.append(Spacer(1, 20))
 
+    # 5. İmza Alanları
     imza_data = [
         [Paragraph("<b>Müşteri Onayı</b>", style_bold), Paragraph("<b>Servis Yetkilisi</b>", style_bold)],
         [Paragraph("<br/><br/>Ad / Soyad / İmza", style_normal), Paragraph("<br/><br/>Kaşe / İmza", style_normal)]
@@ -644,9 +647,6 @@ def olustur():
     
     islemler = []
     toplam_fiyat = 0.0
-    conn = get_db_connection()
-    cursor = conn.cursor()
-
     for i in range(len(islem_listesi)):
         isim = islem_listesi[i].strip()
         if isim:
@@ -654,18 +654,9 @@ def olustur():
             except: adet = 1.0
             try: tutar = float(fiyat_listesi[i])
             except: tutar = 0.0
-            
             islemler.append((isim, adet, tutar))
             toplam_fiyat += tutar
             
-            # EĞER PARÇA STOKTA VARSA OTOMATİK DÜŞ
-            cursor.execute("SELECT id, adet FROM stok WHERE parca_adi ILIKE %s", (isim,))
-            stok_kayit = cursor.fetchone()
-            if stok_kayit:
-                stok_id, mevcut_adet = stok_kayit
-                yeni_adet = max(0, int(mevcut_adet - adet))
-                cursor.execute("UPDATE stok SET adet = %s WHERE id = %s", (yeni_adet, stok_id))
-
     if not islemler: islemler = [("Genel Bakım", 1.0, 0.0)]
     detaylar_str = ", ".join([f"{item[0]} ({item[1]} Adet - {item[2]:.2f} TL)" for item in islemler])
 
@@ -676,6 +667,8 @@ def olustur():
     pdf_filename = f"servis_formu_{plaka}_{int(time.time())}.pdf"
     pdf_olustur(pdf_filename, {'musteri_ad': ad, 'musteri_tel': tel, 'plaka': plaka, 'model': model, 'km': km, 'islemler': islemler}, logo_path)
 
+    conn = get_db_connection()
+    cursor = conn.cursor()
     cursor.execute("INSERT INTO servisler (plaka, musteri_ad, musteri_tel, model, km, tarih, detaylar, toplam_tutar, durum, odeme_durumu, pdf_dosya) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'Bekliyor', %s, %s)", 
                    (plaka, ad, tel, model, km, datetime.date.today().strftime("%d.%m.%Y"), detaylar_str, toplam_fiyat, odeme_durumu, pdf_filename))
     conn.commit()
