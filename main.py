@@ -14,10 +14,9 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
 app = Flask(__name__)
-app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v60"
+app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v61"
 
 SIFRE = "izmotor2026*"
-TELEGRAM_ADMIN_CHAT_ID = None
 
 # Supabase Frankfurt Session Pooler (Doğru Port: 6543)
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres.viewtgvofqdoqgodbbne:izmotor20261@aws-1-eu-central-1.pooler.supabase.com:6543/postgres")
@@ -122,6 +121,8 @@ HTML_PANEL = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>İz Motorsiklet - ERP Paneli</title>
     <style>
         :root { --bg-main: #050811; --card-bg: rgba(11, 15, 25, 0.95); --accent: #facc15; --text-main: #f8fafc; --text-muted: #94a3b8; }
@@ -142,23 +143,41 @@ HTML_PANEL = """
 
         .stat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 15px; }
         @media(min-width: 600px) { .stat-grid { grid-template-columns: repeat(4, 1fr); } }
-        .stat-box { background: rgba(18, 24, 40, 0.8); border: 1px solid #334155; border-left: 4px solid var(--accent); padding: 12px; border-radius: 12px; text-align: left; }
+        .stat-box { background: rgba(18, 24, 40, 0.8); border: 1px solid #334155; border-left: 4px solid var(--accent); padding: 12px; border-radius: 12px; text-align: left; box-shadow: 0 0 10px rgba(250,204,21,0.05); }
         .stat-box h4 { margin: 0; color: var(--accent); font-size: 16px; font-weight: 800; }
         .stat-box p { margin: 4px 0 0 0; color: var(--text-muted); font-size: 10px; text-transform: uppercase; font-weight: 700; }
 
-        .card { background: rgba(18, 24, 40, 0.8); border: 1px solid #334155; padding: 15px; border-radius: 14px; margin-bottom: 14px; font-size: 13px; }
+        .card { background: rgba(18, 24, 40, 0.8); border: 1px solid #334155; padding: 15px; border-radius: 14px; margin-bottom: 14px; font-size: 13px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
         h3 { color: var(--accent); margin-top: 0; font-size: 15px; border-bottom: 1px solid #334155; padding-bottom: 8px; }
         
         input, select, textarea { width: 100%; padding: 11px; margin-bottom: 10px; background: #030712; border: 1px solid #334155; border-radius: 10px; color: #fff; box-sizing: border-box; font-size: 13px; outline: none; }
-        input:focus, select:focus { border-color: var(--accent); }
+        input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 8px rgba(250,204,21,0.3); }
         label { display: block; font-weight: 700; margin-bottom: 4px; font-size: 11px; color: #cbd5e1; text-transform: uppercase; }
         
-        .btn-action { background: linear-gradient(135deg, var(--accent), #ca8a04); color: #030712; border: none; padding: 13px; border-radius: 10px; width: 100%; font-size: 14px; font-weight: 800; cursor: pointer; text-transform: uppercase; margin-top: 5px; }
+        .btn-action { background: linear-gradient(135deg, var(--accent), #ca8a04); color: #030712; border: none; padding: 13px; border-radius: 10px; width: 100%; font-size: 14px; font-weight: 800; cursor: pointer; text-transform: uppercase; margin-top: 5px; transition: 0.2s; }
+        .btn-action:active { transform: scale(0.98); }
+        
         .whatsapp-btn { background: #25d366; color: #fff; padding: 8px 12px; border-radius: 8px; text-decoration: none; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 5px; margin-top: 6px; }
         .pdf-btn { background: #0284c7; color: #fff; padding: 8px 12px; border-radius: 8px; text-decoration: none; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 5px; margin-top: 6px; }
+        .edit-btn { background: #d97706; color: #fff; padding: 8px 12px; border-radius: 8px; text-decoration: none; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 5px; margin-top: 6px; border: none; cursor: pointer; }
+        
+        .quick-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+        .chip { background: #1e293b; border: 1px solid #475569; color: #f8fafc; padding: 6px 10px; border-radius: 8px; font-size: 11px; cursor: pointer; font-weight: 700; }
+        .chip:hover { border-color: var(--accent); color: var(--accent); }
+
+        /* Yükleniyor Overlay */
+        #loadingOverlay { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(3,7,18,0.85); z-index:9999; justify-content: center; align-items: center; flex-direction: column; color: var(--accent); font-weight: 800; font-size: 16px; }
+        .spinner { border: 4px solid #1e293b; border-top: 4px solid var(--accent); border-radius: 50%; width: 45px; height: 45px; animation: spin 0.8s linear infinite; margin-bottom: 15px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
+
+<div id="loadingOverlay">
+    <div class="spinner"></div>
+    İşlem Yapılıyor, Lütfen Bekleyin...
+</div>
+
 <div class="container">
     <div class="header-box">
         <div class="brand-title"><span class="brand-icon">🏍️</span> İZ MOTORSİKLET GARAJ</div>
@@ -168,7 +187,7 @@ HTML_PANEL = """
     <div class="nav-tabs">
         <button class="tab-btn {% if aktif_tab == 'servis' %}active{% endif %}" onclick="switchTab('servisTab', this)">🛠️ Servis Formu</button>
         <button class="tab-btn {% if aktif_tab == 'araclar' %}active{% endif %}" onclick="switchTab('araclarTab', this)">🏍️ Aktif Araçlar</button>
-        <button class="tab-btn {% if aktif_tab == 'gecmis' %}active{% endif %}" onclick="switchTab('gecmisTab', this)">🔍 Geçmiş</button>
+        <button class="tab-btn {% if aktif_tab == 'gecmis' %}active{% endif %}" onclick="switchTab('gecmisTab', this)">🔍 Geçmiş & Borçlar</button>
         <button class="tab-btn {% if aktif_tab == 'stok' %}active{% endif %}" onclick="switchTab('stokTab', this)">📦 Stoklar</button>
         <button class="tab-btn {% if aktif_tab == 'randevu' %}active{% endif %}" onclick="switchTab('randevuTab', this)">📅 Randevular</button>
         <button class="tab-btn {% if aktif_tab == 'bakim' %}active{% endif %}" onclick="switchTab('bakimTab', this)">⏰ Bakım</button>
@@ -198,7 +217,7 @@ HTML_PANEL = """
                 </select>
             </div>
 
-            <form action="/olustur" method="POST" enctype="multipart/form-data">
+            <form action="/olustur" method="POST" enctype="multipart/form-data" onsubmit="showLoading()">
                 <label>Dükkan Logosu (Zorunlu)</label><input type="file" name="logo" accept="image/*" required>
                 <label>Hasar / Durum Fotoğrafı (İsteğe Bağlı)</label><input type="file" name="hasar_foto" accept="image/*">
                 
@@ -215,8 +234,16 @@ HTML_PANEL = """
                     <option value="Ödendi">🟢 Ödendi (Arşive Gider)</option>
                 </select>
 
-                <label style="margin-top: 15px;">İşlem / Parça Adı</label><input type="text" name="islem_ad[]" placeholder="Örn: Yağ Değişimi / Buji" required>
-                <label>Tutar (TL)</label><input type="number" step="0.01" name="fiyat[]" placeholder="Örn: 500" required>
+                <label style="margin-top: 15px;">Hızlı İşlem Seç:</label>
+                <div class="quick-chips">
+                    <div class="chip" onclick="islemEkle('Yağ Değişimi', 350)">🛢️ Yağ (350 TL)</div>
+                    <div class="chip" onclick="islemEkle('Buji Değişimi', 200)">🔌 Buji (200 TL)</div>
+                    <div class="chip" onclick="islemEkle('Balata Değişimi', 500)">🛑 Balata (500 TL)</div>
+                    <div class="chip" onclick="islemEkle('Genel Bakım', 1000)">⚙️ Genel Bakım (1000 TL)</div>
+                </div>
+
+                <label>İşlem / Parça Adı</label><input type="text" id="islem_input" name="islem_ad[]" placeholder="Örn: Yağ Değişimi / Buji" required>
+                <label>Tutar (TL)</label><input type="number" step="0.01" id="fiyat_input" name="fiyat[]" placeholder="Örn: 500" required>
                 
                 <button type="submit" class="btn-action">Formu Oluştur & Kaydet (PDF)</button>
             </form>
@@ -227,7 +254,7 @@ HTML_PANEL = """
     <div id="araclarTab" class="tab-content {% if aktif_tab == 'araclar' %}active{% endif %}">
         <div class="card" style="border-left: 4px solid var(--accent);">
             <h3>➕ Doğrudan Servise Yeni Araç Ekle</h3>
-            <form action="/hizli_arac_ekle" method="POST">
+            <form action="/hizli_arac_ekle" method="POST" onsubmit="showLoading()">
                 <input type="text" name="plaka" placeholder="Plaka (Örn: 34 ABC)" required>
                 <input type="text" name="musteri_ad" placeholder="Müşteri Ad Soyad" required>
                 <input type="text" name="tel" placeholder="Telefon (90532...)" required>
@@ -245,7 +272,7 @@ HTML_PANEL = """
                 <b>Model / KM:</b> {{ ts[4] }} - {{ ts[5] }} KM | <b>Tarih:</b> {{ ts[6] }}<br>
                 <b>Yapılanlar:</b> {{ ts[7] }} | <b>Tutar:</b> <span style="color:var(--accent); font-weight:800;">{{ "%.2f"|format(ts[8]) }} TL</span><br>
                 
-                <form action="/durum_guncelle" method="POST" style="margin-top: 10px; display:flex; gap:8px;">
+                <form action="/durum_guncelle" method="POST" style="margin-top: 10px; display:flex; gap:8px;" onsubmit="showLoading()">
                     <input type="hidden" name="servis_id" value="{{ ts[0] }}">
                     <div style="flex:1;">
                         <label style="font-size:9px;">Çalışma Durumu</label>
@@ -266,9 +293,10 @@ HTML_PANEL = """
                     </div>
                 </form>
 
-                <div style="margin-top: 8px;">
+                <div style="margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap;">
                     <a href="https://wa.me/{{ ts[3] }}?text=Sayin%20{{ ts[2] }},%20Iz%20Motorsiklet%20servis%20ucretiniz%20{{ "%.2f"|format(ts[8]) }}%20TL." target="_blank" class="whatsapp-btn">💬 WhatsApp</a>
-                    {% if ts[11] %}<a href="/pdf_indir/{{ ts[0] }}" class="pdf-btn">📄 Formu İndir (PDF)</a>{% endif %}
+                    {% if ts[11] %}<a href="/pdf_indir/{{ ts[0] }}" class="pdf-btn">📄 PDF İndir</a>{% endif %}
+                    <a href="/duzenle/{{ ts[0] }}" class="edit-btn">✏️ Düzenle</a>
                 </div>
             </div>
             {% endfor %}
@@ -277,16 +305,16 @@ HTML_PANEL = """
         {% endif %}
     </div>
 
-    <!-- 3. GEÇMİŞ -->
+    <!-- 3. GEÇMİŞ & BORÇLAR -->
     <div id="gecmisTab" class="tab-content {% if aktif_tab == 'gecmis' %}active{% endif %}">
-        <form method="GET" action="/">
+        <form method="GET" action="/" onsubmit="showLoading()">
             <input type="hidden" name="tab" value="gecmis">
             <label>Plaka veya Müşteri Adı ile Sorgula</label>
             <input type="text" name="sorgu_plaka" placeholder="Örn: 34 RAP 619" value="{{ sorgu_plaka or '' }}">
             <button type="submit" class="btn-action">HIZLI ARAMA YAP</button>
         </form>
         <hr style="border:0; border-top:1px solid #334155; margin: 15px 0;">
-        <h3 style="color:var(--accent);">Arama Sonuçları / Geçmiş</h3>
+        <h3 style="color:var(--accent);">Geçmiş Servisler ve Borçlu Defteri</h3>
         {% if kayitlar %}
             {% for k in kayitlar %}
             <div class="card" style="border-left: 4px solid {% if k[10] == 'Ödendi' %}#4ade80{% else %}#f87171{% endif %};">
@@ -294,18 +322,22 @@ HTML_PANEL = """
                 <b>Müşteri:</b> {{ k[2] }} ({{ k[3] }})<br>
                 <b>İşlemler:</b> {{ k[7] }}<br>
                 <b>Toplam Tutar:</b> <span style="color:var(--accent);">{{ "%.2f"|format(k[8]) }} TL</span> | <b>Ödeme:</b> <span style="color:{% if k[10] == 'Ödendi' %}#4ade80{% else %}#f87171{% endif %}; font-weight:800;">{{ k[10] }}</span>
-                {% if k[11] %}<br><a href="/pdf_indir/{{ k[0] }}" class="pdf-btn" style="margin-top:8px;">📄 Formu İndir (PDF)</a>{% endif %}
+                
+                <div style="margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap;">
+                    {% if k[11] %}<a href="/pdf_indir/{{ k[0] }}" class="pdf-btn">📄 Formu İndir</a>{% endif %}
+                    <a href="/duzenle/{{ k[0] }}" class="edit-btn">✏️ Düzenle / Not Ekle</a>
+                </div>
             </div>
             {% endfor %}
         {% else %}
-            <p style="color: var(--text-muted); text-align: center;">Geçmiş kayıt bulunamadı.</p>
+            <p style="color: var(--text-muted); text-align: center;">Kayıt bulunamadı.</p>
         {% endif %}
     </div>
 
     <!-- 4. STOKLAR -->
     <div id="stokTab" class="tab-content {% if aktif_tab == 'stok' %}active{% endif %}">
         <h3>Parça / Ürün Stok Yönetimi</h3>
-        <form method="POST" action="/stok_ekle">
+        <form method="POST" action="/stok_ekle" onsubmit="showLoading()">
             <label>Parça Adı</label><input type="text" name="parca_adi" placeholder="Örn: Buji NGK" required>
             <label>Stok Adedi</label><input type="number" name="adet" placeholder="Adet" required>
             <label>Birim Fiyat (TL)</label><input type="number" step="0.01" name="fiyat" placeholder="Fiyat" required>
@@ -324,7 +356,7 @@ HTML_PANEL = """
     <!-- 5. RANDEVULAR -->
     <div id="randevuTab" class="tab-content {% if aktif_tab == 'randevu' %}active{% endif %}">
         <h3>Atölye Randevu Takvimi</h3>
-        <form method="POST" action="/randevu_ekle">
+        <form method="POST" action="/randevu_ekle" onsubmit="showLoading()">
             <label>Müşteri Ad Soyad</label><input type="text" name="musteri_ad" placeholder="Müşteri Ad Soyad" required>
             <label>Telefon Numarası</label><input type="text" name="tel" placeholder="Telefon Numarası" required>
             <label>Randevu Tarih ve Saati</label><input type="text" name="tarih_saat" placeholder="Örn: 05.11.2026 - 14:30" required>
@@ -342,7 +374,7 @@ HTML_PANEL = """
         {% endfor %}
     </div>
 
-    <!-- 6. BAKIM (AKILLI BAKIM HATIRLATICI) -->
+    <!-- 6. BAKIM -->
     <div id="bakimTab" class="tab-content {% if aktif_tab == 'bakim' %}active{% endif %}">
         <h3 style="color:var(--accent);">Akıllı Bakım Hatırlatıcı</h3>
         <p style="color:var(--text-muted); font-size:12px;">Daha önce servis kaydı açılmış motorlar için periyodik bakım hatırlatması gönderebilirsiniz.</p>
@@ -370,6 +402,10 @@ function switchTab(tabId, btn) {
     btn.classList.add('active');
 }
 
+function showLoading() {
+    document.getElementById('loadingOverlay').style.display = 'flex';
+}
+
 function aracBilgileriniDoldur() {
     var select = document.getElementById('kayitliAracSec');
     var opt = select.options[select.selectedIndex];
@@ -381,7 +417,54 @@ function aracBilgileriniDoldur() {
         document.getElementById('km').value = opt.getAttribute('data-km') || '';
     }
 }
+
+function islemEkle(isim, fiyat) {
+    document.getElementById('islem_input').value = isim;
+    document.getElementById('fiyat_input').value = fiyat;
+}
 </script>
+</body>
+</html>
+"""
+
+# --- KAYIT DÜZENLEME HTML SAYFASI ---
+HTML_DUZENLE = """
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Servis Kaydını Düzenle</title>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #050811; color: #f8fafc; padding: 20px; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        .box { background: rgba(11, 15, 25, 0.95); border: 1px solid #334155; padding: 25px; border-radius: 16px; width: 100%; max-width: 450px; box-shadow: 0 20px 40px rgba(0,0,0,0.8); }
+        h3 { color: #facc15; margin-top: 0; border-bottom: 1px solid #334155; padding-bottom: 8px; }
+        input, select, textarea { width: 100%; padding: 12px; margin-bottom: 12px; background: #030712; border: 1px solid #334155; border-radius: 10px; color: #fff; box-sizing: border-box; font-size: 13px; }
+        label { display: block; font-weight: 700; margin-bottom: 4px; font-size: 11px; color: #cbd5e1; text-transform: uppercase; }
+        .btn { background: linear-gradient(135deg, #facc15, #ca8a04); color: #030712; border: none; padding: 12px; border-radius: 10px; width: 100%; font-weight: 800; cursor: pointer; text-transform: uppercase; margin-top: 5px; }
+        .back { display: block; text-align: center; margin-top: 15px; color: #94a3b8; text-decoration: none; font-size: 12px; font-weight: 700; }
+    </style>
+</head>
+<body>
+<div class="box">
+    <h3>✏️ Servis Kaydını Düzenle</h3>
+    <form method="POST">
+        <label>Müşteri Ad Soyad</label><input type="text" name="musteri_ad" value="{{ kayit[2] }}" required>
+        <label>Telefon</label><input type="text" name="musteri_tel" value="{{ kayit[3] }}" required>
+        <label>Plaka</label><input type="text" name="plaka" value="{{ kayit[1] }}" required>
+        <label>Model / KM</label><input type="text" name="model" value="{{ kayit[4] }}" required>
+        <label>Yapılan İşlem / Notlar</label><textarea name="detaylar" rows="3" required>{{ kayit[7] }}</textarea>
+        <label>Toplam Tutar (TL)</label><input type="number" step="0.01" name="toplam_tutar" value="{{ kayit[8] }}" required>
+        <label>Ödeme Durumu</label>
+        <select name="odeme_durumu">
+            <option value="Borçlu / Veresiye" {% if kayit[10] == 'Borçlu / Veresiye' %}selected{% endif %}>🔴 Borçlu / Veresiye</option>
+            <option value="Parça Bekliyor" {% if kayit[10] == 'Parça Bekliyor' %}selected{% endif %}>🟡 Parça Bekliyor</option>
+            <option value="Ödendi" {% if kayit[10] == 'Ödendi' %}selected{% endif %}>🟢 Ödendi</option>
+        </select>
+        <button type="submit" class="btn">Değişiklikleri Kaydet</button>
+    </form>
+    <a href="/" class="back">← Panele Geri Dön</a>
+</div>
 </body>
 </html>
 """
@@ -440,13 +523,12 @@ def index():
     if sorgu_plaka:
         cursor.execute("SELECT * FROM servisler WHERE (plaka ILIKE %s OR musteri_ad ILIKE %s) ORDER BY id DESC", ('%' + sorgu_plaka + '%', '%' + sorgu_plaka + '%'))
     else:
-        cursor.execute("SELECT * FROM servisler WHERE odeme_durumu = 'Ödendi' ORDER BY id DESC")
+        cursor.execute("SELECT * FROM servisler ORDER BY id DESC")
     kayitlar = cursor.fetchall()
 
     cursor.execute("SELECT * FROM servisler WHERE odeme_durumu != 'Ödendi' OR odeme_durumu IS NULL ORDER BY id DESC")
     aktif_araclar = cursor.fetchall()
 
-    # Tüm geçmiş dahil araçlar (Form seçiminde ve bakım listesinde kullanmak için)
     cursor.execute("SELECT * FROM servisler ORDER BY id DESC")
     tum_araclar = cursor.fetchall()
 
@@ -462,6 +544,34 @@ def index():
     cursor.close()
     conn.close()
     return render_template_string(HTML_PANEL, kayitlar=kayitlar, sorgu_plaka=sorgu_plaka, stoklar=stoklar, randevular=randevular, aktif_araclar=aktif_araclar, tum_araclar=tum_araclar, toplam_ciro=toplam_ciro, aktif_tab=aktif_tab)
+
+@app.route('/duzenle/<int:kayit_id>', methods=['GET', 'POST'])
+def duzenle(kayit_id):
+    if not session.get('giris'): return redirect(url_for('index'))
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    if request.method == 'POST':
+        ad = request.form.get('musteri_ad')
+        tel = request.form.get('musteri_tel')
+        plaka = request.form.get('plaka')
+        model = request.form.get('model')
+        detaylar = request.form.get('detaylar')
+        tutar = float(request.form.get('toplam_tutar', 0))
+        odeme = request.form.get('odeme_durumu')
+        
+        cursor.execute("UPDATE servisler SET musteri_ad=%s, musteri_tel=%s, plaka=%s, model=%s, detaylar=%s, toplam_tutar=%s, odeme_durumu=%s WHERE id=%s",
+                       (ad, tel, plaka, model, detaylar, tutar, odeme, kayit_id))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return redirect(url_for('index', tab='gecmis'))
+
+    cursor.execute("SELECT * FROM servisler WHERE id = %s", (kayit_id,))
+    kayit = cursor.fetchone()
+    cursor.close()
+    conn.close()
+    return render_template_string(HTML_DUZENLE, kayit=kayit)
 
 @app.route('/olustur', methods=['POST'])
 def olustur():
@@ -569,10 +679,38 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ["🔍 Plaka Sorgula", "📦 Stok Listesi"],
         ["📊 Günlük Özet", "🏍️ Aktif Araçlar"]
     ]
-    await update.message.reply_text("Selam kanka! İz Motorsiklet Supabase Botuna hoş geldin:", reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True))
+    await update.message.reply_text("Selam kanka! İz Motorsiklet Supabase Botuna hoş geldin:\nPlaka geçmişi için: `/plaka 34` yazabilirsin.", reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True))
+
+async def telegram_plaka_sorgu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text
+    if text.startswith("/plaka"):
+        parcalar = text.split(maxsplit=1)
+        if len(parcalar) < 2:
+            await update.message.reply_text("Kanka plaka yazmadın! Örnek: `/plaka 34RAP`", parse_mode="Markdown")
+            return
+        sorgu = parcalar[1].strip()
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT plaka, musteri_ad, musteri_tel, tarih, detaylar, toplam_tutar, odeme_durumu FROM servisler WHERE plaka ILIKE %s ORDER BY id DESC", ('%' + sorgu + '%',))
+        sonuclar = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        
+        if not sonuclar:
+            await update.message.reply_text(f"🔍 `{sorgu}` plakasına ait geçmiş kayıt bulunamadı.", parse_mode="Markdown")
+            return
+            
+        msg = f"🔍 **Plaka Sorgu Sonucu ({sorgu}):**\n\n"
+        for s in sonuclar:
+            msg += f"🏍️ **Plaka:** {s[0]}\n👤 **Müşteri:** {s[1]} ({s[2]})\n📅 **Tarih:** {s[3]}\n🔧 **İşlem:** {s[4]}\n💰 **Tutar:** {s[5]:.2f} TL\n📌 **Durum:** {s[6]}\n-------------------\n"
+        await update.message.reply_text(msg, parse_mode="Markdown")
 
 async def telegram_mesaj(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
+    if text.startswith("/plaka"):
+        await telegram_plaka_sorgu(update, context)
+        return
+        
     if text == "📊 Günlük Özet":
         bugun = datetime.date.today().strftime("%d.%m.%Y")
         conn = get_db_connection()
@@ -595,8 +733,19 @@ async def telegram_mesaj(update: Update, context: ContextTypes.DEFAULT_TYPE):
         for s in stoklar:
             msg += f"- {s[0]}: {s[1]} adet ({s[3]} TL)\n"
         await update.message.reply_text(msg or "Stok boş.", parse_mode="Markdown")
+    elif text == "🏍️ Aktif Araçlar":
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT plaka, musteri_ad, model, odeme_durumu FROM servisler WHERE odeme_durumu != 'Ödendi' ORDER BY id DESC")
+        araclar = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        msg = "🏍️ **Atölyedeki Aktif Araçlar:**\n\n"
+        for a in araclar:
+            msg += f"- Plaka: {a[0]} | {a[1]} ({a[2]}) | Durum: {a[3]}\n"
+        await update.message.reply_text(msg or "Aktif araç yok.", parse_mode="Markdown")
     else:
-        await update.message.reply_text("Kanka menüden seçim yapabilirsin.")
+        await update.message.reply_text("Kanka menüden seçim yapabilir ya da `/plaka 34` yazarak araç sorgulayabilirsin.")
 
 def run_telegram_bot():
     TOKEN = os.getenv("BOT_TOKEN")
@@ -604,6 +753,7 @@ def run_telegram_bot():
     try:
         bot_app = Application.builder().token(TOKEN).drop_pending_updates(True).build()
         bot_app.add_handler(CommandHandler("start", start))
+        bot_app.add_handler(CommandHandler("plaka", telegram_plaka_sorgu))
         bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, telegram_mesaj))
         bot_app.run_polling(stop_signals=None)
     except Exception as e:
