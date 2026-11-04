@@ -23,7 +23,7 @@ except:
     OCR_AKTIF = False
 
 app = Flask(__name__)
-app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v88"
+app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v90"
 
 SIFRE = "izmotor2026*"
 
@@ -57,6 +57,8 @@ def init_db():
         cursor.execute('ALTER TABLE servisler ADD COLUMN IF NOT EXISTS durum TEXT DEFAULT \'Serviste\';')
         cursor.execute('ALTER TABLE servisler ADD COLUMN IF NOT EXISTS odeme_durumu TEXT DEFAULT \'Borçlu / Veresiye\';')
         cursor.execute('ALTER TABLE servisler ADD COLUMN IF NOT EXISTS pdf_dosya TEXT;')
+        
+        cursor.execute("UPDATE servisler SET durum = 'Serviste' WHERE durum IS NULL OR durum = '' OR durum = 'Bekliyor' OR durum = 'Hazır';")
 
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS stok (
@@ -164,7 +166,7 @@ HTML_PANEL = """
         .edit-btn { background: #d97706; color: #fff; padding: 8px 12px; border-radius: 8px; text-decoration: none; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 5px; margin-top: 6px; border: none; cursor: pointer; }
         .delete-btn { background: #ef4444; color: #fff; padding: 8px 12px; border-radius: 8px; text-decoration: none; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 5px; margin-top: 6px; border: none; cursor: pointer; }
         
-        /* MEVCUT DURUM BİLDİRİM ROZETİ */
+        /* MEVCUT DURUM BİLDİRİMİ */
         .status-badge { display: inline-block; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 900; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
         .badge-serviste { background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid #3b82f6; }
         .badge-parca { background: rgba(234, 179, 8, 0.2); color: #facc15; border: 1px solid #eab308; }
@@ -206,7 +208,8 @@ HTML_PANEL = """
         <div class="nav-tabs">
             <button class="tab-btn {% if aktif_tab == 'servis' %}active{% endif %}" onclick="switchTab('servisTab', this)">🛠️ Servis Formu</button>
             <button class="tab-btn {% if aktif_tab == 'araclar' %}active{% endif %}" onclick="switchTab('araclarTab', this)">🏍️ Aktif Araçlar</button>
-            <button class="tab-btn {% if aktif_tab == 'gecmis' %}active{% endif %}" onclick="switchTab('gecmisTab', this)">🔍 Geçmiş & Borç</button>
+            <button class="tab-btn {% if aktif_tab == 'borclar' %}active{% endif %}" onclick="switchTab('borclarTab', this)">🔴 Borçlular</button>
+            <button class="tab-btn {% if aktif_tab == 'gecmis' %}active{% endif %}" onclick="switchTab('gecmisTab', this)">🔍 Geçmiş Servisler</button>
             <button class="tab-btn {% if aktif_tab == 'stok' %}active{% endif %}" onclick="switchTab('stokTab', this)">📦 Stok & Fiyat</button>
             <button class="tab-btn {% if aktif_tab == 'randevu' %}active{% endif %}" onclick="switchTab('randevuTab', this)">📅 Randevular</button>
         </div>
@@ -215,8 +218,8 @@ HTML_PANEL = """
     <div class="stat-grid">
         <div class="stat-box"><h4>{{ "%.2f"|format(toplam_ciro) }} TL</h4><p>Toplam Ciro</p></div>
         <div class="stat-box"><h4>{{ aktif_araclar|length }}</h4><p>Aktif Araç</p></div>
+        <div class="stat-box"><h4>{{ borclular|length }}</h4><p>Borçlu Dosya</p></div>
         <div class="stat-box"><h4>{{ stoklar|length }}</h4><p>Stok Çeşit</p></div>
-        <div class="stat-box"><h4>{{ randevular|length }}</h4><p>Randevular</p></div>
     </div>
 
     <!-- 1. SERVİS FORMU & OCR -->
@@ -295,7 +298,6 @@ HTML_PANEL = """
     <div id="araclarTab" class="tab-content {% if aktif_tab == 'araclar' %}active{% endif %}">
         <h3>Atölyedeki / Servisteki Aktif Araçlar</h3>
         
-        <!-- HIZLI YENİ ARAÇ EKLEME FORMU (Tıkla Açılır) -->
         <div class="card" style="border: 2px dashed #0d9488; margin-bottom: 20px;">
             <h3 style="color:#2dd4bf; cursor:pointer;" onclick="hizliFormToggle()">➕ Servise Gelen Yeni Araç / Müşteri Kaydet (Tıkla)</h3>
             <div id="hizliAracFormDiv" style="display:none; margin-top:12px;">
@@ -319,7 +321,6 @@ HTML_PANEL = """
                 <b>Yapılanlar:</b> {{ ts[7] }} | <b>Notlar:</b> {{ ts[8] or '-' }}<br>
                 <b>Tutar:</b> <span style="color:var(--accent); font-weight:800;">{{ "%.2f"|format(ts[9]|float) }} TL</span><br><br>
                 
-                <!-- DURUM BİLDİRİM ROZETİ (BUTONLARIN HEMEN ÜSTÜNDE) -->
                 <div>
                     <span style="font-size:10px; color:#94a3b8; display:block; margin-bottom:3px;">MEVCUT DURUM BİLDİRİMİ:</span>
                     {% if ts[10] == 'Parça Bekliyor' %}
@@ -331,19 +332,18 @@ HTML_PANEL = """
                     {% endif %}
                 </div>
 
-                <!-- ÇALIŞMA DURUMU BUTONLARI -->
                 <div style="margin-top: 5px;">
                     <label style="font-size:9px; color:#94a3b8; margin-bottom:2px;">ÇALIŞMA DURUMU</label>
                     <div class="status-group">
-                        <a href="/durum_degistir/{{ ts[0] }}?durum=Serviste" onclick="showLoading()" class="status-pill {% if ts[10] == 'Serviste' or not ts[10] %}active-status{% endif %}">🛠️ Serviste</a>
-                        <a href="/durum_degistir/{{ ts[0] }}?durum=Parça Bekliyor" onclick="showLoading()" class="status-pill {% if ts[10] == 'Parça Bekliyor' %}active-status{% endif %}">🟡 Parça Bekliyor</a>
-                        <a href="/durum_degistir/{{ ts[0] }}?durum=Teslime Hazır" onclick="showLoading()" class="status-pill {% if ts[10] == 'Teslime Hazır' %}active-status{% endif %}">⚡ Teslime Hazır</a>
+                        <a href="/durum_degistir/{{ ts[0] }}?durum=Serviste&tab=araclar" onclick="showLoading()" class="status-pill {% if ts[10] == 'Serviste' or not ts[10] %}active-status{% endif %}">🛠️ Serviste</a>
+                        <a href="/durum_degistir/{{ ts[0] }}?durum=Parça Bekliyor&tab=araclar" onclick="showLoading()" class="status-pill {% if ts[10] == 'Parça Bekliyor' %}active-status{% endif %}">🟡 Parça Bekliyor</a>
+                        <a href="/durum_degistir/{{ ts[0] }}?durum=Teslime Hazır&tab=araclar" onclick="showLoading()" class="status-pill {% if ts[10] == 'Teslime Hazır' %}active-status{% endif %}">⚡ Teslime Hazır</a>
                     </div>
 
                     <label style="font-size:9px; color:#94a3b8; margin-top:6px; margin-bottom:2px;">ÖDEME DURUMU</label>
                     <div class="status-group">
-                        <a href="/durum_degistir/{{ ts[0] }}?odeme=Borçlu / Veresiye" onclick="showLoading()" class="status-pill {% if ts[11] == 'Borçlu / Veresiye' %}active-payment-borclu{% endif %}">🔴 Borçlu / Veresiye</a>
-                        <a href="/durum_degistir/{{ ts[0] }}?odeme=Ödendi" onclick="showLoading()" class="status-pill {% if ts[11] == 'Ödendi' %}active-payment-odendi{% endif %}">🟢 Ödendi</a>
+                        <a href="/durum_degistir/{{ ts[0] }}?odeme=Borçlu / Veresiye&tab=araclar" onclick="showLoading()" class="status-pill {% if ts[11] == 'Borçlu / Veresiye' %}active-payment-borclu{% endif %}">🔴 Borçlu / Veresiye</a>
+                        <a href="/durum_degistir/{{ ts[0] }}?odeme=Ödendi&tab=araclar" onclick="showLoading()" class="status-pill {% if ts[11] == 'Ödendi' %}active-payment-odendi{% endif %}">🟢 Ödendi</a>
                     </div>
                 </div>
 
@@ -360,7 +360,38 @@ HTML_PANEL = """
         {% endif %}
     </div>
 
-    <!-- 3. GEÇMİŞ & BORÇLAR -->
+    <!-- 3. BORÇLULAR -->
+    <div id="borclarTab" class="tab-content {% if aktif_tab == 'borclar' %}active{% endif %}">
+        <h3 style="color:#ef4444;">🔴 Borçlu / Veresiye Müşteri Defteri</h3>
+        {% if borclular %}
+            {% for b in borclular %}
+            <div class="card" style="border-left: 4px solid #ef4444;">
+                <b>Plaka:</b> <span style="color:var(--accent);">{{ b[1] }}</span> | <b>Tarih:</b> {{ b[6] }}<br>
+                <b>Müşteri:</b> {{ b[2] }} ({{ b[3] }})<br>
+                <b>İşlemler:</b> {{ b[7] }} | <b>Notlar:</b> {{ b[8] or '-' }}<br>
+                <b>Toplam Borç:</b> <span style="color:#ef4444; font-size:14px; font-weight:800;">{{ "%.2f"|format(b[9]|float) }} TL</span>
+                
+                <div style="margin-top: 8px;">
+                    <label style="font-size:9px; color:#94a3b8; margin-bottom:2px;">ÖDEME DURUMUNU GÜNCELLE</label>
+                    <div class="status-group">
+                        <a href="/durum_degistir/{{ b[0] }}?odeme=Ödendi&tab=borclar" onclick="showLoading()" class="status-pill active-payment-borclu">Tahsil Et (Ödendi Yap)🟢</a>
+                    </div>
+                </div>
+
+                <div style="margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap;">
+                    <a href="https://wa.me/{{ b[3] }}?text=Sayin%20{{ b[2] }},%20Iz%20Motorsiklet%20servis%20borc%20bakiyeniz%20{{ "%.2f"|format(b[9]|float) }}%20TL'dir." target="_blank" class="whatsapp-btn">💬 Borç Hatırlat</a>
+                    <a href="/pdf_indir/{{ b[0] }}" class="pdf-btn">📄 Formu İndir</a>
+                    <a href="/duzenle/{{ b[0] }}" class="edit-btn">✏️ Düzenle</a>
+                    <a href="/sil/{{ b[0] }}" class="delete-btn" onclick="return confirm('Bu kaydı silmek istediğine emin misin?')">🗑️ Sil</a>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <p style="color: var(--text-muted); text-align: center;">Harika! Defterde hiç borçlu müşteri kalmadı.</p>
+        {% endif %}
+    </div>
+
+    <!-- 4. GEÇMİŞ SERVİSLER -->
     <div id="gecmisTab" class="tab-content {% if aktif_tab == 'gecmis' %}active{% endif %}">
         <form method="GET" action="/" onsubmit="showLoading()">
             <input type="hidden" name="tab" value="gecmis">
@@ -369,7 +400,7 @@ HTML_PANEL = """
             <button type="submit" class="btn-action">HIZLI ARAMA YAP</button>
         </form>
         <hr style="border:0; border-top:1px solid #334155; margin: 15px 0;">
-        <h3 style="color:var(--accent);">Geçmiş Servisler ve Borçlu Defteri</h3>
+        <h3 style="color:var(--accent);">🔍 Tamamlanan Geçmiş Servis Kayıtları</h3>
         {% if kayitlar %}
             {% for k in kayitlar %}
             <div class="card" style="border-left: 4px solid {% if k[11] == 'Ödendi' %}#4ade80{% else %}#f87171{% endif %};">
@@ -385,11 +416,11 @@ HTML_PANEL = """
             </div>
             {% endfor %}
         {% else %}
-            <p style="color: var(--text-muted); text-align: center;">Kayıt bulunamadı.</p>
+            <p style="color: var(--text-muted); text-align: center;">Geçmiş kayıt bulunamadı.</p>
         {% endif %}
     </div>
 
-    <!-- 4. STOKLAR -->
+    <!-- 5. STOKLAR -->
     <div id="stokTab" class="tab-content {% if aktif_tab == 'stok' %}active{% endif %}">
         <h3>Parça / Ürün Stok ve Fiyat Yönetimi</h3>
         <form method="POST" action="/stok_ekle" onsubmit="showLoading()">
@@ -416,7 +447,7 @@ HTML_PANEL = """
         {% endfor %}
     </div>
 
-    <!-- 5. RANDEVULAR -->
+    <!-- 6. RANDEVULAR -->
     <div id="randevuTab" class="tab-content {% if aktif_tab == 'randevu' %}active{% endif %}">
         <h3>Atölye Randevu Takvimi</h3>
         <form method="POST" action="/randevu_ekle" onsubmit="showLoading()">
@@ -653,10 +684,15 @@ def index():
         cursor.execute("SELECT * FROM servisler ORDER BY id DESC")
     kayitlar = cursor.fetchall()
 
-    cursor.execute("SELECT * FROM servisler WHERE odeme_durumu != 'Ödendi' OR odeme_durumu IS NULL ORDER BY id DESC")
-    aktif_araclar = cursor.fetchall()
     cursor.execute("SELECT * FROM servisler ORDER BY id DESC")
     tum_araclar = cursor.fetchall()
+
+    cursor.execute("SELECT * FROM servisler WHERE odeme_durumu != 'Ödendi' OR odeme_durumu IS NULL ORDER BY id DESC")
+    aktif_araclar = cursor.fetchall()
+
+    cursor.execute("SELECT * FROM servisler WHERE odeme_durumu = 'Borçlu / Veresiye' ORDER BY id DESC")
+    borclular = cursor.fetchall()
+
     cursor.execute("SELECT * FROM stok ORDER BY id DESC")
     stoklar = cursor.fetchall()
     cursor.execute("SELECT * FROM randevular ORDER BY id DESC")
@@ -671,7 +707,7 @@ def index():
 
     cursor.close()
     conn.close()
-    return render_template_string(HTML_PANEL, kayitlar=kayitlar, sorgu_plaka=sorgu_plaka, stoklar=stoklar, randevular=randevular, aktif_araclar=aktif_araclar, tum_araclar=tum_araclar, toplam_ciro=toplam_ciro, aktif_tab=aktif_tab, okunan_plaka=okunan_plaka)
+    return render_template_string(HTML_PANEL, kayitlar=kayitlar, borclular=borclular, sorgu_plaka=sorgu_plaka, stoklar=stoklar, randevular=randevular, aktif_araclar=aktif_araclar, tum_araclar=tum_araclar, toplam_ciro=toplam_ciro, aktif_tab=aktif_tab, okunan_plaka=okunan_plaka)
 
 @app.route('/hizli_arac_ekle', methods=['POST'])
 def hizli_arac_ekle():
@@ -805,6 +841,7 @@ def durum_degistir(servis_id):
     if not session.get('giris'): return redirect(url_for('index'))
     yeni_durum = request.args.get('durum')
     yeni_odeme = request.args.get('odeme')
+    hedef_tab = request.args.get('tab', 'araclar')
     
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -815,7 +852,7 @@ def durum_degistir(servis_id):
     conn.commit()
     cursor.close()
     conn.close()
-    return redirect(url_for('index', tab='araclar'))
+    return redirect(url_for('index', tab=hedef_tab))
 
 @app.route('/stok_ekle', methods=['POST'])
 def stok_ekle():
