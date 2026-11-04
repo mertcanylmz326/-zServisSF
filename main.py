@@ -23,7 +23,7 @@ except:
     OCR_AKTIF = False
 
 app = Flask(__name__)
-app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v91"
+app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v93"
 
 SIFRE = "izmotor2026*"
 
@@ -134,7 +134,7 @@ HTML_PANEL = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>İz Motorsiklet - Grafiti Garaj Paneli</title>
+    <title>İz Motorsiklet - Garaj Paneli</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Inter:wght@400;700;900&display=swap');
         :root { --bg-main: #04060b; --card-bg: rgba(11, 15, 25, 0.97); --accent: #facc15; --text-main: #f8fafc; --text-muted: #94a3b8; }
@@ -166,13 +166,11 @@ HTML_PANEL = """
         .edit-btn { background: #d97706; color: #fff; padding: 8px 12px; border-radius: 8px; text-decoration: none; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 5px; margin-top: 6px; border: none; cursor: pointer; }
         .delete-btn { background: #ef4444; color: #fff; padding: 8px 12px; border-radius: 8px; text-decoration: none; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 5px; margin-top: 6px; border: none; cursor: pointer; }
         
-        /* MEVCUT DURUM BİLDİRİMİ */
         .status-badge { display: inline-block; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 900; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
         .badge-serviste { background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid #3b82f6; }
         .badge-parca { background: rgba(234, 179, 8, 0.2); color: #facc15; border: 1px solid #eab308; }
         .badge-teslim { background: rgba(34, 197, 94, 0.2); color: #4ade80; border: 1px solid #22c55e; }
 
-        /* BUTONLAR */
         .status-group { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 8px; }
         .status-pill { background: #1e293b; border: 1px solid #475569; color: #cbd5e1; padding: 8px 12px; border-radius: 8px; font-size: 11px; cursor: pointer; font-weight: 700; text-decoration: none; display: inline-block; transition: all 0.2s; }
         
@@ -1085,13 +1083,13 @@ def run_telegram_bot():
         print("Telegram bot çalışma uyarısı/hatası:", e)
 
 if __name__ == '__main__':
-    # Render üzerinde tekil instance çalışmasını garantilemek için kilit portu
+    # Render üzerinde çakışmayı önlemek için güvenli kilit mekanizması
     lock_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
-        lock_socket.bind(("127.0.0.1", 49153))
+        lock_socket.bind(("127.0.0.1", 49154))
         threading.Thread(target=run_telegram_bot, daemon=True).start()
     except socket.error:
-        print("Telegram bot zaten başka bir thread/process üzerinde çalışıyor, ikinci tetikleme engellendi.")
+        print("Telegram bot zaten aktif, mükerrer başlatma engellendi.")
 
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
