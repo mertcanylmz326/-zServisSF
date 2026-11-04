@@ -22,7 +22,7 @@ except:
     OCR_AKTIF = False
 
 app = Flask(__name__)
-app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v76"
+app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v77"
 
 SIFRE = "izmotor2026*"
 
@@ -262,7 +262,6 @@ HTML_PANEL = """
                 </div>
                 <button type="button" class="btn-action" style="background:#1e293b; color:var(--accent); border:1px solid var(--accent);" onclick="yeniSatirEkle()">➕ Daha Fazla Parça Satırı Ekle</button>
                 
-                <!-- NOTLAR VE TESPİTLER ALANI -->
                 <label style="margin-top:20px;">Notlar ve Tespitler (Açıklama)</label>
                 <textarea name="notlar" rows="3" placeholder="Motor hakkında özel notlar, arıza tespitleri vb. yazabilirsiniz..."></textarea>
 
@@ -569,7 +568,6 @@ def pdf_olustur(filename, veri, logo_yolu):
     story.append(t_notlar)
     story.append(Spacer(1, 15))
 
-    # Müşteri Onayı silindi, Servis Yetkilisi kısmı tek ve sabit olarak ortaya/sağa yerleştirildi
     imza_data = [
         [Paragraph("<b>Servis Yetkilisi</b>", style_bold)],
         [Paragraph("<br/><br/>İbrahim Yıldırım / Yusuf Yılgın<br/>Kaşe / İmza", style_normal)]
@@ -946,7 +944,7 @@ async def telegram_plaka_sorgu(update: Update, context: ContextTypes.DEFAULT_TYP
 def run_telegram_bot():
     TOKEN = "9017126535:AAEBZYsO6g2IVU0OhhdadGlaH_ntFGhkYxk"
     try:
-        bot_app = Application.builder().token(TOKEN).build()
+        bot_app = Application.builder().token(TOKEN).concurrent_updates(True).build()
         bot_app.add_handler(CommandHandler("start", start))
         bot_app.add_handler(CommandHandler("plaka", telegram_plaka_sorgu))
         bot_app.add_handler(CallbackQueryHandler(button_handler))
@@ -956,6 +954,8 @@ def run_telegram_bot():
         print("Telegram bot hata:", e)
 
 if __name__ == '__main__':
-    threading.Thread(target=run_telegram_bot, daemon=True).start()
+    # Flask birden fazla worker ile başlatıldığında bot thread'inin çakışmasını engellemek için kontrol
+    if os.environ.get("WERKZEUG_RUN_MAIN") == "true" or not app.debug:
+        threading.Thread(target=run_telegram_bot, daemon=True).start()
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
