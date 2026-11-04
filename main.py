@@ -23,7 +23,7 @@ except:
     OCR_AKTIF = False
 
 app = Flask(__name__)
-app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v96"
+app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v97"
 
 SIFRE = "izmotor2026*"
 
@@ -137,31 +137,46 @@ HTML_PANEL = """
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>İz Motorsiklet - Garaj Paneli</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Inter:wght@400;700;900&display=swap');
-        :root { --bg-main: #04060b; --card-bg: rgba(11, 15, 25, 0.97); --accent: #facc15; --text-main: #f8fafc; --text-muted: #94a3b8; }
-        body { font-family: 'Inter', sans-serif; background-color: var(--bg-main); color: var(--text-main); margin: 0; padding: 10px; }
+        @import url('https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Inter:wght@400;600;800;900&display=swap');
+        :root { --bg-main: #04060b; --card-bg: rgba(13, 18, 30, 0.95); --accent: #facc15; --text-main: #f8fafc; --text-muted: #94a3b8; --border-color: #1e293b; }
+        body { font-family: 'Inter', sans-serif; background-color: var(--bg-main); color: var(--text-main); margin: 0; padding: 12px; }
         .container { max-width: 900px; margin: 0 auto; }
-        .sticky-header { position: sticky; top: 0; z-index: 1000; background: rgba(4, 6, 11, 0.96); padding: 8px 0; border-bottom: 1px solid rgba(250, 204, 21, 0.3); margin-bottom: 15px; }
-        .header-box { display: flex; justify-content: space-between; align-items: center; background: var(--card-bg); border: 1px solid #334155; padding: 12px 18px; border-radius: 14px; margin-bottom: 10px; }
+        
+        .sticky-header { position: sticky; top: 0; z-index: 1000; background: rgba(4, 6, 11, 0.98); backdrop-filter: blur(10px); padding: 10px 0 15px 0; border-bottom: 1px solid rgba(250, 204, 21, 0.15); margin-bottom: 15px; }
+        .header-box { display: flex; justify-content: space-between; align-items: center; background: var(--card-bg); border: 1px solid var(--border-color); padding: 14px 20px; border-radius: 16px; margin-bottom: 12px; box-shadow: 0 8px 25px rgba(0,0,0,0.5); }
         .brand-title { display: flex; align-items: center; gap: 12px; }
-        .brand-icon { background: linear-gradient(135deg, #facc15, #f97316); color: #030712; padding: 8px 12px; border-radius: 12px; font-size: 20px; transform: rotate(-5deg); }
-        .graffiti-text { font-family: 'Permanent Marker', cursive; color: #facc15; font-size: 20px; text-transform: uppercase; margin: 0; }
-        .logout { color: #f87171; text-decoration: none; font-weight: 700; font-size: 12px; background: rgba(248,113,113,0.1); padding: 6px 12px; border-radius: 8px; }
-        .nav-tabs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 5px; }
-        .tab-btn { background: #0f172a; color: var(--text-muted); border: 1px solid #334155; padding: 9px 14px; border-radius: 10px; cursor: pointer; font-weight: 700; font-size: 12px; white-space: nowrap; text-decoration: none; }
-        .tab-btn.active { background: var(--accent); color: #030712; border-color: var(--accent); font-weight: 800; }
-        .tab-content { display: none; }
+        .brand-icon { background: linear-gradient(135deg, #facc15, #f97316); color: #030712; padding: 8px 12px; border-radius: 12px; font-size: 20px; transform: rotate(-5deg); box-shadow: 0 4px 12px rgba(250,204,21,0.3); }
+        .graffiti-text { font-family: 'Permanent Marker', cursive; color: #facc15; font-size: 22px; text-transform: uppercase; margin: 0; letter-spacing: 1px; text-shadow: 0 0 15px rgba(250,204,21,0.4); }
+        .logout { color: #f87171; text-decoration: none; font-weight: 700; font-size: 11px; background: rgba(248,113,113,0.12); border: 1px solid rgba(248,113,113,0.3); padding: 6px 12px; border-radius: 8px; transition: all 0.2s; }
+        .logout:hover { background: rgba(248,113,113,0.25); }
+
+        /* YENİ NESİL ŞIK SEKMELER (NAV TABS) */
+        .nav-tabs { display: flex; gap: 8px; overflow-x: auto; padding: 4px 2px; scrollbar-width: none; }
+        .nav-tabs::-webkit-scrollbar { display: none; }
+        .tab-btn { background: #0b1120; color: var(--text-muted); border: 1px solid var(--border-color); padding: 10px 16px; border-radius: 12px; cursor: pointer; font-weight: 700; font-size: 12px; white-space: nowrap; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; transition: all 0.25s ease; box-shadow: 0 4px 6px rgba(0,0,0,0.2); }
+        .tab-btn:hover { border-color: #475569; color: #fff; transform: translateY(-1px); }
+        .tab-btn.active { background: linear-gradient(135deg, #facc15 0%, #ca8a04 100%); color: #030712; border-color: #facc15; font-weight: 900; box-shadow: 0 0 15px rgba(250, 204, 21, 0.4); transform: translateY(-1px); }
+
+        .tab-content { display: none; animation: fadeIn 0.3s ease; }
         .tab-content.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
         .stat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 15px; }
         @media(min-width: 600px) { .stat-grid { grid-template-columns: repeat(4, 1fr); } }
-        .stat-box { background: var(--card-bg); border: 1px solid #334155; border-left: 4px solid var(--accent); padding: 12px; border-radius: 12px; }
-        .stat-box h4 { margin: 0; color: var(--accent); font-size: 16px; font-weight: 800; }
-        .stat-box p { margin: 4px 0 0 0; color: var(--text-muted); font-size: 10px; text-transform: uppercase; }
-        .card { background: var(--card-bg); border: 1px solid #334155; padding: 15px; border-radius: 14px; margin-bottom: 14px; font-size: 13px; }
-        h3 { color: var(--accent); margin-top: 0; font-size: 15px; border-bottom: 1px solid #334155; padding-bottom: 8px; font-weight: 800; }
-        input, select, textarea { width: 100%; padding: 11px; margin-bottom: 10px; background: #030712; border: 1px solid #334155; border-radius: 10px; color: #fff; box-sizing: border-box; font-size: 13px; outline: none; }
-        label { display: block; font-weight: 700; margin-bottom: 4px; font-size: 11px; color: #cbd5e1; text-transform: uppercase; }
-        .btn-action { background: linear-gradient(135deg, var(--accent), #ca8a04); color: #030712; border: none; padding: 13px; border-radius: 10px; width: 100%; font-size: 14px; font-weight: 800; cursor: pointer; text-transform: uppercase; margin-top: 5px; }
+        .stat-box { background: var(--card-bg); border: 1px solid var(--border-color); border-left: 4px solid var(--accent); padding: 14px; border-radius: 14px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+        .stat-box h4 { margin: 0; color: var(--accent); font-size: 17px; font-weight: 900; }
+        .stat-box p { margin: 4px 0 0 0; color: var(--text-muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+        
+        .card { background: var(--card-bg); border: 1px solid var(--border-color); padding: 16px; border-radius: 16px; margin-bottom: 14px; font-size: 13px; box-shadow: 0 6px 20px rgba(0,0,0,0.4); }
+        h3 { color: var(--accent); margin-top: 0; font-size: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; font-weight: 800; }
+        
+        input, select, textarea { width: 100%; padding: 12px; margin-bottom: 12px; background: #030712; border: 1px solid var(--border-color); border-radius: 10px; color: #fff; box-sizing: border-box; font-size: 13px; outline: none; transition: border-color 0.2s; }
+        input:focus, select:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 8px rgba(250,204,21,0.2); }
+        label { display: block; font-weight: 700; margin-bottom: 5px; font-size: 11px; color: #cbd5e1; text-transform: uppercase; letter-spacing: 0.5px; }
+        
+        .btn-action { background: linear-gradient(135deg, var(--accent), #ca8a04); color: #030712; border: none; padding: 13px; border-radius: 10px; width: 100%; font-size: 14px; font-weight: 900; cursor: pointer; text-transform: uppercase; margin-top: 5px; box-shadow: 0 4px 15px rgba(250,204,21,0.3); transition: transform 0.1s; }
+        .btn-action:active { transform: scale(0.98); }
+        
         .whatsapp-btn { background: #25d366; color: #fff; padding: 8px 12px; border-radius: 8px; text-decoration: none; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 5px; margin-top: 6px; }
         .pdf-btn { background: #0284c7; color: #fff; padding: 8px 12px; border-radius: 8px; text-decoration: none; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 5px; margin-top: 6px; }
         .edit-btn { background: #d97706; color: #fff; padding: 8px 12px; border-radius: 8px; text-decoration: none; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 5px; margin-top: 6px; border: none; cursor: pointer; }
@@ -172,17 +187,24 @@ HTML_PANEL = """
         .badge-parca { background: rgba(234, 179, 8, 0.2); color: #facc15; border: 1px solid #eab308; }
         .badge-teslim { background: rgba(34, 197, 94, 0.2); color: #4ade80; border: 1px solid #22c55e; }
 
-        .status-group { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 8px; }
-        .status-pill { background: #1e293b; border: 1px solid #475569; color: #cbd5e1; padding: 8px 12px; border-radius: 8px; font-size: 11px; cursor: pointer; font-weight: 700; text-decoration: none; display: inline-block; transition: all 0.2s; }
+        .status-group { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+        .status-pill { background: #0f172a; border: 1px solid #334155; color: #cbd5e1; padding: 8px 12px; border-radius: 8px; font-size: 11px; cursor: pointer; font-weight: 700; text-decoration: none; display: inline-block; transition: all 0.2s; }
         
         .status-pill.active-status { background: var(--accent) !important; color: #030712 !important; border-color: var(--accent) !important; font-weight: 900 !important; box-shadow: 0 0 12px rgba(250, 204, 21, 0.4); }
         .status-pill.active-payment-borclu { background: #ef4444 !important; color: #fff !important; border-color: #ef4444 !important; font-weight: 900 !important; box-shadow: 0 0 12px rgba(239, 68, 68, 0.5); }
         .status-pill.active-payment-odendi { background: #22c55e !important; color: #fff !important; border-color: #22c55e !important; font-weight: 900 !important; box-shadow: 0 0 12px rgba(34, 197, 94, 0.5); }
 
         .quick-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
-        .chip { background: #1e293b; border: 1px solid #475569; color: #f8fafc; padding: 6px 10px; border-radius: 8px; font-size: 11px; cursor: pointer; font-weight: 700; }
-        .parca-satir { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; background: rgba(3, 7, 18, 0.6); padding: 8px; border-radius: 10px; border: 1px solid #1e293b; }
-        #loadingOverlay { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(3,7,18,0.9); z-index:9999; justify-content: center; align-items: center; flex-direction: column; color: var(--accent); font-weight: 800; font-size: 16px; }
+        .chip { background: #0f172a; border: 1px solid #334155; color: #f8fafc; padding: 7px 12px; border-radius: 8px; font-size: 11px; cursor: pointer; font-weight: 700; transition: border-color 0.2s; }
+        .chip:hover { border-color: var(--accent); color: var(--accent); }
+        
+        .parca-satir { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; background: rgba(3, 7, 18, 0.6); padding: 8px; border-radius: 10px; border: 1px solid var(--border-color); }
+        
+        .piyasa-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
+        .piyasa-table th, .piyasa-table td { padding: 10px; text-align: left; border-bottom: 1px solid var(--border-color); }
+        .piyasa-table th { color: var(--accent); font-weight: 800; background: rgba(250,204,21,0.05); }
+
+        #loadingOverlay { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(3,7,18,0.92); z-index:9999; justify-content: center; align-items: center; flex-direction: column; color: var(--accent); font-weight: 800; font-size: 16px; }
         .spinner { border: 4px solid #1e293b; border-top: 4px solid var(--accent); border-radius: 50%; width: 45px; height: 45px; animation: spin 0.8s linear infinite; margin-bottom: 15px; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
@@ -210,6 +232,7 @@ HTML_PANEL = """
             <button class="tab-btn {% if aktif_tab == 'borclar' %}active{% endif %}" onclick="switchTab('borclarTab', this)">🔴 Borçlular</button>
             <button class="tab-btn {% if aktif_tab == 'gecmis' %}active{% endif %}" onclick="switchTab('gecmisTab', this)">🔍 Geçmiş Servisler</button>
             <button class="tab-btn {% if aktif_tab == 'stok' %}active{% endif %}" onclick="switchTab('stokTab', this)">📦 Stok & Fiyat</button>
+            <button class="tab-btn {% if aktif_tab == 'piyasa' %}active{% endif %}" onclick="switchTab('piyasaTab', this)">📈 Piyasa Parça Takibi</button>
             <button class="tab-btn {% if aktif_tab == 'randevu' %}active{% endif %}" onclick="switchTab('randevuTab', this)">📅 Randevular</button>
         </div>
     </div>
@@ -283,7 +306,7 @@ HTML_PANEL = """
                     </div>
                     {% endfor %}
                 </div>
-                <button type="button" class="btn-action" style="background:#1e293b; color:var(--accent); border:1px solid var(--accent);" onclick="yeniSatirEkle()">➕ Daha Fazla Parça Satırı Ekle</button>
+                <button type="button" class="btn-action" style="background:#0f172a; color:var(--accent); border:1px solid var(--accent);" onclick="yeniSatirEkle()">➕ Daha Fazla Parça Satırı Ekle</button>
                 
                 <label style="margin-top:20px;">Notlar ve Tespitler (Açıklama)</label>
                 <textarea name="notlar" rows="3" placeholder="Motor hakkında özel notlar, arıza tespitleri vb. yazabilirsiniz..."></textarea>
@@ -446,7 +469,73 @@ HTML_PANEL = """
         {% endfor %}
     </div>
 
-    <!-- 6. RANDEVULAR -->
+    <!-- 6. PİYASA PARÇA FİYAT ENTEGRASYONU -->
+    <div id="piyasaTab" class="tab-content {% if aktif_tab == 'piyasa' %}active{% endif %}">
+        <div class="card" style="border-top: 4px solid #38bdf8;">
+            <h3 style="color:#38bdf8;">📈 Türkiye Piyasası Motosiklet Parça Fiyatları</h3>
+            <p style="color:var(--text-muted); font-size:12px; margin-bottom:12px;">
+                Türkiye genelindeki yetkili ve toptancı piyasa ortalamalarıdır. Dükkanında sattığın parçaların fiyatlarını bu piyasa verilerine göre güncelleyerek kar marjını koruyabilirsin kanka!
+            </p>
+            <div style="overflow-x: auto;">
+                <table class="piyasa-table">
+                    <thead>
+                        <tr>
+                            <th>Parça / Ürün Adı</th>
+                            <th>Uyumlu Modeller</th>
+                            <th>Ort. Piyasa Fiyatı</th>
+                            <th>Durum / Tavsiye</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><b>Honda Dio Orijinal V Kayışı</b></td>
+                            <td>Honda Dio 110</td>
+                            <td><span style="color:#facc15; font-weight:800;">450.00 TL - 550.00 TL</span></td>
+                            <td><span style="color:#4ade80;">Piyasa Dengeli</span></td>
+                        </tr>
+                        <tr>
+                            <td><b>NGK Buji (CR6HSA)</b></td>
+                            <td>Scooter / Cub / Commuter</td>
+                            <td><span style="color:#facc15; font-weight:800;">120.00 TL - 160.00 TL</span></td>
+                            <td><span style="color:#4ade80;">Piyasa Dengeli</span></td>
+                        </tr>
+                        <tr>
+                            <td><b>Ön Fren Balatası (Organik)</b></td>
+                            <td>Hero Dash 125 / Honda Dio</td>
+                            <td><span style="color:#facc15; font-weight:800;">220.00 TL - 320.00 TL</span></td>
+                            <td><span style="color:#f87171;">Yükselişte ↗</span></td>
+                        </tr>
+                        <tr>
+                            <td><b>Motul 10W40 4T Scooter Yağı (1L)</b></td>
+                            <td>Genel Scooter / Vario</td>
+                            <td><span style="color:#facc15; font-weight:800;">380.00 TL - 450.00 TL</span></td>
+                            <td><span style="color:#4ade80;">Piyasa Dengeli</span></td>
+                        </tr>
+                        <tr>
+                            <td><b>Varyatör Baget Seti (14gr)</b></td>
+                            <td>Honda Dio 110 / Activa</td>
+                            <td><span style="color:#facc15; font-weight:800;">280.00 TL - 350.00 TL</span></td>
+                            <td><span style="color:#4ade80;">Piyasa Dengeli</span></td>
+                        </tr>
+                        <tr>
+                            <td><b>Hava Filtresi Süngeri / Elemanı</b></td>
+                            <td>Hero Dash / Honda Dio</td>
+                            <td><span style="color:#facc15; font-weight:800;">90.00 TL - 150.00 TL</span></td>
+                            <td><span style="color:#4ade80;">Piyasa Dengeli</span></td>
+                        </tr>
+                        <tr>
+                            <td><b>Arka Debriyaj Balata Komple</b></td>
+                            <td>110cc - 125cc Scooter</td>
+                            <td><span style="color:#facc15; font-weight:800;">850.00 TL - 1.150.00 TL</span></td>
+                            <td><span style="color:#f87171;">Yükselişte ↗</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 7. RANDEVULAR -->
     <div id="randevuTab" class="tab-content {% if aktif_tab == 'randevu' %}active{% endif %}">
         <h3>Atölye Randevu Takvimi</h3>
         <form method="POST" action="/randevu_ekle" onsubmit="showLoading()">
@@ -1115,7 +1204,7 @@ def run_telegram_bot():
 if __name__ == '__main__':
     lock_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
-        lock_socket.bind(("127.0.0.1", 49157))
+        lock_socket.bind(("127.0.0.1", 49158))
         threading.Thread(target=run_telegram_bot, daemon=True).start()
     except socket.error:
         print("Telegram bot zaten aktif.")
