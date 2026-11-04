@@ -21,12 +21,10 @@ except:
     OCR_AKTIF = False
 
 app = Flask(__name__)
-app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v103"
+app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v104"
 
 SIFRE = "izmotor2026*"
 TOKEN = "9017126535:AAEBZYsO6g2IVU0OhhdadGlaH_ntFGhkYxk"
-
-# Render üzerindeki canlı URL'imiz
 WEBHOOK_URL = os.getenv("RENDER_EXTERNAL_URL", "https://izservissf-bot.onrender.com")
 
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres.viewtgvofqdoqgodbbne:izmotor20261@aws-1-eu-central-1.pooler.supabase.com:6543/postgres")
@@ -105,19 +103,25 @@ HTML_LOGIN = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>İz Motorsiklet - Giriş</title>
+    <title>Iz Motorsıklet - Giriş</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Inter:wght@400;700;900&display=swap');
         body { font-family: 'Inter', sans-serif; background-color: #06080f; background-image: radial-gradient(rgba(250, 204, 21, 0.08) 1px, transparent 1px); display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; color: #f8fafc; overflow: hidden; }
-        .login-box { background: rgba(13, 17, 28, 0.95); border: 1px solid rgba(250, 204, 21, 0.4); padding: 40px; border-radius: 20px; width: 100%; max-width: 350px; text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.8); animation: revUp 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
-        @keyframes revUp { 0% { transform: scale(0.8) translateY(30px); opacity: 0; } 100% { transform: scale(1) translateY(0); opacity: 1; } }
-        .engine-transition { animation: motorGazla 0.5s ease-in-out forwards !important; }
-        @keyframes motorGazla {
-            0% { transform: scale(1) translateX(0); filter: brightness(1); }
-            30% { transform: scale(1.05) translateX(-10px); filter: brightness(1.2); }
-            60% { transform: scale(0.95) translateX(15px); filter: brightness(1.4); }
-            100% { transform: scale(1.2) translateX(100vw); opacity: 0; filter: brightness(2); }
+        
+        .login-box { background: rgba(13, 17, 28, 0.95); border: 1px solid rgba(250, 204, 21, 0.4); padding: 40px; border-radius: 20px; width: 100%; max-width: 350px; text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.8); animation: revUp 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; transition: all 0.6s cubic-bezier(0.77, 0, 0.175, 1); }
+        
+        @keyframes revUp {
+            0% { transform: scale(0.8) translateY(30px); opacity: 0; }
+            100% { transform: scale(1) translateY(0); opacity: 1; }
         }
+
+        /* Motosiklet Gaz Verme / Fırlama Efekti */
+        .engine-transition {
+            transform: scale(1.15) translateX(120vw) rotate(15deg) !important;
+            opacity: 0;
+            filter: blur(8px) brightness(2.5);
+        }
+
         h2 { font-family: 'Permanent Marker', cursive; color: #facc15; font-size: 26px; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 2px; text-shadow: 0 0 10px rgba(250,204,21,0.5); }
         input { width: 100%; padding: 14px; margin-bottom: 20px; background: #030712; border: 1px solid #334155; border-radius: 10px; color: #fff; text-align: center; font-size: 16px; outline: none; }
         input:focus { border-color: #facc15; box-shadow: 0 0 10px rgba(250,204,21,0.3); }
@@ -128,22 +132,29 @@ HTML_LOGIN = """
 </head>
 <body>
 <div class="login-box" id="loginBox">
-    <h2>İZ MOTORSİKLET</h2>
+    <h2>IZ MOTORSIKLET</h2>
     <p style="color:#94a3b8; font-size:13px; margin-bottom:20px;">Tam Donanımlı Garaj Paneli</p>
     {% if error %}<div class="error">{{ error }}</div>{% endif %}
-    <form method="POST" onsubmit="motorCalistir(event)">
+    <form method="POST" id="loginForm" onsubmit="motorCalistir(event)">
         <input type="password" name="sifre" id="sifreInput" placeholder="••••••••" required autofocus>
-        <button type="submit" id="girisBtn">🏍️ Vınla & Giriş Yap</button>
+        <button type="submit" id="girisBtn">🏍️ Giriş Yap</button>
     </form>
 </div>
+
 <script>
 function motorCalistir(event) {
-    event.preventDefault();
+    event.preventDefault(); // Sayfanın anında yenilenmesini durduruyoruz
     var box = document.getElementById('loginBox');
     var btn = document.getElementById('girisBtn');
+    
+    // Buton yazısını ve titreşimi tetikle
     btn.innerHTML = "⚡ VÖÖÖRT! Gaz Kesici...";
     box.classList.add('engine-transition');
-    setTimeout(function() { event.target.submit(); }, 450);
+    
+    // Animasyon süresiyle tam senkronize bir şekilde formu gönder (700 milisaniye)
+    setTimeout(function() {
+        document.getElementById('loginForm').submit();
+    }, 650);
 }
 </script>
 </body>
@@ -156,7 +167,7 @@ HTML_PANEL = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>İz Motorsiklet - Garaj Paneli</title>
+    <title>Iz Motorsıklet - Garaj Paneli</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Inter:wght@400;600;800;900&display=swap');
         :root { --bg-main: #04060b; --card-bg: rgba(13, 18, 30, 0.95); --accent: #facc15; --text-main: #f8fafc; --text-muted: #94a3b8; --border-color: #1e293b; }
@@ -224,7 +235,7 @@ HTML_PANEL = """
         <div class="header-box">
             <div class="brand-title">
                 <div class="brand-icon">⚡🏍️</div>
-                <h1 class="graffiti-text">İZ MOTORSİKLET</h1>
+                <h1 class="graffiti-text">IZ MOTORSIKLET</h1>
             </div>
             <a href="/cikis" class="logout">Çıkış Yap</a>
         </div>
@@ -1022,7 +1033,6 @@ async def setup_telegram_bot():
         bot_app.add_handler(CallbackQueryHandler(button_handler))
         bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, check_password))
         await bot_app.initialize()
-        # Webhook adresini Telegram'a kaydediyoruz
         await bot_app.bot.set_webhook(url=f"{WEBHOOK_URL}/webhook")
 
 async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1153,7 +1163,6 @@ def telegram_webhook():
     if request.headers.get('content-type') == 'application/json':
         json_data = request.get_json(force=True)
         update = Update.de_json(json_data, bot_app.bot)
-        
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         loop.run_until_complete(bot_app.process_update(update))
