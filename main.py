@@ -23,7 +23,7 @@ except:
     OCR_AKTIF = False
 
 app = Flask(__name__)
-app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v85"
+app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v86"
 
 SIFRE = "izmotor2026*"
 
@@ -163,6 +163,14 @@ HTML_PANEL = """
         .pdf-btn { background: #0284c7; color: #fff; padding: 8px 12px; border-radius: 8px; text-decoration: none; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 5px; margin-top: 6px; }
         .edit-btn { background: #d97706; color: #fff; padding: 8px 12px; border-radius: 8px; text-decoration: none; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 5px; margin-top: 6px; border: none; cursor: pointer; }
         .delete-btn { background: #ef4444; color: #fff; padding: 8px 12px; border-radius: 8px; text-decoration: none; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 5px; margin-top: 6px; border: none; cursor: pointer; }
+        
+        /* MOBİL UYUMLU DURUM SEÇİM BUTONLARI (CHIPS) */
+        .status-group { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 8px; }
+        .status-pill { background: #1e293b; border: 1px solid #475569; color: #cbd5e1; padding: 7px 10px; border-radius: 8px; font-size: 11px; cursor: pointer; font-weight: 700; text-decoration: none; display: inline-block; }
+        .status-pill.active-status { background: var(--accent); color: #030712; border-color: var(--accent); font-weight: 900; }
+        .status-pill.active-payment-borclu { background: #ef4444; color: #fff; border-color: #ef4444; font-weight: 900; }
+        .status-pill.active-payment-odendi { background: #22c55e; color: #fff; border-color: #22c55e; font-weight: 900; }
+
         .quick-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
         .chip { background: #1e293b; border: 1px solid #475569; color: #f8fafc; padding: 6px 10px; border-radius: 8px; font-size: 11px; cursor: pointer; font-weight: 700; }
         .parca-satir { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; background: rgba(3, 7, 18, 0.6); padding: 8px; border-radius: 10px; border: 1px solid #1e293b; }
@@ -304,28 +312,24 @@ HTML_PANEL = """
                 <b>Yapılanlar:</b> {{ ts[7] }} | <b>Notlar:</b> {{ ts[8] or '-' }}<br>
                 <b>Tutar:</b> <span style="color:var(--accent); font-weight:800;">{{ "%.2f"|format(ts[9]|float) }} TL</span><br>
                 
-                <form action="/durum_guncelle" method="POST" style="margin-top: 10px; display:flex; gap:8px;" onsubmit="showLoading()">
-                    <input type="hidden" name="servis_id" value="{{ ts[0] }}">
-                    <div style="flex:1;">
-                        <label style="font-size:9px;">Çalışma Durumu</label>
-                        <select name="durum" onchange="this.form.submit()" style="margin:0; font-size:11px; padding:6px;">
-                            <option value="Bekliyor" {% if ts[10] == 'Bekliyor' %}selected{% endif %}>Bekliyor</option>
-                            <option value="Parça Bekliyor" {% if ts[10] == 'Parça Bekliyor' %}selected{% endif %}>Parça Bekliyor</option>
-                            <option value="Hazır" {% if ts[10] == 'Hazır' %}selected{% endif %}>Hazır</option>
-                            <option value="Teslime Hazır" {% if ts[10] == 'Teslime Hazır' %}selected{% endif %}>Teslime Hazır</option>
-                        </select>
+                <!-- MOBİL UYUMLU TEK TIKLAMA DURUM & ÖDEME BUTONLARI -->
+                <div style="margin-top: 12px;">
+                    <label style="font-size:9px; color:#94a3b8; margin-bottom:2px;">ÇALIŞMA DURUMU</label>
+                    <div class="status-group">
+                        <a href="/durum_degistir/{{ ts[0] }}?durum=Bekliyor" onclick="showLoading()" class="status-pill {% if ts[10] == 'Bekliyor' %}active-status{% endif %}">⏳ Bekliyor</a>
+                        <a href="/durum_degistir/{{ ts[0] }}?durum=Parça Bekliyor" onclick="showLoading()" class="status-pill {% if ts[10] == 'Parça Bekliyor' %}active-status{% endif %}">🟡 Parça Bekliyor</a>
+                        <a href="/durum_degistir/{{ ts[0] }}?durum=Hazır" onclick="showLoading()" class="status-pill {% if ts[10] == 'Hazır' %}active-status{% endif %}">🔵 Hazır</a>
+                        <a href="/durum_degistir/{{ ts[0] }}?durum=Teslime Hazır" onclick="showLoading()" class="status-pill {% if ts[10] == 'Teslime Hazır' %}active-status{% endif %}">⚡ Teslime Hazır</a>
                     </div>
-                    <div style="flex:1;">
-                        <label style="font-size:9px;">Ödeme Durumu</label>
-                        <select name="odeme_durumu" onchange="this.form.submit()" style="margin:0; font-size:11px; padding:6px;">
-                            <option value="Borçlu / Veresiye" {% if ts[11] == 'Borçlu / Veresiye' %}selected{% endif %}>🔴 Borçlu</option>
-                            <option value="Parça Bekliyor" {% if ts[11] == 'Parça Bekliyor' %}selected{% endif %}>🟡 Parça Bekliyor</option>
-                            <option value="Ödendi" {% if ts[11] == 'Ödendi' %}selected{% endif %}>🟢 Ödendi</option>
-                        </select>
-                    </div>
-                </form>
 
-                <div style="margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap;">
+                    <label style="font-size:9px; color:#94a3b8; margin-top:6px; margin-bottom:2px;">ÖDEME DURUMU</label>
+                    <div class="status-group">
+                        <a href="/durum_degistir/{{ ts[0] }}?odeme=Borçlu / Veresiye" onclick="showLoading()" class="status-pill {% if ts[11] == 'Borçlu / Veresiye' %}active-payment-borclu{% endif %}">🔴 Borçlu / Veresiye</a>
+                        <a href="/durum_degistir/{{ ts[0] }}?odeme=Ödendi" onclick="showLoading()" class="status-pill {% if ts[11] == 'Ödendi' %}active-payment-odendi{% endif %}">🟢 Ödendi</a>
+                    </div>
+                </div>
+
+                <div style="margin-top: 10px; display: flex; gap: 6px; flex-wrap: wrap;">
                     <a href="https://wa.me/{{ ts[3] }}?text=Sayin%20{{ ts[2] }},%20Iz%20Motorsiklet%20servis%20ucretiniz%20{{ "%.2f"|format(ts[9]|float) }}%20TL." target="_blank" class="whatsapp-btn">💬 WhatsApp</a>
                     <a href="/pdf_indir/{{ ts[0] }}" class="pdf-btn">📄 PDF İndir</a>
                     <a href="/duzenle/{{ ts[0] }}" class="edit-btn">✏️ Düzenle</a>
@@ -621,7 +625,7 @@ def index():
 
     conn = get_db_connection()
     cursor = conn.cursor()
-    aktif_tab = request.args.get('tab', 'servis')
+    aktif_tab = request.args.get('tab', 'araclar')
     sorgu_plaka = request.args.get('sorgu_plaka', '').strip()
     okunan_plaka = session.pop('okunan_plaka', None)
     
@@ -776,16 +780,20 @@ def sil(kayit_id):
     conn.commit()
     cursor.close()
     conn.close()
-    return redirect(url_for('index', tab='gecmis'))
+    return redirect(url_for('index', tab='araclar'))
 
-@app.route('/durum_guncelle', methods=['POST'])
-def durum_guncelle():
+@app.route('/durum_degistir/<int:servis_id>')
+def durum_degistir(servis_id):
     if not session.get('giris'): return redirect(url_for('index'))
+    yeni_durum = request.args.get('durum')
+    yeni_odeme = request.args.get('odeme')
+    
     conn = get_db_connection()
     cursor = conn.cursor()
-    durum, odeme, servis_id = request.form.get('durum'), request.form.get('odeme_durumu'), request.form.get('servis_id')
-    if durum: cursor.execute("UPDATE servisler SET durum = %s WHERE id = %s", (durum, servis_id))
-    if odeme: cursor.execute("UPDATE servisler SET odeme_durumu = %s WHERE id = %s", (odeme, servis_id))
+    if yeni_durum:
+        cursor.execute("UPDATE servisler SET durum = %s WHERE id = %s", (yeni_durum, servis_id))
+    if yeni_odeme:
+        cursor.execute("UPDATE servisler SET odeme_durumu = %s WHERE id = %s", (yeni_odeme, servis_id))
     conn.commit()
     cursor.close()
     conn.close()
@@ -1014,7 +1022,6 @@ def run_telegram_bot():
         bot_app.add_handler(CallbackQueryHandler(button_handler))
         bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, check_password))
         
-        # Çakışmaları ve hata loglarını önlemek için güvenli çalıştırma
         import asyncio
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
