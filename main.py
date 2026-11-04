@@ -23,7 +23,7 @@ except:
     OCR_AKTIF = False
 
 app = Flask(__name__)
-app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v84"
+app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v85"
 
 SIFRE = "izmotor2026*"
 
@@ -53,7 +53,6 @@ def init_db():
                 pdf_dosya TEXT
             )
         ''')
-        # Var olan tablolarda eksik sütun kalmasın diye garanti ekleme
         cursor.execute('ALTER TABLE servisler ADD COLUMN IF NOT EXISTS notlar TEXT;')
         cursor.execute('ALTER TABLE servisler ADD COLUMN IF NOT EXISTS durum TEXT DEFAULT \'Bekliyor\';')
         cursor.execute('ALTER TABLE servisler ADD COLUMN IF NOT EXISTS odeme_durumu TEXT DEFAULT \'Borçlu / Veresiye\';')
@@ -1014,9 +1013,14 @@ def run_telegram_bot():
         bot_app.add_handler(CommandHandler("plaka", telegram_plaka_sorgu))
         bot_app.add_handler(CallbackQueryHandler(button_handler))
         bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, check_password))
+        
+        # Çakışmaları ve hata loglarını önlemek için güvenli çalıştırma
+        import asyncio
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
         bot_app.run_polling(drop_pending_updates=True, stop_signals=None)
     except Exception as e:
-        print("Telegram bot hata:", e)
+        print("Telegram bot çalışma uyarısı/hatası:", e)
 
 if __name__ == '__main__':
     lock_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
