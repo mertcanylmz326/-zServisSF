@@ -5,7 +5,7 @@ import threading
 import psycopg2
 from flask import Flask, render_template_string, request, send_file, session, redirect, url_for
 from telegram import Update, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, ConversationHandler, filters, ContextTypes
+from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
 from reportlab.lib.styles import ParagraphStyle
@@ -21,7 +21,7 @@ except:
     OCR_AKTIF = False
 
 app = Flask(__name__)
-app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v68"
+app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v69"
 
 SIFRE = "izmotor2026*"
 
@@ -92,7 +92,7 @@ HTML_LOGIN = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>İz Motorsiklet - Giriş</title>
+    <title>Iz Motorsıklet - Giriş</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Inter:wght@400;700;900&display=swap');
         body { font-family: 'Inter', sans-serif; background-color: #06080f; background-image: radial-gradient(rgba(250, 204, 21, 0.08) 1px, transparent 1px); display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; color: #f8fafc; }
@@ -124,7 +124,7 @@ HTML_PANEL = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>İz Motorsiklet - Grafiti Garaj Paneli</title>
+    <title>🏍Iz Motorsıklet🛵 - Grafiti Garaj Paneli</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Inter:wght@400;700;900&display=swap');
         :root { --bg-main: #04060b; --card-bg: rgba(11, 15, 25, 0.97); --accent: #facc15; --text-main: #f8fafc; --text-muted: #94a3b8; }
@@ -175,7 +175,7 @@ HTML_PANEL = """
         <div class="header-box">
             <div class="brand-title">
                 <div class="brand-icon">⚡🏍️</div>
-                <h1 class="graffiti-text">İZ MOTORSİKLET</h1>
+                <h1 class="graffiti-text">IZ MOTORSIKLET</h1>
             </div>
             <a href="/cikis" class="logout">Çıkış Yap</a>
         </div>
@@ -718,7 +718,6 @@ def cikis():
 # --- TELEGRAM BOTU ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
-        [InlineKeyboardButton("➕ Hızlı Servis Kaydı Aç", callback_data="hizli_kayit")],
         [InlineKeyboardButton("🏍️ Aktif Araçlar", callback_data="aktif_araclar"), InlineKeyboardButton("📊 Günlük Özet", callback_data="gunluk_ozet")],
         [InlineKeyboardButton("📦 Stok Durumu", callback_data="stok_listesi"), InlineKeyboardButton("📅 Randevular", callback_data="randevular")]
     ]
@@ -729,9 +728,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     data = query.data
 
-    if data == "hizli_kayit":
-        await query.edit_message_text("➕ Hızlı kayıt için web panelini kullanabilirsin veya atölyedeki aktif araçlar sekmesinden hızlıca ekleyebilirsin.")
-    elif data == "aktif_araclar":
+    if data == "aktif_araclar":
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute("SELECT plaka, musteri_ad, model, odeme_durumu FROM servisler WHERE odeme_durumu != 'Ödendi' ORDER BY id DESC")
@@ -774,13 +771,13 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text(msg or "Randevu yok.", parse_mode="Markdown")
 
 def run_telegram_bot():
-    TOKEN = os.getenv("BOT_TOKEN")
-    if not TOKEN: return
+    # Yeni Güncel Token
+    TOKEN = "9017126535:AAEBZYsO6g2IVU0OhhdadGlaH_ntFGhkYxk"
     try:
         bot_app = Application.builder().token(TOKEN).drop_pending_updates(True).build()
         bot_app.add_handler(CommandHandler("start", start))
         bot_app.add_handler(CallbackQueryHandler(button_handler))
-        bot_app.run_polling(drop_pending_updates=True)
+        bot_app.run_polling(drop_pending_updates=True, stop_signals=None)
     except Exception as e:
         print("Telegram bot hata:", e)
 
