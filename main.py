@@ -14,7 +14,7 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
 app = Flask(__name__)
-app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v61"
+app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v62"
 
 SIFRE = "izmotor2026*"
 
@@ -114,7 +114,7 @@ HTML_LOGIN = """
 </html>
 """
 
-# --- HTML ARAYÜZ (ANA PANEL) ---
+# --- HTML ARAYÜZ (ANA PANEL - KARBON FİBER & STICKY MENÜ) ---
 HTML_PANEL = """
 <!DOCTYPE html>
 <html lang="tr">
@@ -123,47 +123,75 @@ HTML_PANEL = """
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>İz Motorsiklet - ERP Paneli</title>
+    <title>İz Motorsiklet - Karbon Garaj Paneli</title>
     <style>
-        :root { --bg-main: #050811; --card-bg: rgba(11, 15, 25, 0.95); --accent: #facc15; --text-main: #f8fafc; --text-muted: #94a3b8; }
-        body { font-family: 'Inter', sans-serif; background-color: var(--bg-main); color: var(--text-main); margin: 0; padding: 10px; }
-        .container { max-width: 900px; margin: 0 auto; background: var(--card-bg); padding: 16px; border-radius: 20px; border: 1px solid rgba(250,204,21,0.25); box-shadow: 0 20px 50px rgba(0,0,0,0.9); }
+        :root { --bg-main: #06080f; --card-bg: rgba(13, 17, 28, 0.96); --accent: #facc15; --text-main: #f8fafc; --text-muted: #94a3b8; }
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: var(--bg-main); 
+            background-image: 
+                linear-gradient(45deg, rgba(20, 25, 40, 0.15) 25%, transparent 25%), 
+                linear-gradient(-45deg, rgba(20, 25, 40, 0.15) 25%, transparent 25%), 
+                linear-gradient(45deg, transparent 75%, rgba(20, 25, 40, 0.15) 75%), 
+                linear-gradient(-45deg, transparent 75%, rgba(20, 25, 40, 0.15) 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+            color: var(--text-main); margin: 0; padding: 10px; 
+        }
+        .container { max-width: 900px; margin: 0 auto; }
         
-        .header-box { display: flex; justify-content: space-between; align-items: center; background: rgba(18, 24, 40, 0.9); border: 1px solid #334155; padding: 12px 15px; border-radius: 14px; margin-bottom: 12px; }
+        /* Sabit (Sticky) Üst Kısım */
+        .sticky-header {
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            background: rgba(6, 8, 15, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(250, 204, 21, 0.2);
+            margin-bottom: 15px;
+        }
+
+        .header-box { display: flex; justify-content: space-between; align-items: center; background: var(--card-bg); border: 1px solid #334155; padding: 12px 15px; border-radius: 14px; margin-bottom: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.8); }
         .brand-title { display: flex; align-items: center; gap: 10px; color: var(--accent); font-weight: 800; font-size: 15px; text-transform: uppercase; }
         .brand-icon { background: var(--accent); color: #030712; padding: 6px 10px; border-radius: 8px; font-size: 16px; }
         .logout { color: #f87171; text-decoration: none; font-weight: 700; font-size: 12px; background: rgba(248,113,113,0.1); padding: 6px 10px; border-radius: 8px; border: 1px solid rgba(248,113,113,0.3); }
 
-        .nav-tabs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 5px; margin-bottom: 12px; }
+        .nav-tabs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 5px; }
         .tab-btn { background: #0f172a; color: var(--text-muted); border: 1px solid #334155; padding: 9px 14px; border-radius: 10px; cursor: pointer; font-weight: 700; font-size: 12px; white-space: nowrap; text-decoration: none; display: inline-flex; align-items: center; gap: 5px; }
-        .tab-btn.active { background: var(--accent); color: #030712; border-color: var(--accent); font-weight: 800; }
+        .tab-btn.active { background: var(--accent); color: #030712; border-color: var(--accent); font-weight: 800; box-shadow: 0 0 15px rgba(250,204,21,0.4); }
         
         .tab-content { display: none; }
         .tab-content.active { display: block; }
 
         .stat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 15px; }
         @media(min-width: 600px) { .stat-grid { grid-template-columns: repeat(4, 1fr); } }
-        .stat-box { background: rgba(18, 24, 40, 0.8); border: 1px solid #334155; border-left: 4px solid var(--accent); padding: 12px; border-radius: 12px; text-align: left; box-shadow: 0 0 10px rgba(250,204,21,0.05); }
+        .stat-box { background: var(--card-bg); border: 1px solid #334155; border-left: 4px solid var(--accent); padding: 12px; border-radius: 12px; text-align: left; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
         .stat-box h4 { margin: 0; color: var(--accent); font-size: 16px; font-weight: 800; }
         .stat-box p { margin: 4px 0 0 0; color: var(--text-muted); font-size: 10px; text-transform: uppercase; font-weight: 700; }
 
-        .card { background: rgba(18, 24, 40, 0.8); border: 1px solid #334155; padding: 15px; border-radius: 14px; margin-bottom: 14px; font-size: 13px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+        .card { background: var(--card-bg); border: 1px solid #334155; padding: 15px; border-radius: 14px; margin-bottom: 14px; font-size: 13px; box-shadow: 0 8px 25px rgba(0,0,0,0.6); }
         h3 { color: var(--accent); margin-top: 0; font-size: 15px; border-bottom: 1px solid #334155; padding-bottom: 8px; }
         
         input, select, textarea { width: 100%; padding: 11px; margin-bottom: 10px; background: #030712; border: 1px solid #334155; border-radius: 10px; color: #fff; box-sizing: border-box; font-size: 13px; outline: none; }
         input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 8px rgba(250,204,21,0.3); }
         label { display: block; font-weight: 700; margin-bottom: 4px; font-size: 11px; color: #cbd5e1; text-transform: uppercase; }
         
-        .btn-action { background: linear-gradient(135deg, var(--accent), #ca8a04); color: #030712; border: none; padding: 13px; border-radius: 10px; width: 100%; font-size: 14px; font-weight: 800; cursor: pointer; text-transform: uppercase; margin-top: 5px; transition: 0.2s; }
+        .btn-action { background: linear-gradient(135deg, var(--accent), #ca8a04); color: #030712; border: none; padding: 13px; border-radius: 10px; width: 100%; font-size: 14px; font-weight: 800; cursor: pointer; text-transform: uppercase; margin-top: 5px; transition: 0.2s; box-shadow: 0 4px 15px rgba(250,204,21,0.3); }
         .btn-action:active { transform: scale(0.98); }
+
+        .btn-secondary { background: #1e293b; color: var(--accent); border: 1px solid var(--accent); padding: 10px; border-radius: 10px; width: 100%; font-size: 12px; font-weight: 800; cursor: pointer; text-transform: uppercase; margin-top: 5px; }
         
         .whatsapp-btn { background: #25d366; color: #fff; padding: 8px 12px; border-radius: 8px; text-decoration: none; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 5px; margin-top: 6px; }
         .pdf-btn { background: #0284c7; color: #fff; padding: 8px 12px; border-radius: 8px; text-decoration: none; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 5px; margin-top: 6px; }
         .edit-btn { background: #d97706; color: #fff; padding: 8px 12px; border-radius: 8px; text-decoration: none; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 5px; margin-top: 6px; border: none; cursor: pointer; }
+        .delete-btn { background: #ef4444; color: #fff; padding: 8px 12px; border-radius: 8px; text-decoration: none; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 5px; margin-top: 6px; border: none; cursor: pointer; }
         
         .quick-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
         .chip { background: #1e293b; border: 1px solid #475569; color: #f8fafc; padding: 6px 10px; border-radius: 8px; font-size: 11px; cursor: pointer; font-weight: 700; }
         .chip:hover { border-color: var(--accent); color: var(--accent); }
+
+        .parca-satir { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; background: rgba(3, 7, 18, 0.5); padding: 8px; border-radius: 10px; border: 1px solid #1e293b; }
 
         /* Yükleniyor Overlay */
         #loadingOverlay { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(3,7,18,0.85); z-index:9999; justify-content: center; align-items: center; flex-direction: column; color: var(--accent); font-weight: 800; font-size: 16px; }
@@ -179,18 +207,20 @@ HTML_PANEL = """
 </div>
 
 <div class="container">
-    <div class="header-box">
-        <div class="brand-title"><span class="brand-icon">🏍️</span> İZ MOTORSİKLET GARAJ</div>
-        <a href="/cikis" class="logout">Çıkış Yap</a>
-    </div>
+    <div class="sticky-header">
+        <div class="header-box">
+            <div class="brand-title"><span class="brand-icon">🏍️</span> İZ MOTORSİKLET GARAJ</div>
+            <a href="/cikis" class="logout">Çıkış Yap</a>
+        </div>
 
-    <div class="nav-tabs">
-        <button class="tab-btn {% if aktif_tab == 'servis' %}active{% endif %}" onclick="switchTab('servisTab', this)">🛠️ Servis Formu</button>
-        <button class="tab-btn {% if aktif_tab == 'araclar' %}active{% endif %}" onclick="switchTab('araclarTab', this)">🏍️ Aktif Araçlar</button>
-        <button class="tab-btn {% if aktif_tab == 'gecmis' %}active{% endif %}" onclick="switchTab('gecmisTab', this)">🔍 Geçmiş & Borçlar</button>
-        <button class="tab-btn {% if aktif_tab == 'stok' %}active{% endif %}" onclick="switchTab('stokTab', this)">📦 Stoklar</button>
-        <button class="tab-btn {% if aktif_tab == 'randevu' %}active{% endif %}" onclick="switchTab('randevuTab', this)">📅 Randevular</button>
-        <button class="tab-btn {% if aktif_tab == 'bakim' %}active{% endif %}" onclick="switchTab('bakimTab', this)">⏰ Bakım</button>
+        <div class="nav-tabs">
+            <button class="tab-btn {% if aktif_tab == 'servis' %}active{% endif %}" onclick="switchTab('servisTab', this)">🛠️ Servis Formu</button>
+            <button class="tab-btn {% if aktif_tab == 'araclar' %}active{% endif %}" onclick="switchTab('araclarTab', this)">🏍️ Aktif Araçlar</button>
+            <button class="tab-btn {% if aktif_tab == 'gecmis' %}active{% endif %}" onclick="switchTab('gecmisTab', this)">🔍 Geçmiş & Borç</button>
+            <button class="tab-btn {% if aktif_tab == 'stok' %}active{% endif %}" onclick="switchTab('stokTab', this)">📦 Stok & Fiyat</button>
+            <button class="tab-btn {% if aktif_tab == 'randevu' %}active{% endif %}" onclick="switchTab('randevuTab', this)">📅 Randevular</button>
+            <button class="tab-btn {% if aktif_tab == 'bakim' %}active{% endif %}" onclick="switchTab('bakimTab', this)">⏰ Bakım</button>
+        </div>
     </div>
 
     <div class="stat-grid">
@@ -206,7 +236,7 @@ HTML_PANEL = """
             <h3>⚡ Yeni Servis Formu Oluştur</h3>
             
             <div style="margin-bottom: 12px;">
-                <label>Kayıtlı Araçtan Seç (Geçmiş Dahil Otomatik Doldur)</label>
+                <label>Kayıtlı Araçtan Seç (Otomatik Doldur)</label>
                 <select id="kayitliAracSec" onchange="aracBilgileriniDoldur()">
                     <option value="">-- Listeden Araç Seç (İsteğe Bağlı) --</option>
                     {% for ar in tum_araclar %}
@@ -234,18 +264,26 @@ HTML_PANEL = """
                     <option value="Ödendi">🟢 Ödendi (Arşive Gider)</option>
                 </select>
 
-                <label style="margin-top: 15px;">Hızlı İşlem Seç:</label>
+                <label style="margin-top: 15px;">Stoktan Hızlı İşlem Seç:</label>
                 <div class="quick-chips">
-                    <div class="chip" onclick="islemEkle('Yağ Değişimi', 350)">🛢️ Yağ (350 TL)</div>
-                    <div class="chip" onclick="islemEkle('Buji Değişimi', 200)">🔌 Buji (200 TL)</div>
-                    <div class="chip" onclick="islemEkle('Balata Değişimi', 500)">🛑 Balata (500 TL)</div>
-                    <div class="chip" onclick="islemEkle('Genel Bakım', 1000)">⚙️ Genel Bakım (1000 TL)</div>
+                    {% for st in stoklar %}
+                    <div class="chip" onclick="islemEkle('{{ st[1] }}', {{ st[3] }})">📦 {{ st[1] }} ({{ "%.0f"|format(st[3]) }} TL)</div>
+                    {% endfor %}
                 </div>
 
-                <label>İşlem / Parça Adı</label><input type="text" id="islem_input" name="islem_ad[]" placeholder="Örn: Yağ Değişimi / Buji" required>
-                <label>Tutar (TL)</label><input type="number" step="0.01" id="fiyat_input" name="fiyat[]" placeholder="Örn: 500" required>
+                <label style="margin-top:15px;">Yapılan İşlemler / Parçalar</label>
+                <div id="parcaListesiContainer">
+                    <!-- 5 Adet Başlangıç Satırı -->
+                    {% for i in range(5) %}
+                    <div class="parca-satir">
+                        <input type="text" name="islem_ad[]" placeholder="İşlem veya Parça Adı" {% if i == 0 %}required{% endif %} style="margin:0; flex:2;">
+                        <input type="number" step="0.01" name="fiyat[]" placeholder="Tutar (TL)" {% if i == 0 %}required{% endif %} style="margin:0; flex:1;">
+                    </div>
+                    {% endfor %}
+                </div>
+                <button type="button" class="btn-secondary" onclick="yeniSatirEkle()">➕ Daha Fazla Parça Satırı Ekle</button>
                 
-                <button type="submit" class="btn-action">Formu Oluştur & Kaydet (PDF)</button>
+                <button type="submit" class="btn-action" style="margin-top:20px;">Formu Oluştur & Kaydet (PDF)</button>
             </form>
         </div>
     </div>
@@ -297,6 +335,7 @@ HTML_PANEL = """
                     <a href="https://wa.me/{{ ts[3] }}?text=Sayin%20{{ ts[2] }},%20Iz%20Motorsiklet%20servis%20ucretiniz%20{{ "%.2f"|format(ts[8]) }}%20TL." target="_blank" class="whatsapp-btn">💬 WhatsApp</a>
                     {% if ts[11] %}<a href="/pdf_indir/{{ ts[0] }}" class="pdf-btn">📄 PDF İndir</a>{% endif %}
                     <a href="/duzenle/{{ ts[0] }}" class="edit-btn">✏️ Düzenle</a>
+                    <a href="/sil/{{ ts[0] }}" class="delete-btn" onclick="return confirm('Bu kaydı silmek istediğine emin misin?')">🗑️ Sil</a>
                 </div>
             </div>
             {% endfor %}
@@ -325,7 +364,8 @@ HTML_PANEL = """
                 
                 <div style="margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap;">
                     {% if k[11] %}<a href="/pdf_indir/{{ k[0] }}" class="pdf-btn">📄 Formu İndir</a>{% endif %}
-                    <a href="/duzenle/{{ k[0] }}" class="edit-btn">✏️ Düzenle / Not Ekle</a>
+                    <a href="/duzenle/{{ k[0] }}" class="edit-btn">✏️ Düzenle</a>
+                    <a href="/sil/{{ k[0] }}" class="delete-btn" onclick="return confirm('Bu kaydı silmek istediğine emin misin?')">🗑️ Sil</a>
                 </div>
             </div>
             {% endfor %}
@@ -334,21 +374,39 @@ HTML_PANEL = """
         {% endif %}
     </div>
 
-    <!-- 4. STOKLAR -->
+    <!-- 4. STOKLAR & FİYAT GÜNCELLEME -->
     <div id="stokTab" class="tab-content {% if aktif_tab == 'stok' %}active{% endif %}">
-        <h3>Parça / Ürün Stok Yönetimi</h3>
+        <h3>Parça / Ürün Stok ve Fiyat Yönetimi</h3>
         <form method="POST" action="/stok_ekle" onsubmit="showLoading()">
             <label>Parça Adı</label><input type="text" name="parca_adi" placeholder="Örn: Buji NGK" required>
             <label>Stok Adedi</label><input type="number" name="adet" placeholder="Adet" required>
             <label>Birim Fiyat (TL)</label><input type="number" step="0.01" name="fiyat" placeholder="Fiyat" required>
-            <button type="submit" class="btn-action">STOK EKLE</button>
+            <button type="submit" class="btn-action">YENİ STOK / PARÇA EKLE</button>
         </form>
         <hr style="border:0; border-top:1px solid #334155; margin: 15px 0;">
-        <h3>Mevcut Stoklar</h3>
+        <h3>Mevcut Parçalar ve Fiyatlar</h3>
         {% for s in stoklar %}
         <div class="card" style="border-left: 4px solid {% if s[2] < 3 %}#f87171{% else %}#4ade80{% endif %};">
-            <b>{{ s[1] }}</b> - Adet: <span style="color: {% if s[2] < 3 %}#f87171{% else %}#4ade80{% endif %}; font-weight:800;">{{ s[2] }}</span> | Fiyat: <b>{{ "%.2f"|format(s[3]) }} TL</b>
-            {% if s[2] < 3 %}<br><span style="color:#f87171; font-weight:800; font-size:11px;">⚠️ Kritik Stok!</span>{% endif %}
+            <form action="/stok_guncelle" method="POST" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                <input type="hidden" name="stok_id" value="{{ s[0] }}">
+                <div style="flex:2; min-width:120px;">
+                    <label style="font-size:9px;">Parça Adı</label>
+                    <input type="text" name="parca_adi" value="{{ s[1] }}" style="margin:0;" required>
+                </div>
+                <div style="flex:1; min-width:60px;">
+                    <label style="font-size:9px;">Adet</label>
+                    <input type="number" name="adet" value="{{ s[2] }}" style="margin:0;" required>
+                </div>
+                <div style="flex:1; min-width:80px;">
+                    <label style="font-size:9px;">Fiyat (TL)</label>
+                    <input type="number" step="0.01" name="fiyat" value="{{ s[3] }}" style="margin:0;" required>
+                </div>
+                <div style="flex:auto; margin-top:15px; display:flex; gap:6px;">
+                    <button type="submit" class="edit-btn" style="padding:10px;">💾 Güncelle</button>
+                    <a href="/stok_sil/{{ s[0] }}" class="delete-btn" style="padding:10px; text-decoration:none;" onclick="return confirm('Bu parçayı silmek istiyor musun?')">🗑️ Sil</a>
+                </div>
+            </form>
+            {% if s[2] < 3 %}<span style="color:#f87171; font-weight:800; font-size:11px; display:block; margin-top:5px;">⚠️ Kritik Stok!</span>{% endif %}
         </div>
         {% endfor %}
     </div>
@@ -369,7 +427,10 @@ HTML_PANEL = """
         <div class="card" style="border-left: 4px solid #0d9488;">
             <b>Müşteri:</b> {{ r[1] }} ({{ r[2] }})<br>
             <b>Zaman:</b> <span style="color:var(--accent); font-weight:800;">{{ r[3] }}</span>
-            <div style="margin-top:8px;"><a href="https://wa.me/{{ r[2] }}?text=Randevu%20hatirlatmasi" target="_blank" class="whatsapp-btn">💬 WhatsApp Hatırlat</a></div>
+            <div style="margin-top:8px; display:flex; gap:6px;">
+                <a href="https://wa.me/{{ r[2] }}?text=Randevu%20hatirlatmasi" target="_blank" class="whatsapp-btn">💬 WhatsApp Hatırlat</a>
+                <a href="/randevu_sil/{{ r[0] }}" class="delete-btn">🗑️ Sil</a>
+            </div>
         </div>
         {% endfor %}
     </div>
@@ -419,8 +480,31 @@ function aracBilgileriniDoldur() {
 }
 
 function islemEkle(isim, fiyat) {
-    document.getElementById('islem_input').value = isim;
-    document.getElementById('fiyat_input').value = fiyat;
+    var satirlar = document.querySelectorAll('.parca-satir');
+    for (var i = 0; i < satirlar.length; i++) {
+        var inputAd = satirlar[i].querySelector('input[name="islem_ad[]"]');
+        var inputFiyat = satirlar[i].querySelector('input[name="fiyat[]"]');
+        if (!inputAd.value) {
+            inputAd.value = isim;
+            inputFiyat.value = fiyat;
+            return;
+        }
+    }
+    // Boş satır yoksa yeni satır ekle doldur
+    yeniSatirEkle();
+    satirlar = document.querySelectorAll('.parca-satir');
+    var sonSatir = satirlar[satirlar.length - 1];
+    sonSatir.querySelector('input[name="islem_ad[]"]').value = isim;
+    sonSatir.querySelector('input[name="fiyat[]"]').value = fiyat;
+}
+
+function yeniSatirEkle() {
+    var container = document.getElementById('parcaListesiContainer');
+    var div = document.createElement('div');
+    div.className = 'parca-satir';
+    div.innerHTML = '<input type="text" name="islem_ad[]" placeholder="İşlem veya Parça Adı" style="margin:0; flex:2;">' +
+                    '<input type="number" step="0.01" name="fiyat[]" placeholder="Tutar (TL)" style="margin:0; flex:1;">';
+    container.appendChild(div);
 }
 </script>
 </body>
@@ -436,8 +520,8 @@ HTML_DUZENLE = """
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Servis Kaydını Düzenle</title>
     <style>
-        body { font-family: 'Inter', sans-serif; background-color: #050811; color: #f8fafc; padding: 20px; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
-        .box { background: rgba(11, 15, 25, 0.95); border: 1px solid #334155; padding: 25px; border-radius: 16px; width: 100%; max-width: 450px; box-shadow: 0 20px 40px rgba(0,0,0,0.8); }
+        body { font-family: 'Inter', sans-serif; background-color: #06080f; color: #f8fafc; padding: 20px; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        .box { background: rgba(13, 17, 28, 0.96); border: 1px solid #334155; padding: 25px; border-radius: 16px; width: 100%; max-width: 450px; box-shadow: 0 20px 40px rgba(0,0,0,0.8); }
         h3 { color: #facc15; margin-top: 0; border-bottom: 1px solid #334155; padding-bottom: 8px; }
         input, select, textarea { width: 100%; padding: 12px; margin-bottom: 12px; background: #030712; border: 1px solid #334155; border-radius: 10px; color: #fff; box-sizing: border-box; font-size: 13px; }
         label { display: block; font-weight: 700; margin-bottom: 4px; font-size: 11px; color: #cbd5e1; text-transform: uppercase; }
@@ -489,11 +573,13 @@ def pdf_olustur(filename, veri, logo_yolu):
     story.append(Paragraph(a_text, style_normal))
     story.append(Spacer(1, 10))
 
-    hizmet_data = [["No", "Yapılan İşlem / Parça", "Adet", "Tutar"]]
-    hizmet_data.append(["1", veri.get('islem_ad', 'Bakım'), "1", f"{veri.get('fiyat', 0.0):.2f} TL"])
-    hizmet_data.append(["", "GENEL TOPLAM", "", f"{veri.get('fiyat', 0.0):.2f} TL"])
+    hizmet_data = [["No", "Yapılan İşlem / Parça", "Tutar"]]
+    islemler = veri.get('islemler', [("Genel Bakım", veri.get('fiyat', 0.0))])
+    for idx, (isim, tutar) in enumerate(islemler, 1):
+        hizmet_data.append([str(idx), isim, f"{tutar:.2f} TL"])
+    hizmet_data.append(["", "GENEL TOPLAM", f"{veri.get('fiyat', 0.0):.2f} TL"])
 
-    t_hizmet = Table(hizmet_data, colWidths=[30, 350, 60, 100])
+    t_hizmet = Table(hizmet_data, colWidths=[30, 410, 100])
     t_hizmet.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#E0E0E0")),
         ('GRID', (0,0), (-1,-2), 0.5, colors.HexColor("#CBD5E0")),
@@ -532,8 +618,9 @@ def index():
     cursor.execute("SELECT * FROM servisler ORDER BY id DESC")
     tum_araclar = cursor.fetchall()
 
-    cursor.execute("SELECT * FROM stok")
+    cursor.execute("SELECT * FROM stok ORDER BY id DESC")
     stoklar = cursor.fetchall()
+    
     cursor.execute("SELECT * FROM randevular ORDER BY id DESC")
     randevular = cursor.fetchall()
 
@@ -544,6 +631,48 @@ def index():
     cursor.close()
     conn.close()
     return render_template_string(HTML_PANEL, kayitlar=kayitlar, sorgu_plaka=sorgu_plaka, stoklar=stoklar, randevular=randevular, aktif_araclar=aktif_araclar, tum_araclar=tum_araclar, toplam_ciro=toplam_ciro, aktif_tab=aktif_tab)
+
+@app.route('/olustur', methods=['POST'])
+def olustur():
+    if not session.get('giris'): return redirect(url_for('index'))
+    ad, tel, plaka, model, km = request.form.get('musteri_ad'), request.form.get('musteri_tel'), request.form.get('plaka', '').strip(), request.form.get('model'), request.form.get('km')
+    odeme_durumu = request.form.get('odeme_durumu', 'Borçlu / Veresiye')
+    
+    islem_listesi = request.form.getlist('islem_ad[]')
+    fiyat_listesi = request.form.getlist('fiyat[]')
+    
+    islemler = []
+    toplam_fiyat = 0.0
+    for i in range(len(islem_listesi)):
+        isim = islem_listesi[i].strip()
+        if isim:
+            try: tutar = float(fiyat_listesi[i])
+            except: tutar = 0.0
+            islemler.append((isim, tutar))
+            toplam_fiyat += tutar
+            
+    if not islemler:
+        islemler = [("Genel Bakım", 0.0)]
+        
+    detaylar_str = ", ".join([f"{item[0]} ({item[1]:.2f} TL)" for item in islemler])
+
+    logo_file = request.files.get('logo')
+    logo_path = f"temp_logo_{plaka}.jpg" if logo_file and logo_file.filename != '' else None
+    if logo_file and logo_path: logo_file.save(logo_path)
+
+    pdf_filename = f"servis_formu_{plaka}_{int(datetime.datetime.now().timestamp())}.pdf"
+    pdf_olustur(pdf_filename, {'musteri_ad': ad, 'musteri_tel': tel, 'plaka': plaka, 'model': model, 'km': km, 'islemler': islemler, 'fiyat': toplam_fiyat}, logo_path)
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO servisler (plaka, musteri_ad, musteri_tel, model, km, tarih, detaylar, toplam_tutar, durum, odeme_durumu, pdf_dosya) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'Bekliyor', %s, %s)", 
+                   (plaka, ad, tel, model, km, datetime.date.today().strftime("%d.%m.%Y"), detaylar_str, toplam_fiyat, odeme_durumu, pdf_filename))
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+    if logo_path and os.path.exists(logo_path): os.remove(logo_path)
+    return send_file(pdf_filename, as_attachment=True)
 
 @app.route('/duzenle/<int:kayit_id>', methods=['GET', 'POST'])
 def duzenle(kayit_id):
@@ -573,32 +702,16 @@ def duzenle(kayit_id):
     conn.close()
     return render_template_string(HTML_DUZENLE, kayit=kayit)
 
-@app.route('/olustur', methods=['POST'])
-def olustur():
+@app.route('/sil/<int:kayit_id>')
+def sil(kayit_id):
     if not session.get('giris'): return redirect(url_for('index'))
-    ad, tel, plaka, model, km = request.form.get('musteri_ad'), request.form.get('musteri_tel'), request.form.get('plaka', '').strip(), request.form.get('model'), request.form.get('km')
-    odeme_durumu = request.form.get('odeme_durumu', 'Borçlu / Veresiye')
-    islem_ad = request.form.getlist('islem_ad[]')[0] if request.form.getlist('islem_ad[]') else "Genel Bakım"
-    try: fiyat = float(request.form.getlist('fiyat[]')[0])
-    except: fiyat = 0.0
-
-    logo_file = request.files.get('logo')
-    logo_path = f"temp_logo_{plaka}.jpg" if logo_file and logo_file.filename != '' else None
-    if logo_file and logo_path: logo_file.save(logo_path)
-
-    pdf_filename = f"servis_formu_{plaka}_{int(datetime.datetime.now().timestamp())}.pdf"
-    pdf_olustur(pdf_filename, {'musteri_ad': ad, 'musteri_tel': tel, 'plaka': plaka, 'model': model, 'km': km, 'islem_ad': islem_ad, 'fiyat': fiyat}, logo_path)
-
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("INSERT INTO servisler (plaka, musteri_ad, musteri_tel, model, km, tarih, detaylar, toplam_tutar, durum, odeme_durumu, pdf_dosya) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'Bekliyor', %s, %s)", 
-                   (plaka, ad, tel, model, km, datetime.date.today().strftime("%d.%m.%Y"), islem_ad, fiyat, odeme_durumu, pdf_filename))
+    cursor.execute("DELETE FROM servisler WHERE id = %s", (kayit_id,))
     conn.commit()
     cursor.close()
     conn.close()
-
-    if logo_path and os.path.exists(logo_path): os.remove(logo_path)
-    return send_file(pdf_filename, as_attachment=True)
+    return redirect(url_for('index', tab='gecmis'))
 
 @app.route('/hizli_arac_ekle', methods=['POST'])
 def hizli_arac_ekle():
@@ -643,12 +756,46 @@ def stok_ekle():
     conn.close()
     return redirect(url_for('index', tab='stok'))
 
+@app.route('/stok_guncelle', methods=['POST'])
+def stok_guncelle():
+    if not session.get('giris'): return redirect(url_for('index'))
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE stok SET parca_adi=%s, adet=%s, fiyat=%s WHERE id=%s", 
+                   (request.form.get('parca_adi'), int(request.form.get('adet', 0)), float(request.form.get('fiyat', 0)), request.form.get('stok_id')))
+    conn.commit()
+    cursor.close()
+    conn.close()
+    return redirect(url_for('index', tab='stok'))
+
+@app.route('/stok_sil/<int:stok_id>')
+def stok_sil(stok_id):
+    if not session.get('giris'): return redirect(url_for('index'))
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM stok WHERE id = %s", (stok_id,))
+    conn.commit()
+    cursor.close()
+    conn.close()
+    return redirect(url_for('index', tab='stok'))
+
 @app.route('/randevu_ekle', methods=['POST'])
 def randevu_ekle():
     if not session.get('giris'): return redirect(url_for('index'))
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("INSERT INTO randevular (musteri_ad, tel, tarih_saat, notlar, hatirlatildi) VALUES (%s, %s, %s, %s, 0)", (request.form.get('musteri_ad'), request.form.get('tel'), request.form.get('tarih_saat'), request.form.get('notlar', 'Randevu')))
+    conn.commit()
+    cursor.close()
+    conn.close()
+    return redirect(url_for('index', tab='randevu'))
+
+@app.route('/randevu_sil/<int:randevu_id>')
+def randevu_sil(randevu_id):
+    if not session.get('giris'): return redirect(url_for('index'))
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM randevular WHERE id = %s", (randevu_id,))
     conn.commit()
     cursor.close()
     conn.close()
@@ -729,9 +876,9 @@ async def telegram_mesaj(update: Update, context: ContextTypes.DEFAULT_TYPE):
         stoklar = cursor.fetchall()
         cursor.close()
         conn.close()
-        msg = "📦 **Stok Durumu:**\n\n"
+        msg = "📦 **Stok ve Fiyat Durumu:**\n\n"
         for s in stoklar:
-            msg += f"- {s[0]}: {s[1]} adet ({s[3]} TL)\n"
+            msg += f"- {s[0]}: {s[1]} adet ({s[2]:.2f} TL)\n"
         await update.message.reply_text(msg or "Stok boş.", parse_mode="Markdown")
     elif text == "🏍️ Aktif Araçlar":
         conn = get_db_connection()
