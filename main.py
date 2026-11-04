@@ -5,7 +5,7 @@ import threading
 import psycopg2
 from flask import Flask, render_template_string, request, send_file, session, redirect, url_for
 from telegram import Update, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, ConversationHandler, filters, ContextTypes
+from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
 from reportlab.lib.styles import ParagraphStyle
@@ -21,7 +21,7 @@ except:
     OCR_AKTIF = False
 
 app = Flask(__name__)
-app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v71"
+app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v74"
 
 SIFRE = "izmotor2026*"
 
@@ -92,7 +92,7 @@ HTML_LOGIN = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🏍Iz Motorsıklet🛵 - Giriş</title>
+    <title>İz Motorsiklet - Giriş</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Inter:wght@400;700;900&display=swap');
         body { font-family: 'Inter', sans-serif; background-color: #06080f; background-image: radial-gradient(rgba(250, 204, 21, 0.08) 1px, transparent 1px); display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; color: #f8fafc; }
@@ -106,7 +106,7 @@ HTML_LOGIN = """
 </head>
 <body>
 <div class="login-box">
-    <h2>IZ MOTORSIKLET</h2>
+    <h2>İZ MOTORSİKLET</h2>
     <p style="color:#94a3b8; font-size:13px; margin-bottom:20px;">Tam Donanımlı Garaj Paneli</p>
     {% if error %}<div class="error">{{ error }}</div>{% endif %}
     <form method="POST">
@@ -124,7 +124,7 @@ HTML_PANEL = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Iz Motorsıklet - Grafiti Garaj Paneli</title>
+    <title>İz Motorsiklet - Grafiti Garaj Paneli</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Inter:wght@400;700;900&display=swap');
         :root { --bg-main: #04060b; --card-bg: rgba(11, 15, 25, 0.97); --accent: #facc15; --text-main: #f8fafc; --text-muted: #94a3b8; }
@@ -241,19 +241,20 @@ HTML_PANEL = """
                     <option value="Ödendi">🟢 Ödendi (Arşive Gider)</option>
                 </select>
 
-                <label style="margin-top: 15px;">Stoktan Hızlı İşlem Seç:</label>
+                <label style="margin-top: 15px;">Stoktan Hızlı Parça Seç (Tıkla ve Ekle):</label>
                 <div class="quick-chips">
                     {% for st in stoklar %}
-                    <div class="chip" onclick="islemEkle('{{ st[1] }}', {{ st[3] }})">📦 {{ st[1] }} ({{ "%.0f"|format(st[3]) }} TL)</div>
+                    <div class="chip" onclick="islemEkle('{{ st[1] }}')">📦 {{ st[1] }} (Stok: {{ st[2] }})</div>
                     {% endfor %}
                 </div>
 
-                <label style="margin-top:15px;">Yapılan İşlemler / Parçalar</label>
+                <label style="margin-top:15px;">Yapılan İşlemler / Değişen Parçalar</label>
                 <div id="parcaListesiContainer">
                     {% for i in range(5) %}
                     <div class="parca-satir">
                         <input type="text" name="islem_ad[]" placeholder="İşlem veya Parça Adı" {% if i == 0 %}required{% endif %} style="margin:0; flex:2;">
-                        <input type="number" step="0.01" name="fiyat[]" placeholder="Tutar (TL)" {% if i == 0 %}required{% endif %} style="margin:0; flex:1;">
+                        <input type="number" step="1" name="adet[]" placeholder="Adet" value="1" oninput="tutarHesapla(this)" style="margin:0; flex:1;" {% if i == 0 %}required{% endif %}>
+                        <input type="number" step="0.01" name="fiyat[]" placeholder="Tutar (TL)" oninput="tutarHesapla(this)" style="margin:0; flex:1;" {% if i == 0 %}required{% endif %}>
                     </div>
                     {% endfor %}
                 </div>
@@ -407,19 +408,28 @@ function aracBilgileriniDoldur() {
         document.getElementById('km').value = opt.getAttribute('data-km') || '';
     }
 }
-function islemEkle(isim, fiyat) {
+function islemEkle(isim) {
     var satirlar = document.querySelectorAll('.parca-satir');
     for (var i = 0; i < satirlar.length; i++) {
         var inputAd = satirlar[i].querySelector('input[name="islem_ad[]"]');
-        var inputFiyat = satirlar[i].querySelector('input[name="fiyat[]"]');
-        if (!inputAd.value) { inputAd.value = isim; inputFiyat.value = fiyat; return; }
+        var inputAdet = satirlar[i].querySelector('input[name="adet[]"]');
+        if (!inputAd.value) { 
+            inputAd.value = isim; 
+            inputAdet.value = 1;
+            return; 
+        }
     }
+}
+function tutarHesapla(element) {
+    // Fiyat alanı doğrudan toplam tutar olarak işleniyor
 }
 function yeniSatirEkle() {
     var container = document.getElementById('parcaListesiContainer');
     var div = document.createElement('div');
     div.className = 'parca-satir';
-    div.innerHTML = '<input type="text" name="islem_ad[]" placeholder="İşlem veya Parça Adı" style="margin:0; flex:2;"><input type="number" step="0.01" name="fiyat[]" placeholder="Tutar (TL)" style="margin:0; flex:1;">';
+    div.innerHTML = '<input type="text" name="islem_ad[]" placeholder="İşlem veya Parça Adı" style="margin:0; flex:2;">' +
+                    '<input type="number" step="1" name="adet[]" placeholder="Adet" value="1" style="margin:0; flex:1;">' +
+                    '<input type="number" step="0.01" name="fiyat[]" placeholder="Tutar (TL)" style="margin:0; flex:1;">';
     container.appendChild(div);
 }
 </script>
@@ -467,38 +477,103 @@ HTML_DUZENLE = """
 """
 
 def pdf_olustur(filename, veri, logo_yolu):
-    doc = SimpleDocTemplate(filename, pagesize=A4, rightMargin=15, leftMargin=15, topMargin=12, bottomMargin=12)
+    doc = SimpleDocTemplate(filename, pagesize=A4, rightMargin=20, leftMargin=20, topMargin=20, bottomMargin=20)
     story = []
-    style_normal = ParagraphStyle('Norm', fontName=FONT_NAME, fontSize=9, leading=11, textColor=colors.HexColor("#111111"))
-    style_title = ParagraphStyle('Tit', fontName=FONT_BOLD, fontSize=12, leading=15, textColor=colors.HexColor("#1A1A1A"), alignment=1, spaceAfter=6)
+    
+    style_normal = ParagraphStyle('Norm', fontName=FONT_NAME, fontSize=9, leading=12, textColor=colors.HexColor("#111111"))
+    style_bold = ParagraphStyle('Bold', fontName=FONT_BOLD, fontSize=9, leading=12, textColor=colors.HexColor("#111111"))
+    style_title = ParagraphStyle('Tit', fontName=FONT_BOLD, fontSize=13, leading=16, textColor=colors.HexColor("#1A1A1A"), alignment=1, spaceAfter=8)
 
     if logo_yolu and os.path.exists(logo_yolu):
         try:
-            story.append(Image(logo_yolu, width=540, height=60))
-            story.append(Spacer(1, 4))
+            story.append(Image(logo_yolu, width=550, height=65))
+            story.append(Spacer(1, 6))
         except: pass
 
     story.append(Paragraph("MÜŞTERİ SERVİS FORMU", style_title))
-    m_text = f"<b>Müşteri:</b> {veri.get('musteri_ad', '')} | <b>Tel:</b> {veri.get('musteri_tel', '')} | <b>Tarih:</b> {veri.get('tarih', datetime.date.today().strftime('%d.%m.%Y'))}"
-    a_text = f"<b>Plaka:</b> {veri.get('plaka', '')} | <b>Model:</b> {veri.get('model', '')} | <b>KM:</b> {veri.get('km', '')}"
-    story.append(Paragraph(m_text, style_normal))
-    story.append(Paragraph(a_text, style_normal))
+    story.append(Spacer(1, 4))
+
+    tarih_str = veri.get('tarih', datetime.date.today().strftime('%d.%m.%Y'))
+    mus_bilgi = Paragraph(f"<b>MÜŞTERİ BİLGİLERİ</b><br/><br/><b>Adı Soyadı:</b> {veri.get('musteri_ad', '')}<br/><b>Telefon:</b> {veri.get('musteri_tel', '')}<br/><b>Tarih:</b> {tarih_str}", style_normal)
+    arac_bilgi = Paragraph(f"<b>ARAÇ BİLGİLERİ</b><br/><br/><b>Plaka:</b> {veri.get('plaka', '')}<br/><b>Marka / Model:</b> {veri.get('model', '')}<br/><b>Kilometre:</b> {veri.get('km', '')}", style_normal)
+
+    info_table = Table([[mus_bilgi, arac_bilgi]], colWidths=[275, 275])
+    info_table.setStyle(TableStyle([
+        ('BOX', (0,0), (-1,-1), 1, colors.HexColor("#CBD5E1")),
+        ('INNERGRID', (0,0), (-1,-1), 0.5, colors.HexColor("#CBD5E1")),
+        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#F8FAFC")),
+        ('PADDING', (0,0), (-1,-1), 8),
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+    ]))
+    story.append(info_table)
     story.append(Spacer(1, 10))
 
-    hizmet_data = [["No", "Yapılan İşlem / Parça", "Tutar"]]
-    islemler = veri.get('islemler', [("Genel Bakım", veri.get('fiyat', 0.0))])
-    for idx, (isim, tutar) in enumerate(islemler, 1):
-        hizmet_data.append([str(idx), isim, f"{tutar:.2f} TL"])
-    hizmet_data.append(["", "GENEL TOPLAM", f"{veri.get('fiyat', 0.0):.2f} TL"])
+    hizmet_data = [[
+        Paragraph("<b>No</b>", style_bold), 
+        Paragraph("<b>Yapılan İşlem / Değişen Parça</b>", style_bold), 
+        Paragraph("<b>Adet / Miktar</b>", style_bold), 
+        Paragraph("<b>Tutar (TL)</b>", style_bold)
+    ]]
 
-    t_hizmet = Table(hizmet_data, colWidths=[30, 410, 100])
+    islemler = veri.get('islemler', [])
+    toplam_tutar = 0.0
+
+    for i in range(10):
+        if i < len(islemler):
+            isim, adet, tutar = islemler[i]
+            toplam_tutar += tutar
+            hizmet_data.append([
+                Paragraph(str(i+1), style_normal),
+                Paragraph(str(isim), style_normal),
+                Paragraph(str(adet), style_normal),
+                Paragraph(f"{tutar:.2f} TL", style_normal)
+            ])
+        else:
+            hizmet_data.append([
+                Paragraph(str(i+1), style_normal),
+                Paragraph("", style_normal),
+                Paragraph("", style_normal),
+                Paragraph("", style_normal)
+            ])
+
+    hizmet_data.append(["", Paragraph("<b>GENEL TOPLAM</b>", style_bold), "", Paragraph(f"<b>{toplam_tutar:.2f} TL</b>", style_bold)])
+
+    t_hizmet = Table(hizmet_data, colWidths=[30, 330, 90, 100])
     t_hizmet.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#E0E0E0")),
-        ('GRID', (0,0), (-1,-2), 0.5, colors.HexColor("#CBD5E0")),
-        ('BACKGROUND', (1,-1), (-1,-1), colors.HexColor("#FFD54F")),
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#E2E8F0")),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor("#CBD5E1")),
+        ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor("#FEF08A")),
         ('PADDING', (0,0), (-1,-1), 5),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
     ]))
     story.append(t_hizmet)
+    story.append(Spacer(1, 12))
+
+    notlar_data = [
+        [Paragraph("<b>Notlar ve Tespitler</b>", style_bold)],
+        [Paragraph("<br/><br/><br/>", style_normal)]
+    ]
+    t_notlar = Table(notlar_data, colWidths=[550])
+    t_notlar.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#F1F5F9")),
+        ('BOX', (0,0), (-1,-1), 0.5, colors.HexColor("#CBD5E1")),
+        ('PADDING', (0,0), (-1,-1), 6),
+    ]))
+    story.append(t_notlar)
+    story.append(Spacer(1, 20))
+
+    imza_data = [
+        [Paragraph("<b>Müşteri Onayı</b>", style_bold), Paragraph("<b>Servis Yetkilisi</b>", style_bold)],
+        [Paragraph("<br/><br/>Ad / Soyad / İmza", style_normal), Paragraph("<br/><br/>Kaşe / İmza", style_normal)]
+    ]
+    t_imza = Table(imza_data, colWidths=[270, 270])
+    t_imza.setStyle(TableStyle([
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('LINEABOVE', (0,1), (-1,1), 0.5, colors.HexColor("#000000")),
+        ('PADDING', (0,0), (-1,-1), 6),
+    ]))
+    story.append(t_imza)
+
     doc.build(story)
 
 @app.route('/', methods=['GET', 'POST'])
@@ -562,30 +637,45 @@ def olustur():
     if not session.get('giris'): return redirect(url_for('index'))
     ad, tel, plaka, model, km = request.form.get('musteri_ad'), request.form.get('musteri_tel'), request.form.get('plaka', '').strip().upper(), request.form.get('model'), request.form.get('km')
     odeme_durumu = request.form.get('odeme_durumu', 'Borçlu / Veresiye')
+    
     islem_listesi = request.form.getlist('islem_ad[]')
+    adet_listesi = request.form.getlist('adet[]')
     fiyat_listesi = request.form.getlist('fiyat[]')
     
     islemler = []
     toplam_fiyat = 0.0
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
     for i in range(len(islem_listesi)):
         isim = islem_listesi[i].strip()
         if isim:
+            try: adet = float(adet_listesi[i])
+            except: adet = 1.0
             try: tutar = float(fiyat_listesi[i])
             except: tutar = 0.0
-            islemler.append((isim, tutar))
+            
+            islemler.append((isim, adet, tutar))
             toplam_fiyat += tutar
-    if not islemler: islemler = [("Genel Bakım", 0.0)]
-    detaylar_str = ", ".join([f"{item[0]} ({item[1]:.2f} TL)" for item in islemler])
+            
+            # EĞER PARÇA STOKTA VARSA OTOMATİK DÜŞ
+            cursor.execute("SELECT id, adet FROM stok WHERE parca_adi ILIKE %s", (isim,))
+            stok_kayit = cursor.fetchone()
+            if stok_kayit:
+                stok_id, mevcut_adet = stok_kayit
+                yeni_adet = max(0, int(mevcut_adet - adet))
+                cursor.execute("UPDATE stok SET adet = %s WHERE id = %s", (yeni_adet, stok_id))
+
+    if not islemler: islemler = [("Genel Bakım", 1.0, 0.0)]
+    detaylar_str = ", ".join([f"{item[0]} ({item[1]} Adet - {item[2]:.2f} TL)" for item in islemler])
 
     logo_file = request.files.get('logo')
     logo_path = f"temp_logo_{plaka}.jpg" if logo_file and logo_file.filename != '' else None
     if logo_file and logo_path: logo_file.save(logo_path)
 
     pdf_filename = f"servis_formu_{plaka}_{int(time.time())}.pdf"
-    pdf_olustur(pdf_filename, {'musteri_ad': ad, 'musteri_tel': tel, 'plaka': plaka, 'model': model, 'km': km, 'islemler': islemler, 'fiyat': toplam_fiyat}, logo_path)
+    pdf_olustur(pdf_filename, {'musteri_ad': ad, 'musteri_tel': tel, 'plaka': plaka, 'model': model, 'km': km, 'islemler': islemler}, logo_path)
 
-    conn = get_db_connection()
-    cursor = conn.cursor()
     cursor.execute("INSERT INTO servisler (plaka, musteri_ad, musteri_tel, model, km, tarih, detaylar, toplam_tutar, durum, odeme_durumu, pdf_dosya) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'Bekliyor', %s, %s)", 
                    (plaka, ad, tel, model, km, datetime.date.today().strftime("%d.%m.%Y"), detaylar_str, toplam_fiyat, odeme_durumu, pdf_filename))
     conn.commit()
@@ -705,9 +795,9 @@ def pdf_indir(servis_id):
     if pdf_dosya and os.path.exists(pdf_dosya):
         return send_file(pdf_dosya, as_attachment=True)
     else:
-        islemler = [("Genel Bakım", toplam_tutar)]
+        islemler = [("Genel Bakım", 1.0, toplam_tutar)]
         yeni_pdf = f"servis_formu_{plaka}_{int(time.time())}.pdf"
-        pdf_olustur(yeni_pdf, {'musteri_ad': ad, 'musteri_tel': tel, 'plaka': plaka, 'model': model, 'km': km, 'tarih': tarih, 'islemler': islemler, 'fiyat': toplam_tutar}, None)
+        pdf_olustur(yeni_pdf, {'musteri_ad': ad, 'musteri_tel': tel, 'plaka': plaka, 'model': model, 'km': km, 'tarih': tarih, 'islemler': islemler}, None)
         return send_file(yeni_pdf, as_attachment=True)
 
 @app.route('/cikis')
@@ -715,22 +805,18 @@ def cikis():
     session.pop('giris', None)
     return redirect(url_for('index'))
 
-# --- TELEGRAM BOTU (ŞİFRE KORUMALI & GERİ TUŞLU SİSTEM) ---
-# Kullanıcıların giriş durumunu tutan sözlük
+# --- TELEGRAM BOTU ---
 user_sessions = {}
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    user_sessions[user_id] = False  # Önce kilitli
+    user_sessions[user_id] = False
     await update.message.reply_text("🔒 **İZ MOTORSİKLET GARAJ ASİSTANI**\n\nBu bot güvenlidir. Lütfen dükkan **Şifresini** yazın:")
 
 async def check_password(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     text = update.message.text
-
-    if user_sessions.get(user_id) is True:
-        # Zaten giriş yapıldıysa mesajları işleme
-        return
+    if user_sessions.get(user_id) is True: return
 
     if text == SIFRE:
         user_sessions[user_id] = True
@@ -750,7 +836,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
 
     if user_sessions.get(user_id) is not True:
-        await query.edit_message_text("🔒 Oturum süreniz dolmuş veya şifre girilmemiş. Lütfen `/start` yazıp şifreyle giriş yapın.")
+        await query.edit_message_text("🔒 Oturum süreniz dolmuş. Lütfen `/start` yazıp şifreyle giriş yapın.")
         return
 
     ana_menu_markup = InlineKeyboardMarkup([
