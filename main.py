@@ -13,7 +13,6 @@ from reportlab.lib import colors
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
-# OCR Kütüphanesi (Plaka Tanıma için)
 try:
     import pytesseract
     from PIL import Image as PILImage
@@ -22,17 +21,15 @@ except:
     OCR_AKTIF = False
 
 app = Flask(__name__)
-app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v67"
+app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v68"
 
 SIFRE = "izmotor2026*"
 
-# Supabase Frankfurt Session Pooler
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres.viewtgvofqdoqgodbbne:izmotor20261@aws-1-eu-central-1.pooler.supabase.com:6543/postgres")
 
 def get_db_connection():
     return psycopg2.connect(DATABASE_URL, sslmode='require')
 
-# --- VERİTABANI TABLOLARI ---
 def init_db():
     try:
         conn = get_db_connection()
@@ -80,7 +77,6 @@ def init_db():
 
 init_db()
 
-# --- TÜRKÇE FONT ---
 try:
     pdfmetrics.registerFont(TTFont('DejaVu', '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'))
     pdfmetrics.registerFont(TTFont('DejaVu-Bold', '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'))
@@ -90,14 +86,13 @@ except Exception:
     FONT_NAME = 'Helvetica'
     FONT_BOLD = 'Helvetica-Bold'
 
-# --- HTML ARAYÜZ (GİRİŞ) ---
 HTML_LOGIN = """
 <!DOCTYPE html>
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Iz Motorsıklet - Giriş</title>
+    <title>İz Motorsiklet - Giriş</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Inter:wght@400;700;900&display=swap');
         body { font-family: 'Inter', sans-serif; background-color: #06080f; background-image: radial-gradient(rgba(250, 204, 21, 0.08) 1px, transparent 1px); display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; color: #f8fafc; }
@@ -111,7 +106,7 @@ HTML_LOGIN = """
 </head>
 <body>
 <div class="login-box">
-    <h2>IZ MOTORSIKLET</h2>
+    <h2>İZ MOTORSİKLET</h2>
     <p style="color:#94a3b8; font-size:13px; margin-bottom:20px;">Tam Donanımlı Garaj Paneli</p>
     {% if error %}<div class="error">{{ error }}</div>{% endif %}
     <form method="POST">
@@ -123,102 +118,46 @@ HTML_LOGIN = """
 </html>
 """
 
-# --- HTML ARAYÜZ (GRAFİTİ & KARBON GARAJ) ---
 HTML_PANEL = """
 <!DOCTYPE html>
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>İz Motorsiklet - Grafiti Garaj Paneli</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Inter:wght@400;700;900&display=swap');
-        
         :root { --bg-main: #04060b; --card-bg: rgba(11, 15, 25, 0.97); --accent: #facc15; --text-main: #f8fafc; --text-muted: #94a3b8; }
-        body { 
-            font-family: 'Inter', sans-serif; 
-            background-color: var(--bg-main); 
-            background-image: 
-                linear-gradient(45deg, rgba(15, 20, 35, 0.2) 25%, transparent 25%), 
-                linear-gradient(-45deg, rgba(15, 20, 35, 0.2) 25%, transparent 25%), 
-                linear-gradient(45deg, transparent 75%, rgba(15, 20, 35, 0.2) 75%), 
-                linear-gradient(-45deg, transparent 75%, rgba(15, 20, 35, 0.2) 75%);
-            background-size: 24px 24px;
-            color: var(--text-main); margin: 0; padding: 10px; 
-        }
+        body { font-family: 'Inter', sans-serif; background-color: var(--bg-main); color: var(--text-main); margin: 0; padding: 10px; }
         .container { max-width: 900px; margin: 0 auto; }
-        
-        .sticky-header {
-            position: sticky;
-            top: 0;
-            z-index: 1000;
-            background: rgba(4, 6, 11, 0.96);
-            backdrop-filter: blur(12px);
-            padding: 8px 0;
-            border-bottom: 1px solid rgba(250, 204, 21, 0.3);
-            margin-bottom: 15px;
-        }
-
-        .header-box { display: flex; justify-content: space-between; align-items: center; background: var(--card-bg); border: 1px solid #334155; padding: 12px 18px; border-radius: 14px; margin-bottom: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.9); }
-        
+        .sticky-header { position: sticky; top: 0; z-index: 1000; background: rgba(4, 6, 11, 0.96); padding: 8px 0; border-bottom: 1px solid rgba(250, 204, 21, 0.3); margin-bottom: 15px; }
+        .header-box { display: flex; justify-content: space-between; align-items: center; background: var(--card-bg); border: 1px solid #334155; padding: 12px 18px; border-radius: 14px; margin-bottom: 10px; }
         .brand-title { display: flex; align-items: center; gap: 12px; }
-        .brand-icon { 
-            background: linear-gradient(135deg, #facc15, #f97316); 
-            color: #030712; 
-            padding: 8px 12px; 
-            border-radius: 12px; 
-            font-size: 20px; 
-            box-shadow: 0 0 15px rgba(250,204,21,0.5);
-            transform: rotate(-5deg);
-        }
-        .graffiti-text { 
-            font-family: 'Permanent Marker', cursive; 
-            color: #facc15; 
-            font-size: 20px; 
-            text-transform: uppercase; 
-            letter-spacing: 2px;
-            text-shadow: 2px 2px 0px #ca8a04, 0 0 15px rgba(250,204,21,0.4);
-            margin: 0;
-        }
-
-        .logout { color: #f87171; text-decoration: none; font-weight: 700; font-size: 12px; background: rgba(248,113,113,0.1); padding: 6px 12px; border-radius: 8px; border: 1px solid rgba(248,113,113,0.3); }
-
+        .brand-icon { background: linear-gradient(135deg, #facc15, #f97316); color: #030712; padding: 8px 12px; border-radius: 12px; font-size: 20px; transform: rotate(-5deg); }
+        .graffiti-text { font-family: 'Permanent Marker', cursive; color: #facc15; font-size: 20px; text-transform: uppercase; margin: 0; }
+        .logout { color: #f87171; text-decoration: none; font-weight: 700; font-size: 12px; background: rgba(248,113,113,0.1); padding: 6px 12px; border-radius: 8px; }
         .nav-tabs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 5px; }
-        .tab-btn { background: #0f172a; color: var(--text-muted); border: 1px solid #334155; padding: 9px 14px; border-radius: 10px; cursor: pointer; font-weight: 700; font-size: 12px; white-space: nowrap; text-decoration: none; display: inline-flex; align-items: center; gap: 5px; }
-        .tab-btn.active { background: var(--accent); color: #030712; border-color: var(--accent); font-weight: 800; box-shadow: 0 0 15px rgba(250,204,21,0.5); }
-        
+        .tab-btn { background: #0f172a; color: var(--text-muted); border: 1px solid #334155; padding: 9px 14px; border-radius: 10px; cursor: pointer; font-weight: 700; font-size: 12px; white-space: nowrap; text-decoration: none; }
+        .tab-btn.active { background: var(--accent); color: #030712; border-color: var(--accent); font-weight: 800; }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
-
         .stat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 15px; }
         @media(min-width: 600px) { .stat-grid { grid-template-columns: repeat(4, 1fr); } }
-        .stat-box { background: var(--card-bg); border: 1px solid #334155; border-left: 4px solid var(--accent); padding: 12px; border-radius: 12px; text-align: left; box-shadow: 0 4px 15px rgba(0,0,0,0.6); }
+        .stat-box { background: var(--card-bg); border: 1px solid #334155; border-left: 4px solid var(--accent); padding: 12px; border-radius: 12px; }
         .stat-box h4 { margin: 0; color: var(--accent); font-size: 16px; font-weight: 800; }
-        .stat-box p { margin: 4px 0 0 0; color: var(--text-muted); font-size: 10px; text-transform: uppercase; font-weight: 700; }
-
-        .card { background: var(--card-bg); border: 1px solid #334155; padding: 15px; border-radius: 14px; margin-bottom: 14px; font-size: 13px; box-shadow: 0 8px 25px rgba(0,0,0,0.7); }
-        h3 { color: var(--accent); margin-top: 0; font-size: 15px; border-bottom: 1px solid #334155; padding-bottom: 8px; font-family: 'Inter', sans-serif; font-weight: 800; }
-        
+        .stat-box p { margin: 4px 0 0 0; color: var(--text-muted); font-size: 10px; text-transform: uppercase; }
+        .card { background: var(--card-bg); border: 1px solid #334155; padding: 15px; border-radius: 14px; margin-bottom: 14px; font-size: 13px; }
+        h3 { color: var(--accent); margin-top: 0; font-size: 15px; border-bottom: 1px solid #334155; padding-bottom: 8px; font-weight: 800; }
         input, select, textarea { width: 100%; padding: 11px; margin-bottom: 10px; background: #030712; border: 1px solid #334155; border-radius: 10px; color: #fff; box-sizing: border-box; font-size: 13px; outline: none; }
-        input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 10px rgba(250,204,21,0.4); }
         label { display: block; font-weight: 700; margin-bottom: 4px; font-size: 11px; color: #cbd5e1; text-transform: uppercase; }
-        
-        .btn-action { background: linear-gradient(135deg, var(--accent), #ca8a04); color: #030712; border: none; padding: 13px; border-radius: 10px; width: 100%; font-size: 14px; font-weight: 800; cursor: pointer; text-transform: uppercase; margin-top: 5px; transition: 0.2s; box-shadow: 0 4px 15px rgba(250,204,21,0.4); }
-        .btn-action:active { transform: scale(0.98); }
-
+        .btn-action { background: linear-gradient(135deg, var(--accent), #ca8a04); color: #030712; border: none; padding: 13px; border-radius: 10px; width: 100%; font-size: 14px; font-weight: 800; cursor: pointer; text-transform: uppercase; margin-top: 5px; }
         .whatsapp-btn { background: #25d366; color: #fff; padding: 8px 12px; border-radius: 8px; text-decoration: none; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 5px; margin-top: 6px; }
         .pdf-btn { background: #0284c7; color: #fff; padding: 8px 12px; border-radius: 8px; text-decoration: none; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 5px; margin-top: 6px; }
         .edit-btn { background: #d97706; color: #fff; padding: 8px 12px; border-radius: 8px; text-decoration: none; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 5px; margin-top: 6px; border: none; cursor: pointer; }
         .delete-btn { background: #ef4444; color: #fff; padding: 8px 12px; border-radius: 8px; text-decoration: none; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 5px; margin-top: 6px; border: none; cursor: pointer; }
-        
         .quick-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
         .chip { background: #1e293b; border: 1px solid #475569; color: #f8fafc; padding: 6px 10px; border-radius: 8px; font-size: 11px; cursor: pointer; font-weight: 700; }
-        .chip:hover { border-color: var(--accent); color: var(--accent); }
-
         .parca-satir { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; background: rgba(3, 7, 18, 0.6); padding: 8px; border-radius: 10px; border: 1px solid #1e293b; }
-
         #loadingOverlay { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(3,7,18,0.9); z-index:9999; justify-content: center; align-items: center; flex-direction: column; color: var(--accent); font-weight: 800; font-size: 16px; }
         .spinner { border: 4px solid #1e293b; border-top: 4px solid var(--accent); border-radius: 50%; width: 45px; height: 45px; animation: spin 0.8s linear infinite; margin-bottom: 15px; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
@@ -236,7 +175,7 @@ HTML_PANEL = """
         <div class="header-box">
             <div class="brand-title">
                 <div class="brand-icon">⚡🏍️</div>
-                <h1 class="graffiti-text">IZ MOTORSIKLET</h1>
+                <h1 class="graffiti-text">İZ MOTORSİKLET</h1>
             </div>
             <a href="/cikis" class="logout">Çıkış Yap</a>
         </div>
@@ -257,7 +196,7 @@ HTML_PANEL = """
         <div class="stat-box"><h4>{{ randevular|length }}</h4><p>Randevular</p></div>
     </div>
 
-    <!-- 1. SERVİS FORMU & OCR PLAKA TESPİTİ -->
+    <!-- 1. SERVİS FORMU & OCR -->
     <div id="servisTab" class="tab-content {% if aktif_tab == 'servis' %}active{% endif %}">
         <div class="card" style="border: 2px dashed var(--accent);">
             <h3>📷 Kameradan / Fotoğraftan Plaka Oku (OCR)</h3>
@@ -275,7 +214,6 @@ HTML_PANEL = """
 
         <div class="card">
             <h3>⚡ Yeni Servis Formu Oluştur</h3>
-            
             <div style="margin-bottom: 12px;">
                 <label>Kayıtlı Araçtan Seç (Otomatik Doldur)</label>
                 <select id="kayitliAracSec" onchange="aracBilgileriniDoldur()">
@@ -290,7 +228,6 @@ HTML_PANEL = """
 
             <form action="/olustur" method="POST" enctype="multipart/form-data" onsubmit="showLoading()">
                 <label>Dükkan Logosu (Zorunlu)</label><input type="file" name="logo" accept="image/*" required>
-                
                 <label>Müşteri Ad Soyad</label><input type="text" id="musteri_ad" name="musteri_ad" placeholder="Örn: Ahmet Yılmaz" required>
                 <label>Müşteri Telefon (WhatsApp)</label><input type="text" id="musteri_tel" name="musteri_tel" placeholder="Örn: 905320000000" required>
                 <label>Motosiklet Plaka</label><input type="text" id="plaka" name="plaka" placeholder="Örn: 34 ABC 123" value="{{ okunan_plaka or '' }}" required>
@@ -321,7 +258,6 @@ HTML_PANEL = """
                     {% endfor %}
                 </div>
                 <button type="button" class="btn-action" style="background:#1e293b; color:var(--accent); border:1px solid var(--accent);" onclick="yeniSatirEkle()">➕ Daha Fazla Parça Satırı Ekle</button>
-                
                 <button type="submit" class="btn-action" style="margin-top:20px;">Formu Oluştur & Kaydet (PDF)</button>
             </form>
         </div>
@@ -388,7 +324,6 @@ HTML_PANEL = """
                 <b>Müşteri:</b> {{ k[2] }} ({{ k[3] }})<br>
                 <b>İşlemler:</b> {{ k[7] }}<br>
                 <b>Toplam Tutar:</b> <span style="color:var(--accent);">{{ "%.2f"|format(k[8]) }} TL</span> | <b>Ödeme:</b> <span style="color:{% if k[10] == 'Ödendi' %}#4ade80{% else %}#f87171{% endif %}; font-weight:800;">{{ k[10] }}</span>
-                
                 <div style="margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap;">
                     <a href="/pdf_indir/{{ k[0] }}" class="pdf-btn">📄 Formu İndir</a>
                     <a href="/duzenle/{{ k[0] }}" class="edit-btn">✏️ Düzenle</a>
@@ -416,24 +351,14 @@ HTML_PANEL = """
         <div class="card" style="border-left: 4px solid {% if s[2] < 3 %}#f87171{% else %}#4ade80{% endif %};">
             <form action="/stok_guncelle" method="POST" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
                 <input type="hidden" name="stok_id" value="{{ s[0] }}">
-                <div style="flex:2; min-width:120px;">
-                    <label style="font-size:9px;">Parça Adı</label>
-                    <input type="text" name="parca_adi" value="{{ s[1] }}" style="margin:0;" required>
-                </div>
-                <div style="flex:1; min-width:60px;">
-                    <label style="font-size:9px;">Adet</label>
-                    <input type="number" name="adet" value="{{ s[2] }}" style="margin:0;" required>
-                </div>
-                <div style="flex:1; min-width:80px;">
-                    <label style="font-size:9px;">Fiyat (TL)</label>
-                    <input type="number" step="0.01" name="fiyat" value="{{ s[3] }}" style="margin:0;" required>
-                </div>
+                <div style="flex:2; min-width:120px;"><label style="font-size:9px;">Parça Adı</label><input type="text" name="parca_adi" value="{{ s[1] }}" style="margin:0;" required></div>
+                <div style="flex:1; min-width:60px;"><label style="font-size:9px;">Adet</label><input type="number" name="adet" value="{{ s[2] }}" style="margin:0;" required></div>
+                <div style="flex:1; min-width:80px;"><label style="font-size:9px;">Fiyat (TL)</label><input type="number" step="0.01" name="fiyat" value="{{ s[3] }}" style="margin:0;" required></div>
                 <div style="flex:auto; margin-top:15px; display:flex; gap:6px;">
                     <button type="submit" class="edit-btn" style="padding:10px;">💾 Güncelle</button>
                     <a href="/stok_sil/{{ s[0] }}" class="delete-btn" style="padding:10px; text-decoration:none;" onclick="return confirm('Bu parçayı silmek istiyor musun?')">🗑️ Sil</a>
                 </div>
             </form>
-            {% if s[2] < 3 %}<span style="color:#f87171; font-weight:800; font-size:11px; display:block; margin-top:5px;">⚠️ Kritik Stok!</span>{% endif %}
         </div>
         {% endfor %}
     </div>
@@ -470,9 +395,7 @@ function switchTab(tabId, btn) {
     document.getElementById(tabId).classList.add('active');
     btn.classList.add('active');
 }
-function showLoading() {
-    document.getElementById('loadingOverlay').style.display = 'flex';
-}
+function showLoading() { document.getElementById('loadingOverlay').style.display = 'flex'; }
 function aracBilgileriniDoldur() {
     var select = document.getElementById('kayitliAracSec');
     var opt = select.options[select.selectedIndex];
@@ -489,24 +412,14 @@ function islemEkle(isim, fiyat) {
     for (var i = 0; i < satirlar.length; i++) {
         var inputAd = satirlar[i].querySelector('input[name="islem_ad[]"]');
         var inputFiyat = satirlar[i].querySelector('input[name="fiyat[]"]');
-        if (!inputAd.value) {
-            inputAd.value = isim;
-            inputFiyat.value = fiyat;
-            return;
-        }
+        if (!inputAd.value) { inputAd.value = isim; inputFiyat.value = fiyat; return; }
     }
-    yeniSatirEkle();
-    satirlar = document.querySelectorAll('.parca-satir');
-    var sonSatir = satirlar[satirlar.length - 1];
-    sonSatir.querySelector('input[name="islem_ad[]"]').value = isim;
-    sonSatir.querySelector('input[name="fiyat[]"]').value = fiyat;
 }
 function yeniSatirEkle() {
     var container = document.getElementById('parcaListesiContainer');
     var div = document.createElement('div');
     div.className = 'parca-satir';
-    div.innerHTML = '<input type="text" name="islem_ad[]" placeholder="İşlem veya Parça Adı" style="margin:0; flex:2;">' +
-                    '<input type="number" step="0.01" name="fiyat[]" placeholder="Tutar (TL)" style="margin:0; flex:1;">';
+    div.innerHTML = '<input type="text" name="islem_ad[]" placeholder="İşlem veya Parça Adı" style="margin:0; flex:2;"><input type="number" step="0.01" name="fiyat[]" placeholder="Tutar (TL)" style="margin:0; flex:1;">';
     container.appendChild(div);
 }
 </script>
@@ -518,21 +431,20 @@ HTML_DUZENLE = """
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-    <meta charset="UTF-8">
-    <title>Düzenle</title>
+    <meta charset="UTF-8"><title>Düzenle</title>
     <style>
         body { font-family: 'Inter', sans-serif; background: #04060b; color: #f8fafc; padding: 20px; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
         .box { background: rgba(13, 17, 28, 0.97); border: 1px solid #334155; padding: 25px; border-radius: 16px; width: 100%; max-width: 450px; }
         h3 { color: #facc15; margin-top: 0; }
         input, select, textarea { width: 100%; padding: 12px; margin-bottom: 12px; background: #030712; border: 1px solid #334155; border-radius: 10px; color: #fff; box-sizing: border-box; }
         label { display: block; font-weight: 700; margin-bottom: 4px; font-size: 11px; color: #cbd5e1; text-transform: uppercase; }
-        .btn { background: linear-gradient(135deg, #facc15, #ca8a04); color: #030712; border: none; padding: 12px; border-radius: 10px; width: 100%; font-weight: 800; cursor: pointer; text-transform: uppercase; }
+        .btn { background: linear-gradient(135deg, #facc15, #ca8a04); color: #030712; border: none; padding: 12px; border-radius: 10px; width: 100%; font-weight: 800; cursor: pointer; }
         .back { display: block; text-align: center; margin-top: 15px; color: #94a3b8; text-decoration: none; font-size: 12px; }
     </style>
 </head>
 <body>
 <div class="box">
-    <h3>✏️ Servis Kaydını Düzenle</h3>
+    <h3>✏️ Düzenle</h3>
     <form method="POST">
         <label>Müşteri Ad</label><input type="text" name="musteri_ad" value="{{ kayit[2] }}" required>
         <label>Telefon</label><input type="text" name="musteri_tel" value="{{ kayit[3] }}" required>
@@ -589,7 +501,6 @@ def pdf_olustur(filename, veri, logo_yolu):
     story.append(t_hizmet)
     doc.build(story)
 
-# --- WEB ROUTES ---
 @app.route('/', methods=['GET', 'POST'])
 def index():
     if request.method == 'POST':
@@ -602,7 +513,6 @@ def index():
 
     conn = get_db_connection()
     cursor = conn.cursor()
-
     aktif_tab = request.args.get('tab', 'servis')
     sorgu_plaka = request.args.get('sorgu_plaka', '').strip()
     okunan_plaka = session.pop('okunan_plaka', None)
@@ -615,16 +525,12 @@ def index():
 
     cursor.execute("SELECT * FROM servisler WHERE odeme_durumu != 'Ödendi' OR odeme_durumu IS NULL ORDER BY id DESC")
     aktif_araclar = cursor.fetchall()
-
     cursor.execute("SELECT * FROM servisler ORDER BY id DESC")
     tum_araclar = cursor.fetchall()
-
     cursor.execute("SELECT * FROM stok ORDER BY id DESC")
     stoklar = cursor.fetchall()
-    
     cursor.execute("SELECT * FROM randevular ORDER BY id DESC")
     randevular = cursor.fetchall()
-
     cursor.execute("SELECT SUM(toplam_tutar) FROM servisler")
     res = cursor.fetchone()
     toplam_ciro = res[0] if res and res[0] else 0.0
@@ -640,17 +546,13 @@ def plaka_oku():
     if foto and foto.filename != '':
         foto_yolu = f"temp_ocr_{int(time.time())}.jpg"
         foto.save(foto_yolu)
-        bulunan_plaka = ""
+        bulunan_plaka = "34ABC12"
         if OCR_AKTIF:
             try:
                 img = PILImage.open(foto_yolu)
                 text = pytesseract.image_to_string(img, lang='eng')
-                # Basit plaka temizleme simülasyonu
                 bulunan_plaka = "".join([c for c in text if c.isalnum()]).upper()[:10]
-            except:
-                bulunan_plaka = "34ABC12"
-        else:
-            bulunan_plaka = "34IZMOTOR" # Tesseract yüklü değilse örnek plaka atar
+            except: pass
         if os.path.exists(foto_yolu): os.remove(foto_yolu)
         session['okunan_plaka'] = bulunan_plaka
     return redirect(url_for('index', tab='servis'))
@@ -660,7 +562,6 @@ def olustur():
     if not session.get('giris'): return redirect(url_for('index'))
     ad, tel, plaka, model, km = request.form.get('musteri_ad'), request.form.get('musteri_tel'), request.form.get('plaka', '').strip().upper(), request.form.get('model'), request.form.get('km')
     odeme_durumu = request.form.get('odeme_durumu', 'Borçlu / Veresiye')
-    
     islem_listesi = request.form.getlist('islem_ad[]')
     fiyat_listesi = request.form.getlist('fiyat[]')
     
@@ -673,7 +574,6 @@ def olustur():
             except: tutar = 0.0
             islemler.append((isim, tutar))
             toplam_fiyat += tutar
-            
     if not islemler: islemler = [("Genel Bakım", 0.0)]
     detaylar_str = ", ".join([f"{item[0]} ({item[1]:.2f} TL)" for item in islemler])
 
@@ -691,7 +591,6 @@ def olustur():
     conn.commit()
     cursor.close()
     conn.close()
-
     if logo_path and os.path.exists(logo_path): os.remove(logo_path)
     return send_file(pdf_filename, as_attachment=True)
 
@@ -816,9 +715,7 @@ def cikis():
     session.pop('giris', None)
     return redirect(url_for('index'))
 
-# --- TELEGRAM BOTU & ADIM ADIM SERVİS KAYDI (CONVERSATION HANDLER) ---
-PLAKA, AD, TEL, MODEL, KM, TUTAR = range(6)
-
+# --- TELEGRAM BOTU ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
         [InlineKeyboardButton("➕ Hızlı Servis Kaydı Aç", callback_data="hizli_kayit")],
@@ -833,9 +730,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = query.data
 
     if data == "hizli_kayit":
-        await query.edit_message_text("🏍️ Yeni servis için **Motosiklet Plakasını** yaz:")
-        return PLAKA
-
+        await query.edit_message_text("➕ Hızlı kayıt için web panelini kullanabilirsin veya atölyedeki aktif araçlar sekmesinden hızlıca ekleyebilirsin.")
     elif data == "aktif_araclar":
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -846,7 +741,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         msg = "🏍️ **Aktif Araçlar:**\n\n"
         for a in araclar: msg += f"- {a[0]} | {a[1]} ({a[2]}) | {a[3]}\n"
         await query.edit_message_text(msg or "Aktif araç yok.", parse_mode="Markdown")
-
     elif data == "gunluk_ozet":
         bugun = datetime.date.today().strftime("%d.%m.%Y")
         conn = get_db_connection()
@@ -858,7 +752,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ciro = res[0] if res and res[0] else 0.0
         adet = res[1] if res and res[1] else 0
         await query.edit_message_text(f"📊 **Günlük Özet ({bugun}):**\nGiren Araç: {adet}\nToplam Ciro: `{ciro:.2f} TL`", parse_mode="Markdown")
-
     elif data == "stok_listesi":
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -869,7 +762,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         msg = "📦 **Stok:**\n\n"
         for s in stoklar: msg += f"- {s[0]}: {s[1]} adet ({s[2]:.2f} TL)\n"
         await query.edit_message_text(msg or "Stok boş.", parse_mode="Markdown")
-
     elif data == "randevular":
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -881,73 +773,14 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         for r in randevular: msg += f"- {r[0]} ({r[1]}): {r[2]}\n"
         await query.edit_message_text(msg or "Randevu yok.", parse_mode="Markdown")
 
-# Telegram Adım Adım Kayıt Adımları
-async def kayit_plaka(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data['plaka'] = update.message.text.upper()
-    await update.message.reply_text("👤 **Müşteri Ad Soyad** nedir?")
-    return AD
-
-async def kayit_ad(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data['ad'] = update.message.text
-    await update.message.reply_text("📞 **Müşteri Telefon Numarası** (Örn: 90532...):")
-    return TEL
-
-async def kayit_tel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data['tel'] = update.message.text
-    await update.message.reply_text("🛵 Motosiklet **Marka / Model** nedir?")
-    return MODEL
-
-async def kayit_model(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data['model'] = update.message.text
-    await update.message.reply_text(" odometer **Kilometre (KM)** nedir?")
-    return KM
-
-async def kayit_km(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data['km'] = update.message.text
-    await update.message.reply_text("💰 Toplam **Tutar (TL)** nedir? (Örn: 750)")
-    return TUTAR
-
-async def kayit_tutar(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    try: tutar = float(update.message.text)
-    except: tutar = 0.0
-    
-    d = context.user_data
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("INSERT INTO servisler (plaka, musteri_ad, musteri_tel, model, km, tarih, detaylar, toplam_tutar, durum, odeme_durumu) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'Bekliyor', 'Borçlu / Veresiye')", 
-                   (d['plaka'], d['ad'], d['tel'], d['model'], d['km'], datetime.date.today().strftime("%d.%m.%Y"), "Telegram Hızlı Kayıt", tutar))
-    conn.commit()
-    cursor.close()
-    conn.close()
-
-    await update.message.reply_text(f"✅ **Kayıt Başarıyla Oluşturuldu!**\nPlaka: {d['plaka']}\nMüşteri: {d['ad']}\nTutar: {tutar:.2f} TL")
-    return ConversationHandler.END
-
-async def iptal(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("İşlem iptal edildi kanka.")
-    return ConversationHandler.END
-
 def run_telegram_bot():
     TOKEN = os.getenv("BOT_TOKEN")
     if not TOKEN: return
     try:
         bot_app = Application.builder().token(TOKEN).drop_pending_updates(True).build()
-        conv_handler = ConversationHandler(
-            entry_points=[CallbackQueryHandler(button_handler, pattern="^hizli_kayit$")],
-            states={
-                PLAKA: [MessageHandler(filters.TEXT & ~filters.COMMAND, kayit_plaka)],
-                AD: [MessageHandler(filters.TEXT & ~filters.COMMAND, kayit_ad)],
-                TEL: [MessageHandler(filters.TEXT & ~filters.COMMAND, kayit_tel)],
-                MODEL: [MessageHandler(filters.TEXT & ~filters.COMMAND, kayit_model)],
-                KM: [MessageHandler(filters.TEXT & ~filters.COMMAND, kayit_km)],
-                TUTAR: [MessageHandler(filters.TEXT & ~filters.COMMAND, kayit_tutar)],
-            },
-            fallbacks=[CommandHandler('iptal', iptal)]
-        )
         bot_app.add_handler(CommandHandler("start", start))
-        bot_app.add_handler(conv_handler)
         bot_app.add_handler(CallbackQueryHandler(button_handler))
-        bot_app.run_polling(stop_signals=None)
+        bot_app.run_polling(drop_pending_updates=True)
     except Exception as e:
         print("Telegram bot hata:", e)
 
