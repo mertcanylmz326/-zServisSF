@@ -14,7 +14,7 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
 app = Flask(__name__)
-app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v58"
+app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v59"
 
 SIFRE = "izmotor2026*"
 TELEGRAM_ADMIN_CHAT_ID = None
@@ -124,63 +124,89 @@ HTML_PANEL = """
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>İz Motorsiklet - ERP Paneli</title>
     <style>
-        :root { --bg-main: #050811; --card-bg: rgba(11, 15, 25, 0.9); --accent: #facc15; --text-main: #f8fafc; --text-muted: #94a3b8; }
+        :root { --bg-main: #050811; --card-bg: rgba(11, 15, 25, 0.95); --accent: #facc15; --text-main: #f8fafc; --text-muted: #94a3b8; }
         body { font-family: 'Inter', sans-serif; background-color: var(--bg-main); color: var(--text-main); margin: 0; padding: 10px; }
-        .container { max-width: 900px; margin: 0 auto; background: var(--card-bg); padding: 18px; border-radius: 20px; border: 1px solid rgba(250,204,21,0.25); box-shadow: 0 20px 50px rgba(0,0,0,0.9); }
-        .top-navbar { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; padding-bottom: 10px; margin-bottom: 15px; }
-        .nav-tabs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 5px; }
-        .tab-btn { background: #0f172a; color: var(--text-muted); border: 1px solid #334155; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-weight: 700; font-size: 12px; white-space: nowrap; }
+        .container { max-width: 900px; margin: 0 auto; background: var(--card-bg); padding: 16px; border-radius: 20px; border: 1px solid rgba(250,204,21,0.25); box-shadow: 0 20px 50px rgba(0,0,0,0.9); }
+        
+        .header-box { display: flex; justify-content: space-between; align-items: center; background: rgba(18, 24, 40, 0.9); border: 1px solid #334155; padding: 12px 15px; border-radius: 14px; margin-bottom: 12px; }
+        .brand-title { display: flex; align-items: center; gap: 10px; color: var(--accent); font-weight: 800; font-size: 15px; text-transform: uppercase; }
+        .brand-icon { background: var(--accent); color: #030712; padding: 6px 10px; border-radius: 8px; font-size: 16px; }
+        .logout { color: #f87171; text-decoration: none; font-weight: 700; font-size: 12px; background: rgba(248,113,113,0.1); padding: 6px 10px; border-radius: 8px; border: 1px solid rgba(248,113,113,0.3); }
+
+        .nav-tabs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 5px; margin-bottom: 12px; }
+        .tab-btn { background: #0f172a; color: var(--text-muted); border: 1px solid #334155; padding: 9px 14px; border-radius: 10px; cursor: pointer; font-weight: 700; font-size: 12px; white-space: nowrap; text-decoration: none; display: inline-flex; align-items: center; gap: 5px; }
         .tab-btn.active { background: var(--accent); color: #030712; border-color: var(--accent); font-weight: 800; }
+        
         .tab-content { display: none; }
         .tab-content.active { display: block; }
-        .card { background: rgba(18, 24, 40, 0.8); border: 1px solid #334155; padding: 15px; border-radius: 14px; margin-bottom: 14px; font-size: 13px; }
-        h3 { color: var(--accent); margin-top: 0; font-size: 15px; border-bottom: 1px solid #334155; padding-bottom: 8px; }
-        input, select, textarea { width: 100%; padding: 11px; margin-bottom: 10px; background: #030712; border: 1px solid #334155; border-radius: 10px; color: #fff; box-sizing: border-box; font-size: 13px; }
-        label { display: block; font-weight: 700; margin-bottom: 4px; font-size: 11px; color: #cbd5e1; text-transform: uppercase; }
-        .btn-action { background: linear-gradient(135deg, var(--accent), #ca8a04); color: #030712; border: none; padding: 13px; border-radius: 10px; width: 100%; font-size: 14px; font-weight: 800; cursor: pointer; text-transform: uppercase; margin-top: 8px; }
-        .whatsapp-btn { background: #25d366; color: #fff; padding: 7px 10px; border-radius: 8px; text-decoration: none; font-size: 11px; font-weight: 800; display: inline-block; margin-top: 5px; }
-        .pdf-btn { background: #0284c7; color: #fff; padding: 7px 10px; border-radius: 8px; text-decoration: none; font-size: 11px; font-weight: 800; display: inline-block; margin-top: 5px; }
-        .logout { color: #f87171; text-decoration: none; font-weight: 700; font-size: 12px; background: rgba(248,113,113,0.1); padding: 5px 10px; border-radius: 6px; border: 1px solid rgba(248,113,113,0.3); }
+
         .stat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 15px; }
         @media(min-width: 600px) { .stat-grid { grid-template-columns: repeat(4, 1fr); } }
-        .stat-box { background: rgba(20,27,45,0.7); border: 1px solid #334155; padding: 10px; border-radius: 10px; text-align: center; }
-        .stat-box h4 { margin: 0; color: var(--accent); font-size: 16px; }
-        .stat-box p { margin: 3px 0 0 0; color: var(--text-muted); font-size: 10px; text-transform: uppercase; font-weight: 700; }
+        .stat-box { background: rgba(18, 24, 40, 0.8); border: 1px solid #334155; border-left: 4px solid var(--accent); padding: 12px; border-radius: 12px; text-align: left; }
+        .stat-box h4 { margin: 0; color: var(--accent); font-size: 16px; font-weight: 800; }
+        .stat-box p { margin: 4px 0 0 0; color: var(--text-muted); font-size: 10px; text-transform: uppercase; font-weight: 700; }
+
+        .card { background: rgba(18, 24, 40, 0.8); border: 1px solid #334155; padding: 15px; border-radius: 14px; margin-bottom: 14px; font-size: 13px; }
+        h3 { color: var(--accent); margin-top: 0; font-size: 15px; border-bottom: 1px solid #334155; padding-bottom: 8px; }
+        
+        input, select, textarea { width: 100%; padding: 11px; margin-bottom: 10px; background: #030712; border: 1px solid #334155; border-radius: 10px; color: #fff; box-sizing: border-box; font-size: 13px; outline: none; }
+        input:focus, select:focus { border-color: var(--accent); }
+        label { display: block; font-weight: 700; margin-bottom: 4px; font-size: 11px; color: #cbd5e1; text-transform: uppercase; }
+        
+        .btn-action { background: linear-gradient(135deg, var(--accent), #ca8a04); color: #030712; border: none; padding: 13px; border-radius: 10px; width: 100%; font-size: 14px; font-weight: 800; cursor: pointer; text-transform: uppercase; margin-top: 5px; }
+        .whatsapp-btn { background: #25d366; color: #fff; padding: 8px 12px; border-radius: 8px; text-decoration: none; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 5px; margin-top: 6px; }
+        .pdf-btn { background: #0284c7; color: #fff; padding: 8px 12px; border-radius: 8px; text-decoration: none; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 5px; margin-top: 6px; }
     </style>
 </head>
 <body>
 <div class="container">
-    <div class="top-navbar">
-        <h2 style="margin:0; color:var(--accent); font-size:16px;">🏍️ İZ MOTORSİKLET</h2>
-        <a href="/cikis" class="logout">Çıkış</a>
+    <div class="header-box">
+        <div class="brand-title"><span class="brand-icon">🏍️</span> İZ MOTORSİKLET GARAJ</div>
+        <a href="/cikis" class="logout">Çıkış Yap</a>
     </div>
 
     <div class="nav-tabs">
-        <button class="tab-btn active" onclick="switchTab('formTab', this)">🛠️ Servis</button>
-        <button class="tab-btn" onclick="switchTab('araclarTab', this)">🏍️ Aktif Araçlar</button>
-        <button class="tab-btn" onclick="switchTab('historyTab', this)">🔍 Geçmiş</button>
-        <button class="tab-btn" onclick="switchTab('stockTab', this)">📦 Stok</button>
-        <button class="tab-btn" onclick="switchTab('randevuTab', this)">📅 Randevu</button>
+        <button class="tab-btn {% if aktif_tab == 'servis' %}active{% endif %}" onclick="switchTab('servisTab', this)">🛠️ Servis Formu</button>
+        <button class="tab-btn {% if aktif_tab == 'araclar' %}active{% endif %}" onclick="switchTab('araclarTab', this)">🏍️ Aktif Araçlar</button>
+        <button class="tab-btn {% if aktif_tab == 'gecmis' %}active{% endif %}" onclick="switchTab('gecmisTab', this)">🔍 Geçmiş</button>
+        <button class="tab-btn {% if aktif_tab == 'stok' %}active{% endif %}" onclick="switchTab('stokTab', this)">📦 Stoklar</button>
+        <button class="tab-btn {% if aktif_tab == 'randevu' %}active{% endif %}" onclick="switchTab('randevuTab', this)">📅 Randevular</button>
+        <button class="tab-btn {% if aktif_tab == 'bakim' %}active{% endif %}" onclick="switchTab('bakimTab', this)">⏰ Bakım</button>
     </div>
 
-    <div class="stat-grid" style="margin-top: 15px;">
+    <div class="stat-grid">
         <div class="stat-box"><h4>{{ "%.2f"|format(toplam_ciro) }} TL</h4><p>Toplam Ciro</p></div>
-        <div class="stat-box"><h4>{{ aktif_araclar|length }}</h4><p>Aktif Araç</p></div>
+        <div class="stat-box"><h4>{{ aktif_araclar|length }}</h4><p>Toplam Araç</p></div>
         <div class="stat-box"><h4>{{ stoklar|length }}</h4><p>Stok Çeşit</p></div>
         <div class="stat-box"><h4>{{ randevular|length }}</h4><p>Randevular</p></div>
     </div>
 
     <!-- 1. SERVİS FORMU -->
-    <div id="formTab" class="tab-content active">
+    <div id="servisTab" class="tab-content {% if aktif_tab == 'servis' %}active{% endif %}">
         <div class="card">
             <h3>⚡ Yeni Servis Formu Oluştur</h3>
+            
+            <div style="margin-bottom: 12px;">
+                <label>Kayıtlı Araçtan Seç (Otomatik Doldur)</label>
+                <select id="kayitliAracSec" onchange="aracBilgileriniDoldur()">
+                    <option value="">-- Listeden Araç Seç (İsteğe Bağlı) --</option>
+                    {% for ar in aktif_araclar %}
+                    <option value="{{ ar[1] }}" data-ad="{{ ar[2] }}" data-tel="{{ ar[3] }}" data-model="{{ ar[4] }}" data-km="{{ ar[5] }}">
+                        {{ ar[1] }} - {{ ar[2] }} ({{ ar[4] }})
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
             <form action="/olustur" method="POST" enctype="multipart/form-data">
                 <label>Dükkan Logosu (Zorunlu)</label><input type="file" name="logo" accept="image/*" required>
-                <label>Müşteri Ad Soyad</label><input type="text" name="musteri_ad" placeholder="Örn: Ahmet Yılmaz" required>
-                <label>Müşteri Telefon (WhatsApp)</label><input type="text" name="musteri_tel" placeholder="Örn: 905320000000" required>
-                <label>Motosiklet Plaka</label><input type="text" name="plaka" placeholder="Örn: 34 ABC 123" required>
-                <label>Marka / Model</label><input type="text" name="model" placeholder="Örn: Honda Dio" required>
-                <label>Kilometre (KM)</label><input type="text" name="km" placeholder="Örn: 15000" required>
+                <label>Hasar / Durum Fotoğrafı (İsteğe Bağlı)</label><input type="file" name="hasar_foto" accept="image/*">
+                
+                <label>Müşteri Ad Soyad</label><input type="text" id="musteri_ad" name="musteri_ad" placeholder="Örn: Ahmet Yılmaz" required>
+                <label>Müşteri Telefon (WhatsApp)</label><input type="text" id="musteri_tel" name="musteri_tel" placeholder="Örn: 905320000000" required>
+                <label>Motosiklet Plaka</label><input type="text" id="plaka" name="plaka" placeholder="Örn: 34 ABC 123" required>
+                <label>Marka / Model</label><input type="text" id="model" name="model" placeholder="Örn: Honda Dio" required>
+                <label>Kilometre (KM)</label><input type="text" id="km" name="km" placeholder="Örn: 15000" required>
                 
                 <label>Ödeme Durumu</label>
                 <select name="odeme_durumu">
@@ -198,27 +224,51 @@ HTML_PANEL = """
     </div>
 
     <!-- 2. AKTİF ARAÇLAR -->
-    <div id="araclarTab" class="tab-content">
-        <h3>Atölyedeki Aktif Araçlar</h3>
+    <div id="araclarTab" class="tab-content {% if aktif_tab == 'araclar' %}active{% endif %}">
+        <div class="card" style="border-left: 4px solid var(--accent);">
+            <h3>➕ Doğrudan Servise Yeni Araç Ekle</h3>
+            <form action="/hizli_arac_ekle" method="POST">
+                <input type="text" name="plaka" placeholder="Plaka (Örn: 34 ABC)" required>
+                <input type="text" name="musteri_ad" placeholder="Müşteri Ad Soyad" required>
+                <input type="text" name="tel" placeholder="Telefon (90532...)" required>
+                <input type="text" name="model" placeholder="Model (Örn: Honda Dio)" required>
+                <input type="text" name="km" placeholder="KM (Örn: 12000)" required>
+                <button type="submit" class="btn-action">HIZLI ARACI EKLE</button>
+            </form>
+        </div>
+
+        <h3>Atölyedeki / Servisteki Aktif Araçlar</h3>
         {% if aktif_araclar %}
             {% for ts in aktif_araclar %}
-            <div class="card" style="border-left: 4px solid {% if ts[10] == 'Borçlu / Veresiye' %}#f87171{% else %}#facc15{% endif %};">
+            <div class="card" style="border-left: 4px solid {% if ts[10] == 'Borçlu / Veresiye' %}#f87171{% else %}#4ade80{% endif %};">
                 <b>Plaka:</b> <span style="color:var(--accent); font-size:14px;">{{ ts[1] }}</span> | <b>Müşteri:</b> {{ ts[2] }} ({{ ts[3] }})<br>
                 <b>Model / KM:</b> {{ ts[4] }} - {{ ts[5] }} KM | <b>Tarih:</b> {{ ts[6] }}<br>
                 <b>Yapılanlar:</b> {{ ts[7] }} | <b>Tutar:</b> <span style="color:var(--accent); font-weight:800;">{{ "%.2f"|format(ts[8]) }} TL</span><br>
                 
                 <form action="/durum_guncelle" method="POST" style="margin-top: 10px; display:flex; gap:8px;">
                     <input type="hidden" name="servis_id" value="{{ ts[0] }}">
-                    <select name="odeme_durumu" onchange="this.form.submit()" style="margin:0; font-size:11px; padding:6px;">
-                        <option value="Borçlu / Veresiye" {% if ts[10] == 'Borçlu / Veresiye' %}selected{% endif %}>🔴 Borçlu</option>
-                        <option value="Parça Bekliyor" {% if ts[10] == 'Parça Bekliyor' %}selected{% endif %}>🟡 Parça Bekliyor</option>
-                        <option value="Ödendi">🟢 Ödendi (Arşive At)</option>
-                    </select>
+                    <div style="flex:1;">
+                        <label style="font-size:9px;">Çalışma Durumu</label>
+                        <select name="durum" onchange="this.form.submit()" style="margin:0; font-size:11px; padding:6px;">
+                            <option value="Bekliyor" {% if ts[9] == 'Bekliyor' %}selected{% endif %}>Bekliyor</option>
+                            <option value="Parça Bekliyor" {% if ts[9] == 'Parça Bekliyor' %}selected{% endif %}>Parça Bekliyor</option>
+                            <option value="Hazır" {% if ts[9] == 'Hazır' %}selected{% endif %}>Hazır</option>
+                            <option value="Teslime Hazır" {% if ts[9] == 'Teslime Hazır' %}selected{% endif %}>Teslime Hazır</option>
+                        </select>
+                    </div>
+                    <div style="flex:1;">
+                        <label style="font-size:9px;">Ödeme Durumu</label>
+                        <select name="odeme_durumu" onchange="this.form.submit()" style="margin:0; font-size:11px; padding:6px;">
+                            <option value="Borçlu / Veresiye" {% if ts[10] == 'Borçlu / Veresiye' %}selected{% endif %}>🔴 Borçlu</option>
+                            <option value="Parça Bekliyor" {% if ts[10] == 'Parça Bekliyor' %}selected{% endif %}>🟡 Parça Bekliyor</option>
+                            <option value="Ödendi" {% if ts[10] == 'Ödendi' %}selected{% endif %}>🟢 Ödendi</option>
+                        </select>
+                    </div>
                 </form>
 
                 <div style="margin-top: 8px;">
                     <a href="https://wa.me/{{ ts[3] }}?text=Sayin%20{{ ts[2] }},%20Iz%20Motorsiklet%20servis%20ucretiniz%20{{ "%.2f"|format(ts[8]) }}%20TL." target="_blank" class="whatsapp-btn">💬 WhatsApp</a>
-                    {% if ts[11] %}<a href="/pdf_indir/{{ ts[0] }}" class="pdf-btn">📄 PDF İndir</a>{% endif %}
+                    {% if ts[11] %}<a href="/pdf_indir/{{ ts[0] }}" class="pdf-btn">📄 Formu İndir (PDF)</a>{% endif %}
                 </div>
             </div>
             {% endfor %}
@@ -228,23 +278,23 @@ HTML_PANEL = """
     </div>
 
     <!-- 3. GEÇMİŞ -->
-    <div id="historyTab" class="tab-content">
+    <div id="gecmisTab" class="tab-content {% if aktif_tab == 'gecmis' %}active{% endif %}">
         <form method="GET" action="/">
-            <input type="hidden" name="tab" value="history">
-            <label>Plaka veya Müşteri Adı ile Ara</label>
-            <input type="text" name="sorgu_plaka" placeholder="Örn: 34 RAP..." value="{{ sorgu_plaka or '' }}">
-            <button type="submit" class="btn-action" style="padding:10px;">Geçmişte Sorgula</button>
+            <input type="hidden" name="tab" value="gecmis">
+            <label>Plaka veya Müşteri Adı ile Sorgula</label>
+            <input type="text" name="sorgu_plaka" placeholder="Örn: 34 RAP 619" value="{{ sorgu_plaka or '' }}">
+            <button type="submit" class="btn-action">HIZLI ARAMA YAP</button>
         </form>
         <hr style="border:0; border-top:1px solid #334155; margin: 15px 0;">
-        <h3>Ödenmiş Geçmiş Servisler</h3>
+        <h3 style="color:var(--accent);">Arama Sonuçları / Geçmiş</h3>
         {% if kayitlar %}
             {% for k in kayitlar %}
-            <div class="card" style="border-left: 4px solid #4ade80;">
+            <div class="card" style="border-left: 4px solid {% if k[10] == 'Ödendi' %}#4ade80{% else %}#f87171{% endif %};">
                 <b>Plaka:</b> <span style="color:var(--accent);">{{ k[1] }}</span> | <b>Tarih:</b> {{ k[6] }}<br>
                 <b>Müşteri:</b> {{ k[2] }} ({{ k[3] }})<br>
                 <b>İşlemler:</b> {{ k[7] }}<br>
-                <b>Tutar:</b> <span style="color:var(--accent);">{{ "%.2f"|format(k[8]) }} TL</span> | <span style="color:#4ade80; font-weight:800;">{{ k[10] }}</span>
-                {% if k[11] %}<br><a href="/pdf_indir/{{ k[0] }}" class="pdf-btn" style="margin-top:8px;">📄 Formu İndir</a>{% endif %}
+                <b>Toplam Tutar:</b> <span style="color:var(--accent);">{{ "%.2f"|format(k[8]) }} TL</span> | <b>Ödeme:</b> <span style="color:{% if k[10] == 'Ödendi' %}#4ade80{% else %}#f87171{% endif %}; font-weight:800;">{{ k[10] }}</span>
+                {% if k[11] %}<br><a href="/pdf_indir/{{ k[0] }}" class="pdf-btn" style="margin-top:8px;">📄 Formu İndir (PDF)</a>{% endif %}
             </div>
             {% endfor %}
         {% else %}
@@ -252,14 +302,14 @@ HTML_PANEL = """
         {% endif %}
     </div>
 
-    <!-- 4. STOK -->
-    <div id="stockTab" class="tab-content">
+    <!-- 4. STOKLAR -->
+    <div id="stokTab" class="tab-content {% if aktif_tab == 'stok' %}active{% endif %}">
         <h3>Parça / Ürün Stok Yönetimi</h3>
         <form method="POST" action="/stok_ekle">
             <label>Parça Adı</label><input type="text" name="parca_adi" placeholder="Örn: Buji NGK" required>
             <label>Stok Adedi</label><input type="number" name="adet" placeholder="Adet" required>
             <label>Birim Fiyat (TL)</label><input type="number" step="0.01" name="fiyat" placeholder="Fiyat" required>
-            <button type="submit" class="btn-action">Stok Ekle</button>
+            <button type="submit" class="btn-action">STOK EKLE</button>
         </form>
         <hr style="border:0; border-top:1px solid #334155; margin: 15px 0;">
         <h3>Mevcut Stoklar</h3>
@@ -271,14 +321,15 @@ HTML_PANEL = """
         {% endfor %}
     </div>
 
-    <!-- 5. RANDEVU -->
-    <div id="randevuTab" class="tab-content">
-        <h3>Atölye Randevuları</h3>
+    <!-- 5. RANDEVULAR -->
+    <div id="randevuTab" class="tab-content {% if aktif_tab == 'randevu' %}active{% endif %}">
+        <h3>Atölye Randevu Takvimi</h3>
         <form method="POST" action="/randevu_ekle">
-            <label>Müşteri Ad Soyad</label><input type="text" name="musteri_ad" placeholder="Ad Soyad" required>
-            <label>Telefon</label><input type="text" name="tel" placeholder="90532..." required>
-            <label>Tarih ve Saat</label><input type="text" name="tarih_saat" placeholder="05.11.2026 - 14:30" required>
-            <button type="submit" class="btn-action">Randevu Oluştur</button>
+            <label>Müşteri Ad Soyad</label><input type="text" name="musteri_ad" placeholder="Müşteri Ad Soyad" required>
+            <label>Telefon Numarası</label><input type="text" name="tel" placeholder="Telefon Numarası" required>
+            <label>Randevu Tarih ve Saati</label><input type="text" name="tarih_saat" placeholder="Örn: 05.11.2026 - 14:30" required>
+            <label>Randevu Notu</label><input type="text" name="notlar" placeholder="Randevu Notu">
+            <button type="submit" class="btn-action">RANDEVU OLUŞTUR</button>
         </form>
         <hr style="border:0; border-top:1px solid #334155; margin: 15px 0;">
         <h3>Aktif Randevular</h3>
@@ -290,6 +341,25 @@ HTML_PANEL = """
         </div>
         {% endfor %}
     </div>
+
+    <!-- 6. BAKIM (AKILLI BAKIM HATIRLATICI) -->
+    <div id="bakimTab" class="tab-content {% if aktif_tab == 'bakim' %}active{% endif %}">
+        <h3 style="color:var(--accent);">Akıllı Bakım Hatırlatıcı</h3>
+        <p style="color:var(--text-muted); font-size:12px;">Daha önce servis kaydı açılmış motorlar için periyodik bakım hatırlatması gönderebilirsiniz.</p>
+        {% if aktif_araclar %}
+            {% for ts in aktif_araclar %}
+            <div class="card" style="border-left: 4px solid var(--accent);">
+                <b>Plaka:</b> <span style="color:var(--accent);">{{ ts[1] }}</span> | <b>Müşteri:</b> {{ ts[2] }} ({{ ts[3] }})<br>
+                <b>Model / KM:</b> {{ ts[4] }} - {{ ts[5] }} KM<br>
+                <div style="margin-top:10px;">
+                    <a href="https://wa.me/{{ ts[3] }}?text=Sayin%20{{ ts[2] }},%20Iz%20Motorsiklet%20periyodik%20bakim%20vaktiniz%20yaklasmistir.%20Bekliyoruz." target="_blank" class="whatsapp-btn">💬 Bakım Hatırlatması Gönder</a>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <p style="color: var(--text-muted); text-align: center;">Kayıtlı aktif araç bulunmuyor.</p>
+        {% endif %}
+    </div>
 </div>
 
 <script>
@@ -298,6 +368,18 @@ function switchTab(tabId, btn) {
     document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
     document.getElementById(tabId).classList.add('active');
     btn.classList.add('active');
+}
+
+function aracBilgileriniDoldur() {
+    var select = document.getElementById('kayitliAracSec');
+    var opt = select.options[select.selectedIndex];
+    if (opt.value) {
+        document.getElementById('plaka').value = opt.value;
+        document.getElementById('musteri_ad').value = opt.getAttribute('data-ad') || '';
+        document.getElementById('musteri_tel').value = opt.getAttribute('data-tel') || '';
+        document.getElementById('model').value = opt.getAttribute('data-model') || '';
+        document.getElementById('km').value = opt.getAttribute('data-km') || '';
+    }
 }
 </script>
 </body>
@@ -352,9 +434,11 @@ def index():
     conn = get_db_connection()
     cursor = conn.cursor()
 
+    aktif_tab = request.args.get('tab', 'servis')
     sorgu_plaka = request.args.get('sorgu_plaka', '').strip()
+    
     if sorgu_plaka:
-        cursor.execute("SELECT * FROM servisler WHERE (plaka ILIKE %s OR musteri_ad ILIKE %s) AND odeme_durumu = 'Ödendi' ORDER BY id DESC", ('%' + sorgu_plaka + '%', '%' + sorgu_plaka + '%'))
+        cursor.execute("SELECT * FROM servisler WHERE (plaka ILIKE %s OR musteri_ad ILIKE %s) ORDER BY id DESC", ('%' + sorgu_plaka + '%', '%' + sorgu_plaka + '%'))
     else:
         cursor.execute("SELECT * FROM servisler WHERE odeme_durumu = 'Ödendi' ORDER BY id DESC")
     kayitlar = cursor.fetchall()
@@ -373,7 +457,7 @@ def index():
 
     cursor.close()
     conn.close()
-    return render_template_string(HTML_PANEL, kayitlar=kayitlar, sorgu_plaka=sorgu_plaka, stoklar=stoklar, randevular=randevular, aktif_araclar=aktif_araclar, toplam_ciro=toplam_ciro)
+    return render_template_string(HTML_PANEL, kayitlar=kayitlar, sorgu_plaka=sorgu_plaka, stoklar=stoklar, randevular=randevular, aktif_araclar=aktif_araclar, toplam_ciro=toplam_ciro, aktif_tab=aktif_tab)
 
 @app.route('/olustur', methods=['POST'])
 def olustur():
@@ -402,16 +486,37 @@ def olustur():
     if logo_path and os.path.exists(logo_path): os.remove(logo_path)
     return send_file(pdf_filename, as_attachment=True)
 
+@app.route('/hizli_arac_ekle', methods=['POST'])
+def hizli_arac_ekle():
+    if not session.get('giris'): return redirect(url_for('index'))
+    plaka, ad, tel, model, km = request.form.get('plaka'), request.form.get('musteri_ad'), request.form.get('tel'), request.form.get('model'), request.form.get('km')
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO servisler (plaka, musteri_ad, musteri_tel, model, km, tarih, detaylar, toplam_tutar, durum, odeme_durumu) VALUES (%s, %s, %s, %s, %s, %s, %s, 0.0, 'Bekliyor', 'Borçlu / Veresiye')", 
+                   (plaka, ad, tel, model, km, datetime.date.today().strftime("%d.%m.%Y"), "Hızlı Kayıt"))
+    conn.commit()
+    cursor.close()
+    conn.close()
+    return redirect(url_for('index', tab='araclar'))
+
 @app.route('/durum_guncelle', methods=['POST'])
 def durum_guncelle():
     if not session.get('giris'): return redirect(url_for('index'))
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("UPDATE servisler SET odeme_durumu = %s WHERE id = %s", (request.form.get('odeme_durumu'), request.form.get('servis_id')))
+    durum = request.form.get('durum')
+    odeme = request.form.get('odeme_durumu')
+    servis_id = request.form.get('servis_id')
+    
+    if durum:
+        cursor.execute("UPDATE servisler SET durum = %s WHERE id = %s", (durum, servis_id))
+    if odeme:
+        cursor.execute("UPDATE servisler SET odeme_durumu = %s WHERE id = %s", (odeme, servis_id))
+        
     conn.commit()
     cursor.close()
     conn.close()
-    return redirect(url_for('index'))
+    return redirect(url_for('index', tab='araclar'))
 
 @app.route('/stok_ekle', methods=['POST'])
 def stok_ekle():
@@ -422,18 +527,18 @@ def stok_ekle():
     conn.commit()
     cursor.close()
     conn.close()
-    return redirect(url_for('index'))
+    return redirect(url_for('index', tab='stok'))
 
 @app.route('/randevu_ekle', methods=['POST'])
 def randevu_ekle():
     if not session.get('giris'): return redirect(url_for('index'))
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("INSERT INTO randevular (musteri_ad, tel, tarih_saat, notlar, hatirlatildi) VALUES (%s, %s, %s, %s, 0)", (request.form.get('musteri_ad'), request.form.get('tel'), request.form.get('tarih_saat'), 'Randevu'))
+    cursor.execute("INSERT INTO randevular (musteri_ad, tel, tarih_saat, notlar, hatirlatildi) VALUES (%s, %s, %s, %s, 0)", (request.form.get('musteri_ad'), request.form.get('tel'), request.form.get('tarih_saat'), request.form.get('notlar', 'Randevu')))
     conn.commit()
     cursor.close()
     conn.close()
-    return redirect(url_for('index'))
+    return redirect(url_for('index', tab='randevu'))
 
 @app.route('/pdf_indir/<int:servis_id>')
 def pdf_indir(servis_id):
