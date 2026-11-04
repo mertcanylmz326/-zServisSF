@@ -21,7 +21,7 @@ except:
     OCR_AKTIF = False
 
 app = Flask(__name__)
-app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v69"
+app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v70"
 
 SIFRE = "izmotor2026*"
 
@@ -92,7 +92,7 @@ HTML_LOGIN = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Iz Motorsıklet - Giriş</title>
+    <title>İz Motorsiklet - Giriş</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Inter:wght@400;700;900&display=swap');
         body { font-family: 'Inter', sans-serif; background-color: #06080f; background-image: radial-gradient(rgba(250, 204, 21, 0.08) 1px, transparent 1px); display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; color: #f8fafc; }
@@ -124,7 +124,7 @@ HTML_PANEL = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🏍Iz Motorsıklet🛵 - Grafiti Garaj Paneli</title>
+    <title>İz Motorsiklet - Grafiti Garaj Paneli</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Inter:wght@400;700;900&display=swap');
         :root { --bg-main: #04060b; --card-bg: rgba(11, 15, 25, 0.97); --accent: #facc15; --text-main: #f8fafc; --text-muted: #94a3b8; }
@@ -175,7 +175,7 @@ HTML_PANEL = """
         <div class="header-box">
             <div class="brand-title">
                 <div class="brand-icon">⚡🏍️</div>
-                <h1 class="graffiti-text">IZ MOTORSIKLET</h1>
+                <h1 class="graffiti-text">İZ MOTORSİKLET</h1>
             </div>
             <a href="/cikis" class="logout">Çıkış Yap</a>
         </div>
@@ -771,10 +771,9 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text(msg or "Randevu yok.", parse_mode="Markdown")
 
 def run_telegram_bot():
-    # Yeni Güncel Token
     TOKEN = "9017126535:AAEBZYsO6g2IVU0OhhdadGlaH_ntFGhkYxk"
     try:
-        bot_app = Application.builder().token(TOKEN).drop_pending_updates(True).build()
+        bot_app = Application.builder().token(TOKEN).build()
         bot_app.add_handler(CommandHandler("start", start))
         bot_app.add_handler(CallbackQueryHandler(button_handler))
         bot_app.run_polling(drop_pending_updates=True, stop_signals=None)
