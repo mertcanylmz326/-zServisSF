@@ -23,7 +23,7 @@ except:
     OCR_AKTIF = False
 
 app = Flask(__name__)
-app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v82"
+app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v83"
 
 SIFRE = "izmotor2026*"
 
