@@ -14,7 +14,7 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
 app = Flask(__name__)
-app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v62"
+app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v63"
 
 SIFRE = "izmotor2026*"
 
@@ -91,9 +91,10 @@ HTML_LOGIN = """
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>İz Motorsiklet - Giriş</title>
     <style>
-        body { font-family: 'Inter', sans-serif; background-color: #0b0f19; background-image: radial-gradient(rgba(250, 204, 21, 0.08) 1px, transparent 1px); display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; color: #f8fafc; }
-        .login-box { background: rgba(11, 15, 25, 0.95); border: 1px solid rgba(250, 204, 21, 0.4); padding: 40px; border-radius: 20px; width: 100%; max-width: 350px; text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.8); }
-        h2 { color: #facc15; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px; }
+        @import url('https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Inter:wght@400;700;900&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #06080f; background-image: radial-gradient(rgba(250, 204, 21, 0.08) 1px, transparent 1px); display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; color: #f8fafc; }
+        .login-box { background: rgba(13, 17, 28, 0.95); border: 1px solid rgba(250, 204, 21, 0.4); padding: 40px; border-radius: 20px; width: 100%; max-width: 350px; text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.8); }
+        h2 { font-family: 'Permanent Marker', cursive; color: #facc15; font-size: 26px; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 2px; text-shadow: 0 0 10px rgba(250,204,21,0.5); }
         input { width: 100%; padding: 14px; margin-bottom: 20px; background: #030712; border: 1px solid #334155; border-radius: 10px; color: #fff; text-align: center; font-size: 16px; outline: none; }
         input:focus { border-color: #facc15; }
         button { background: linear-gradient(135deg, #facc15 0%, #ca8a04 100%); color: #030712; border: none; padding: 14px; border-radius: 10px; width: 100%; font-size: 16px; font-weight: 800; cursor: pointer; text-transform: uppercase; }
@@ -114,7 +115,7 @@ HTML_LOGIN = """
 </html>
 """
 
-# --- HTML ARAYÜZ (ANA PANEL - KARBON FİBER & STICKY MENÜ) ---
+# --- HTML ARAYÜZ (GRAFİTİ & KARBON GARAJ) ---
 HTML_PANEL = """
 <!DOCTYPE html>
 <html lang="tr">
@@ -123,19 +124,20 @@ HTML_PANEL = """
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>İz Motorsiklet - Karbon Garaj Paneli</title>
+    <title>İz Motorsiklet - Grafiti Garaj Paneli</title>
     <style>
-        :root { --bg-main: #06080f; --card-bg: rgba(13, 17, 28, 0.96); --accent: #facc15; --text-main: #f8fafc; --text-muted: #94a3b8; }
+        @import url('https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Inter:wght@400;700;900&display=swap');
+        
+        :root { --bg-main: #04060b; --card-bg: rgba(11, 15, 25, 0.97); --accent: #facc15; --text-main: #f8fafc; --text-muted: #94a3b8; }
         body { 
             font-family: 'Inter', sans-serif; 
             background-color: var(--bg-main); 
             background-image: 
-                linear-gradient(45deg, rgba(20, 25, 40, 0.15) 25%, transparent 25%), 
-                linear-gradient(-45deg, rgba(20, 25, 40, 0.15) 25%, transparent 25%), 
-                linear-gradient(45deg, transparent 75%, rgba(20, 25, 40, 0.15) 75%), 
-                linear-gradient(-45deg, transparent 75%, rgba(20, 25, 40, 0.15) 75%);
-            background-size: 20px 20px;
-            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+                linear-gradient(45deg, rgba(15, 20, 35, 0.2) 25%, transparent 25%), 
+                linear-gradient(-45deg, rgba(15, 20, 35, 0.2) 25%, transparent 25%), 
+                linear-gradient(45deg, transparent 75%, rgba(15, 20, 35, 0.2) 75%), 
+                linear-gradient(-45deg, transparent 75%, rgba(15, 20, 35, 0.2) 75%);
+            background-size: 24px 24px;
             color: var(--text-main); margin: 0; padding: 10px; 
         }
         .container { max-width: 900px; margin: 0 auto; }
@@ -145,39 +147,59 @@ HTML_PANEL = """
             position: sticky;
             top: 0;
             z-index: 1000;
-            background: rgba(6, 8, 15, 0.95);
-            backdrop-filter: blur(10px);
-            padding: 10px 0;
-            border-bottom: 1px solid rgba(250, 204, 21, 0.2);
+            background: rgba(4, 6, 11, 0.96);
+            backdrop-filter: blur(12px);
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(250, 204, 21, 0.3);
             margin-bottom: 15px;
         }
 
-        .header-box { display: flex; justify-content: space-between; align-items: center; background: var(--card-bg); border: 1px solid #334155; padding: 12px 15px; border-radius: 14px; margin-bottom: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.8); }
-        .brand-title { display: flex; align-items: center; gap: 10px; color: var(--accent); font-weight: 800; font-size: 15px; text-transform: uppercase; }
-        .brand-icon { background: var(--accent); color: #030712; padding: 6px 10px; border-radius: 8px; font-size: 16px; }
-        .logout { color: #f87171; text-decoration: none; font-weight: 700; font-size: 12px; background: rgba(248,113,113,0.1); padding: 6px 10px; border-radius: 8px; border: 1px solid rgba(248,113,113,0.3); }
+        .header-box { display: flex; justify-content: space-between; align-items: center; background: var(--card-bg); border: 1px solid #334155; padding: 12px 18px; border-radius: 14px; margin-bottom: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.9); }
+        
+        /* Grafiti Başlık ve Agresif Logo */
+        .brand-title { display: flex; align-items: center; gap: 12px; }
+        .brand-icon { 
+            background: linear-gradient(135deg, #facc15, #f97316); 
+            color: #030712; 
+            padding: 8px 12px; 
+            border-radius: 12px; 
+            font-size: 20px; 
+            box-shadow: 0 0 15px rgba(250,204,21,0.5);
+            transform: rotate(-5deg);
+        }
+        .graffiti-text { 
+            font-family: 'Permanent Marker', cursive; 
+            color: #facc15; 
+            font-size: 20px; 
+            text-transform: uppercase; 
+            letter-spacing: 2px;
+            text-shadow: 2px 2px 0px #ca8a04, 0 0 15px rgba(250,204,21,0.4);
+            margin: 0;
+        }
+
+        .logout { color: #f87171; text-decoration: none; font-weight: 700; font-size: 12px; background: rgba(248,113,113,0.1); padding: 6px 12px; border-radius: 8px; border: 1px solid rgba(248,113,113,0.3); }
 
         .nav-tabs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 5px; }
         .tab-btn { background: #0f172a; color: var(--text-muted); border: 1px solid #334155; padding: 9px 14px; border-radius: 10px; cursor: pointer; font-weight: 700; font-size: 12px; white-space: nowrap; text-decoration: none; display: inline-flex; align-items: center; gap: 5px; }
-        .tab-btn.active { background: var(--accent); color: #030712; border-color: var(--accent); font-weight: 800; box-shadow: 0 0 15px rgba(250,204,21,0.4); }
+        .tab-btn.active { background: var(--accent); color: #030712; border-color: var(--accent); font-weight: 800; box-shadow: 0 0 15px rgba(250,204,21,0.5); }
         
         .tab-content { display: none; }
         .tab-content.active { display: block; }
 
         .stat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 15px; }
         @media(min-width: 600px) { .stat-grid { grid-template-columns: repeat(4, 1fr); } }
-        .stat-box { background: var(--card-bg); border: 1px solid #334155; border-left: 4px solid var(--accent); padding: 12px; border-radius: 12px; text-align: left; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        .stat-box { background: var(--card-bg); border: 1px solid #334155; border-left: 4px solid var(--accent); padding: 12px; border-radius: 12px; text-align: left; box-shadow: 0 4px 15px rgba(0,0,0,0.6); }
         .stat-box h4 { margin: 0; color: var(--accent); font-size: 16px; font-weight: 800; }
         .stat-box p { margin: 4px 0 0 0; color: var(--text-muted); font-size: 10px; text-transform: uppercase; font-weight: 700; }
 
-        .card { background: var(--card-bg); border: 1px solid #334155; padding: 15px; border-radius: 14px; margin-bottom: 14px; font-size: 13px; box-shadow: 0 8px 25px rgba(0,0,0,0.6); }
-        h3 { color: var(--accent); margin-top: 0; font-size: 15px; border-bottom: 1px solid #334155; padding-bottom: 8px; }
+        .card { background: var(--card-bg); border: 1px solid #334155; padding: 15px; border-radius: 14px; margin-bottom: 14px; font-size: 13px; box-shadow: 0 8px 25px rgba(0,0,0,0.7); }
+        h3 { color: var(--accent); margin-top: 0; font-size: 15px; border-bottom: 1px solid #334155; padding-bottom: 8px; font-family: 'Inter', sans-serif; font-weight: 800; }
         
         input, select, textarea { width: 100%; padding: 11px; margin-bottom: 10px; background: #030712; border: 1px solid #334155; border-radius: 10px; color: #fff; box-sizing: border-box; font-size: 13px; outline: none; }
-        input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 8px rgba(250,204,21,0.3); }
+        input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 10px rgba(250,204,21,0.4); }
         label { display: block; font-weight: 700; margin-bottom: 4px; font-size: 11px; color: #cbd5e1; text-transform: uppercase; }
         
-        .btn-action { background: linear-gradient(135deg, var(--accent), #ca8a04); color: #030712; border: none; padding: 13px; border-radius: 10px; width: 100%; font-size: 14px; font-weight: 800; cursor: pointer; text-transform: uppercase; margin-top: 5px; transition: 0.2s; box-shadow: 0 4px 15px rgba(250,204,21,0.3); }
+        .btn-action { background: linear-gradient(135deg, var(--accent), #ca8a04); color: #030712; border: none; padding: 13px; border-radius: 10px; width: 100%; font-size: 14px; font-weight: 800; cursor: pointer; text-transform: uppercase; margin-top: 5px; transition: 0.2s; box-shadow: 0 4px 15px rgba(250,204,21,0.4); }
         .btn-action:active { transform: scale(0.98); }
 
         .btn-secondary { background: #1e293b; color: var(--accent); border: 1px solid var(--accent); padding: 10px; border-radius: 10px; width: 100%; font-size: 12px; font-weight: 800; cursor: pointer; text-transform: uppercase; margin-top: 5px; }
@@ -191,10 +213,10 @@ HTML_PANEL = """
         .chip { background: #1e293b; border: 1px solid #475569; color: #f8fafc; padding: 6px 10px; border-radius: 8px; font-size: 11px; cursor: pointer; font-weight: 700; }
         .chip:hover { border-color: var(--accent); color: var(--accent); }
 
-        .parca-satir { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; background: rgba(3, 7, 18, 0.5); padding: 8px; border-radius: 10px; border: 1px solid #1e293b; }
+        .parca-satir { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; background: rgba(3, 7, 18, 0.6); padding: 8px; border-radius: 10px; border: 1px solid #1e293b; }
 
         /* Yükleniyor Overlay */
-        #loadingOverlay { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(3,7,18,0.85); z-index:9999; justify-content: center; align-items: center; flex-direction: column; color: var(--accent); font-weight: 800; font-size: 16px; }
+        #loadingOverlay { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(3,7,18,0.9); z-index:9999; justify-content: center; align-items: center; flex-direction: column; color: var(--accent); font-weight: 800; font-size: 16px; }
         .spinner { border: 4px solid #1e293b; border-top: 4px solid var(--accent); border-radius: 50%; width: 45px; height: 45px; animation: spin 0.8s linear infinite; margin-bottom: 15px; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
@@ -209,7 +231,10 @@ HTML_PANEL = """
 <div class="container">
     <div class="sticky-header">
         <div class="header-box">
-            <div class="brand-title"><span class="brand-icon">🏍️</span> İZ MOTORSİKLET GARAJ</div>
+            <div class="brand-title">
+                <div class="brand-icon">⚡🏍️</div>
+                <h1 class="graffiti-text">İZ MOTORSİKLET</h1>
+            </div>
             <a href="/cikis" class="logout">Çıkış Yap</a>
         </div>
 
@@ -490,7 +515,6 @@ function islemEkle(isim, fiyat) {
             return;
         }
     }
-    // Boş satır yoksa yeni satır ekle doldur
     yeniSatirEkle();
     satirlar = document.querySelectorAll('.parca-satir');
     var sonSatir = satirlar[satirlar.length - 1];
@@ -520,8 +544,8 @@ HTML_DUZENLE = """
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Servis Kaydını Düzenle</title>
     <style>
-        body { font-family: 'Inter', sans-serif; background-color: #06080f; color: #f8fafc; padding: 20px; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
-        .box { background: rgba(13, 17, 28, 0.96); border: 1px solid #334155; padding: 25px; border-radius: 16px; width: 100%; max-width: 450px; box-shadow: 0 20px 40px rgba(0,0,0,0.8); }
+        body { font-family: 'Inter', sans-serif; background-color: #04060b; color: #f8fafc; padding: 20px; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        .box { background: rgba(13, 17, 28, 0.97); border: 1px solid #334155; padding: 25px; border-radius: 16px; width: 100%; max-width: 450px; box-shadow: 0 20px 40px rgba(0,0,0,0.8); }
         h3 { color: #facc15; margin-top: 0; border-bottom: 1px solid #334155; padding-bottom: 8px; }
         input, select, textarea { width: 100%; padding: 12px; margin-bottom: 12px; background: #030712; border: 1px solid #334155; border-radius: 10px; color: #fff; box-sizing: border-box; font-size: 13px; }
         label { display: block; font-weight: 700; margin-bottom: 4px; font-size: 11px; color: #cbd5e1; text-transform: uppercase; }
@@ -826,7 +850,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ["🔍 Plaka Sorgula", "📦 Stok Listesi"],
         ["📊 Günlük Özet", "🏍️ Aktif Araçlar"]
     ]
-    await update.message.reply_text("Selam kanka! İz Motorsiklet Supabase Botuna hoş geldin:\nPlaka geçmişi için: `/plaka 34` yazabilirsin.", reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True))
+    await update.message.reply_text("Selam kanka! İz Motorsiklet Grafiti Garaj Botuna hoş geldin:\nPlaka geçmişi için: `/plaka 34` yazabilirsin.", reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True))
 
 async def telegram_plaka_sorgu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
@@ -896,7 +920,7 @@ async def telegram_mesaj(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 def run_telegram_bot():
     TOKEN = os.getenv("BOT_TOKEN")
-    if not TOKEN: return
+    if !TOKEN: return
     try:
         bot_app = Application.builder().token(TOKEN).drop_pending_updates(True).build()
         bot_app.add_handler(CommandHandler("start", start))
