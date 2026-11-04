@@ -23,7 +23,7 @@ except:
     OCR_AKTIF = False
 
 app = Flask(__name__)
-app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v86"
+app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v87"
 
 SIFRE = "izmotor2026*"
 
@@ -164,12 +164,16 @@ HTML_PANEL = """
         .edit-btn { background: #d97706; color: #fff; padding: 8px 12px; border-radius: 8px; text-decoration: none; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 5px; margin-top: 6px; border: none; cursor: pointer; }
         .delete-btn { background: #ef4444; color: #fff; padding: 8px 12px; border-radius: 8px; text-decoration: none; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 5px; margin-top: 6px; border: none; cursor: pointer; }
         
-        /* MOBİL UYUMLU DURUM SEÇİM BUTONLARI (CHIPS) */
+        /* AKTİF DURUM VURGULU BUTONLAR */
         .status-group { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 8px; }
-        .status-pill { background: #1e293b; border: 1px solid #475569; color: #cbd5e1; padding: 7px 10px; border-radius: 8px; font-size: 11px; cursor: pointer; font-weight: 700; text-decoration: none; display: inline-block; }
-        .status-pill.active-status { background: var(--accent); color: #030712; border-color: var(--accent); font-weight: 900; }
-        .status-pill.active-payment-borclu { background: #ef4444; color: #fff; border-color: #ef4444; font-weight: 900; }
-        .status-pill.active-payment-odendi { background: #22c55e; color: #fff; border-color: #22c55e; font-weight: 900; }
+        .status-pill { background: #1e293b; border: 1px solid #475569; color: #cbd5e1; padding: 8px 12px; border-radius: 8px; font-size: 11px; cursor: pointer; font-weight: 700; text-decoration: none; display: inline-block; transition: all 0.2s; }
+        
+        /* Seçili Çalışma Durumu */
+        .status-pill.active-status { background: var(--accent) !important; color: #030712 !important; border-color: var(--accent) !important; font-weight: 900 !important; box-shadow: 0 0 12px rgba(250, 204, 21, 0.4); }
+        
+        /* Seçili Ödeme Durumları */
+        .status-pill.active-payment-borclu { background: #ef4444 !important; color: #fff !important; border-color: #ef4444 !important; font-weight: 900 !important; box-shadow: 0 0 12px rgba(239, 68, 68, 0.5); }
+        .status-pill.active-payment-odendi { background: #22c55e !important; color: #fff !important; border-color: #22c55e !important; font-weight: 900 !important; box-shadow: 0 0 12px rgba(34, 197, 94, 0.5); }
 
         .quick-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
         .chip { background: #1e293b; border: 1px solid #475569; color: #f8fafc; padding: 6px 10px; border-radius: 8px; font-size: 11px; cursor: pointer; font-weight: 700; }
@@ -312,7 +316,7 @@ HTML_PANEL = """
                 <b>Yapılanlar:</b> {{ ts[7] }} | <b>Notlar:</b> {{ ts[8] or '-' }}<br>
                 <b>Tutar:</b> <span style="color:var(--accent); font-weight:800;">{{ "%.2f"|format(ts[9]|float) }} TL</span><br>
                 
-                <!-- MOBİL UYUMLU TEK TIKLAMA DURUM & ÖDEME BUTONLARI -->
+                <!-- SEÇİLİ OLANI VURGULAYAN DURUM BUTONLARI -->
                 <div style="margin-top: 12px;">
                     <label style="font-size:9px; color:#94a3b8; margin-bottom:2px;">ÇALIŞMA DURUMU</label>
                     <div class="status-group">
