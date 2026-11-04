@@ -23,7 +23,7 @@ except:
     OCR_AKTIF = False
 
 app = Flask(__name__)
-app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v83"
+app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v84"
 
 SIFRE = "izmotor2026*"
 
@@ -53,6 +53,12 @@ def init_db():
                 pdf_dosya TEXT
             )
         ''')
+        # Var olan tablolarda eksik sütun kalmasın diye garanti ekleme
+        cursor.execute('ALTER TABLE servisler ADD COLUMN IF NOT EXISTS notlar TEXT;')
+        cursor.execute('ALTER TABLE servisler ADD COLUMN IF NOT EXISTS durum TEXT DEFAULT \'Bekliyor\';')
+        cursor.execute('ALTER TABLE servisler ADD COLUMN IF NOT EXISTS odeme_durumu TEXT DEFAULT \'Borçlu / Veresiye\';')
+        cursor.execute('ALTER TABLE servisler ADD COLUMN IF NOT EXISTS pdf_dosya TEXT;')
+
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS stok (
                 id SERIAL PRIMARY KEY,
@@ -74,7 +80,7 @@ def init_db():
         conn.commit()
         cursor.close()
         conn.close()
-        print("Tüm Supabase tabloları başarıyla kuruldu!")
+        print("Tüm Supabase tabloları ve sütunları başarıyla güncellendi!")
     except Exception as e:
         print("Veritabanı kurulum hatası:", e)
 
