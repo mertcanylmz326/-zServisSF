@@ -23,7 +23,7 @@ except:
     OCR_AKTIF = False
 
 app = Flask(__name__)
-app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v95"
+app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v96"
 
 SIFRE = "izmotor2026*"
 
@@ -244,8 +244,8 @@ HTML_PANEL = """
                 <select id="kayitliAracSec" onchange="aracBilgileriniDoldur()">
                     <option value="">-- Listeden Araç Seç (İsteğe Bağlı) --</option>
                     {% for ar in tum_araclar %}
-                    <option value="{{ ar[1] }}" data-ad="{{ ar[2] }}" data-tel="{{ ar[3] }}" data-model="{{ ar[4] }}" data-km="{{ ar[5] }}">
-                        {{ ar[1] }} - {{ ar[2] }} ({{ ar[4] }})
+                    <option value="{{ ar.plaka }}" data-ad="{{ ar.musteri_ad }}" data-tel="{{ ar.musteri_tel }}" data-model="{{ ar.model }}" data-km="{{ ar.km }}">
+                        {{ ar.plaka }} - {{ ar.musteri_ad }} ({{ ar.model }})
                     </option>
                     {% endfor %}
                 </select>
@@ -537,22 +537,22 @@ HTML_DUZENLE = """
 </head>
 <body>
 <div class="box">
-    <h3>✏️ Düzenle</h3>
+    <h3>✏️ Servis ve Borç Düzenle</h3>
     <form method="POST">
-        <label>Müşteri Ad</label><input type="text" name="musteri_ad" value="{{ kayit.musteri_ad }}" required>
-        <label>Telefon</label><input type="text" name="musteri_tel" value="{{ kayit.musteri_tel }}" required>
-        <label>Plaka</label><input type="text" name="plaka" value="{{ kayit.plaka }}" required>
+        <label>Müşteri Ad Soyad</label><input type="text" name="musteri_ad" value="{{ kayit.musteri_ad }}" required>
+        <label>Müşteri Telefon</label><input type="text" name="musteri_tel" value="{{ kayit.musteri_tel }}" required>
+        <label>Motosiklet Plaka</label><input type="text" name="plaka" value="{{ kayit.plaka }}" required>
         <label>Model / KM</label><input type="text" name="model" value="{{ kayit.model }}" required>
-        <label>Yapılan İşlem</label><textarea name="detaylar" rows="3" required>{{ kayit.detaylar }}</textarea>
-        <label>Notlar</label><textarea name="notlar" rows="2">{{ kayit.notlar }}</textarea>
-        <label>Toplam Tutar (TL)</label><input type="number" step="0.01" name="toplam_tutar" value="{{ kayit.toplam_tutar }}" required>
-        <label>Ödeme Durumu</label>
+        <label>Yapılan İşlemler / Detaylar</label><textarea name="detaylar" rows="3" required>{{ kayit.detaylar }}</textarea>
+        <label>Özel Notlar</label><textarea name="notlar" rows="2">{{ kayit.notlar }}</textarea>
+        <label>Toplam Tutar / Borç (TL)</label><input type="number" step="0.01" name="toplam_tutar" value="{{ kayit.toplam_tutar }}" required>
+        <label>Ödeme / Borç Durumu</label>
         <select name="odeme_durumu">
-            <option value="Borçlu / Veresiye" {% if kayit.odeme_durumu == 'Borçlu / Veresiye' %}selected{% endif %}>🔴 Borçlu</option>
+            <option value="Borçlu / Veresiye" {% if kayit.odeme_durumu == 'Borçlu / Veresiye' %}selected{% endif %}>🔴 Borçlu / Veresiye</option>
             <option value="Parça Bekliyor" {% if kayit.odeme_durumu == 'Parça Bekliyor' %}selected{% endif %}>🟡 Parça Bekliyor</option>
             <option value="Ödendi" {% if kayit.odeme_durumu == 'Ödendi' %}selected{% endif %}>🟢 Ödendi</option>
         </select>
-        <button type="submit" class="btn">Kaydet</button>
+        <button type="submit" class="btn">Değişiklikleri Kaydet</button>
     </form>
     <a href="/" class="back">← Geri Dön</a>
 </div>
@@ -824,14 +824,31 @@ def duzenle(kayit_id):
     conn = get_db_connection()
     cursor = conn.cursor()
     if request.method == 'POST':
-        ad, tel, plaka, model, detaylar, notlar, tutar, odeme = request.form.get('musteri_ad'), request.form.get('musteri_tel'), request.form.get('plaka'), request.form.get('model'), request.form.get('detaylar'), request.form.get('notlar'), float(request.form.get('toplam_tutar', 0)), request.form.get('odeme_durumu')
-        cursor.execute("UPDATE servisler SET musteri_ad=%s, musteri_tel=%s, plaka=%s, model=%s, detaylar=%s, notlar=%s, toplam_tutar=%s, odeme_durumu=%s WHERE id=%s", (ad, tel, plaka, model, detaylar, notlar, tutar, odeme, kayit_id))
+        ad = request.form.get('musteri_ad')
+        tel = request.form.get('musteri_tel')
+        plaka = request.form.get('plaka')
+        model = request.form.get('model')
+        detaylar = request.form.get('detaylar')
+        notlar = request.form.get('notlar')
+        try:
+            tutar = float(request.form.get('toplam_tutar', 0))
+        except:
+            tutar = 0.0
+        odeme = request.form.get('odeme_durumu')
+        
+        cursor.execute("""
+            UPDATE servisler 
+            SET musteri_ad=%s, musteri_tel=%s, plaka=%s, model=%s, detaylar=%s, notlar=%s, toplam_tutar=%s, odeme_durumu=%s 
+            WHERE id=%s
+        """, (ad, tel, plaka, model, detaylar, notlar, tutar, odeme, kayit_id))
         conn.commit()
         cursor.close()
         conn.close()
-        return redirect(url_for('index', tab='gecmis'))
+        return redirect(url_for('index', tab='araclar'))
+        
     cursor.execute("SELECT id, plaka, musteri_ad, musteri_tel, model, km, tarih, detaylar, notlar, toplam_tutar, durum, odeme_durumu, pdf_dosya FROM servisler WHERE id = %s", (kayit_id,))
-    kayit = dict_factory(cursor, cursor.fetchone())
+    row = cursor.fetchone()
+    kayit = dict_factory(cursor, row) if row else {}
     cursor.close()
     conn.close()
     return render_template_string(HTML_DUZENLE, kayit=kayit)
@@ -1098,7 +1115,7 @@ def run_telegram_bot():
 if __name__ == '__main__':
     lock_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
-        lock_socket.bind(("127.0.0.1", 49156))
+        lock_socket.bind(("127.0.0.1", 49157))
         threading.Thread(target=run_telegram_bot, daemon=True).start()
     except socket.error:
         print("Telegram bot zaten aktif.")
