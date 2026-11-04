@@ -5,7 +5,7 @@ import threading
 import psycopg2
 from flask import Flask, render_template_string, request, send_file, session, redirect, url_for
 from telegram import Update, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
+from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, ConversationHandler, filters, ContextTypes
 from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
 from reportlab.lib.styles import ParagraphStyle
@@ -21,7 +21,7 @@ except:
     OCR_AKTIF = False
 
 app = Flask(__name__)
-app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v70"
+app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v71"
 
 SIFRE = "izmotor2026*"
 
@@ -92,7 +92,7 @@ HTML_LOGIN = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>İz Motorsiklet - Giriş</title>
+    <title>🏍Iz Motorsıklet🛵 - Giriş</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Inter:wght@400;700;900&display=swap');
         body { font-family: 'Inter', sans-serif; background-color: #06080f; background-image: radial-gradient(rgba(250, 204, 21, 0.08) 1px, transparent 1px); display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; color: #f8fafc; }
@@ -106,7 +106,7 @@ HTML_LOGIN = """
 </head>
 <body>
 <div class="login-box">
-    <h2>İZ MOTORSİKLET</h2>
+    <h2>IZ MOTORSIKLET</h2>
     <p style="color:#94a3b8; font-size:13px; margin-bottom:20px;">Tam Donanımlı Garaj Paneli</p>
     {% if error %}<div class="error">{{ error }}</div>{% endif %}
     <form method="POST">
@@ -124,7 +124,7 @@ HTML_PANEL = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>İz Motorsiklet - Grafiti Garaj Paneli</title>
+    <title>Iz Motorsıklet - Grafiti Garaj Paneli</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Inter:wght@400;700;900&display=swap');
         :root { --bg-main: #04060b; --card-bg: rgba(11, 15, 25, 0.97); --accent: #facc15; --text-main: #f8fafc; --text-muted: #94a3b8; }
@@ -715,29 +715,67 @@ def cikis():
     session.pop('giris', None)
     return redirect(url_for('index'))
 
-# --- TELEGRAM BOTU ---
+# --- TELEGRAM BOTU (ŞİFRE KORUMALI & GERİ TUŞLU SİSTEM) ---
+# Kullanıcıların giriş durumunu tutan sözlük
+user_sessions = {}
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    keyboard = [
-        [InlineKeyboardButton("🏍️ Aktif Araçlar", callback_data="aktif_araclar"), InlineKeyboardButton("📊 Günlük Özet", callback_data="gunluk_ozet")],
-        [InlineKeyboardButton("📦 Stok Durumu", callback_data="stok_listesi"), InlineKeyboardButton("📅 Randevular", callback_data="randevular")]
-    ]
-    await update.message.reply_text("⚡ **İz Motorsiklet Garaj Asistanı**\nSeçimini yap kanka:", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+    user_id = update.effective_user.id
+    user_sessions[user_id] = False  # Önce kilitli
+    await update.message.reply_text("🔒 **İZ MOTORSİKLET GARAJ ASİSTANI**\n\nBu bot güvenlidir. Lütfen dükkan **Şifresini** yazın:")
+
+async def check_password(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    text = update.message.text
+
+    if user_sessions.get(user_id) is True:
+        # Zaten giriş yapıldıysa mesajları işleme
+        return
+
+    if text == SIFRE:
+        user_sessions[user_id] = True
+        keyboard = [
+            [InlineKeyboardButton("🏍️ Aktif Araçlar", callback_data="aktif_araclar"), InlineKeyboardButton("📊 Günlük Özet", callback_data="gunluk_ozet")],
+            [InlineKeyboardButton("📦 Stok Durumu", callback_data="stok_listesi"), InlineKeyboardButton("📅 Randevular", callback_data="randevular")],
+            [InlineKeyboardButton("🔍 Plaka Sorgula", callback_data="plaka_sorgu_menu")]
+        ]
+        await update.message.reply_text("✅ **Şifre Doğru! Usta Hoş Geldin.**\nYönetmek istediğin alanı seç:", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+    else:
+        await update.message.reply_text("❌ **Hatalı Şifre!** Tekrar dene kanka:")
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     data = query.data
+    user_id = update.effective_user.id
 
-    if data == "aktif_araclar":
+    if user_sessions.get(user_id) is not True:
+        await query.edit_message_text("🔒 Oturum süreniz dolmuş veya şifre girilmemiş. Lütfen `/start` yazıp şifreyle giriş yapın.")
+        return
+
+    ana_menu_markup = InlineKeyboardMarkup([
+        [InlineKeyboardButton("🔙 Geri", callback_data="ana_menu"), InlineKeyboardButton("🏠 Ana Menü", callback_data="ana_menu")]
+    ])
+
+    if data == "ana_menu":
+        keyboard = [
+            [InlineKeyboardButton("🏍️ Aktif Araçlar", callback_data="aktif_araclar"), InlineKeyboardButton("📊 Günlük Özet", callback_data="gunluk_ozet")],
+            [InlineKeyboardButton("📦 Stok Durumu", callback_data="stok_listesi"), InlineKeyboardButton("📅 Randevular", callback_data="randevular")],
+            [InlineKeyboardButton("🔍 Plaka Sorgula", callback_data="plaka_sorgu_menu")]
+        ]
+        await query.edit_message_text("⚡ **İz Motorsiklet Garaj Asistanı**\nAna Menüdesin kanka:", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+
+    elif data == "aktif_araclar":
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute("SELECT plaka, musteri_ad, model, odeme_durumu FROM servisler WHERE odeme_durumu != 'Ödendi' ORDER BY id DESC")
         araclar = cursor.fetchall()
         cursor.close()
         conn.close()
-        msg = "🏍️ **Aktif Araçlar:**\n\n"
-        for a in araclar: msg += f"- {a[0]} | {a[1]} ({a[2]}) | {a[3]}\n"
-        await query.edit_message_text(msg or "Aktif araç yok.", parse_mode="Markdown")
+        msg = "🏍️ **Atölyedeki Aktif Araçlar:**\n\n"
+        for a in araclar: msg += f"- Plaka: {a[0]} | {a[1]} ({a[2]}) | Durum: {a[3]}\n"
+        await query.edit_message_text(msg or "Atölyede aktif araç yok.", reply_markup=ana_menu_markup, parse_mode="Markdown")
+
     elif data == "gunluk_ozet":
         bugun = datetime.date.today().strftime("%d.%m.%Y")
         conn = get_db_connection()
@@ -748,7 +786,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         conn.close()
         ciro = res[0] if res and res[0] else 0.0
         adet = res[1] if res and res[1] else 0
-        await query.edit_message_text(f"📊 **Günlük Özet ({bugun}):**\nGiren Araç: {adet}\nToplam Ciro: `{ciro:.2f} TL`", parse_mode="Markdown")
+        await query.edit_message_text(f"📊 **Günlük Özet ({bugun}):**\n- Giren Araç: {adet}\n- Toplam Ciro: `{ciro:.2f} TL`", reply_markup=ana_menu_markup, parse_mode="Markdown")
+
     elif data == "stok_listesi":
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -756,9 +795,10 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         stoklar = cursor.fetchall()
         cursor.close()
         conn.close()
-        msg = "📦 **Stok:**\n\n"
+        msg = "📦 **Stok ve Fiyat Durumu:**\n\n"
         for s in stoklar: msg += f"- {s[0]}: {s[1]} adet ({s[2]:.2f} TL)\n"
-        await query.edit_message_text(msg or "Stok boş.", parse_mode="Markdown")
+        await query.edit_message_text(msg or "Stok boş.", reply_markup=ana_menu_markup, parse_mode="Markdown")
+
     elif data == "randevular":
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -766,16 +806,50 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         randevular = cursor.fetchall()
         cursor.close()
         conn.close()
-        msg = "📅 **Randevular:**\n\n"
+        msg = "📅 **Aktif Randevular:**\n\n"
         for r in randevular: msg += f"- {r[0]} ({r[1]}): {r[2]}\n"
-        await query.edit_message_text(msg or "Randevu yok.", parse_mode="Markdown")
+        await query.edit_message_text(msg or "Randevu bulunmuyor.", reply_markup=ana_menu_markup, parse_mode="Markdown")
+
+    elif data == "plaka_sorgu_menu":
+        await query.edit_message_text("🔍 Plaka geçmişi sorgulamak için sohbet penceresine doğrudan:\n`/plaka 34ABC` yazabilirsin kanka!", reply_markup=ana_menu_markup, parse_mode="Markdown")
+
+async def telegram_plaka_sorgu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if user_sessions.get(user_id) is not True:
+        await update.message.reply_text("🔒 Lütfen önce `/start` yazıp şifre ile giriş yapın.")
+        return
+
+    text = update.message.text
+    if text.startswith("/plaka"):
+        parcalar = text.split(maxsplit=1)
+        if len(parcalar) < 2:
+            await update.message.reply_text("Kanka plaka yazmadın! Örnek: `/plaka 34RAP`", parse_mode="Markdown")
+            return
+        sorgu = parcalar[1].strip()
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT plaka, musteri_ad, musteri_tel, tarih, detaylar, toplam_tutar, odeme_durumu FROM servisler WHERE plaka ILIKE %s ORDER BY id DESC", ('%' + sorgu + '%',))
+        sonuclar = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        
+        if not sonuclar:
+            await update.message.reply_text(f"🔍 `{sorgu}` plakasına ait geçmiş kayıt bulunamadı.", parse_mode="Markdown")
+            return
+            
+        msg = f"🔍 **Plaka Sorgu Sonucu ({sorgu}):**\n\n"
+        for s in sonuclar:
+            msg += f"🏍️ **Plaka:** {s[0]}\n👤 **Müşteri:** {s[1]} ({s[2]})\n📅 **Tarih:** {s[3]}\n🔧 **İşlem:** {s[4]}\n💰 **Tutar:** {s[5]:.2f} TL\n📌 **Durum:** {s[6]}\n-------------------\n"
+        await update.message.reply_text(msg, parse_mode="Markdown")
 
 def run_telegram_bot():
     TOKEN = "9017126535:AAEBZYsO6g2IVU0OhhdadGlaH_ntFGhkYxk"
     try:
         bot_app = Application.builder().token(TOKEN).build()
         bot_app.add_handler(CommandHandler("start", start))
+        bot_app.add_handler(CommandHandler("plaka", telegram_plaka_sorgu))
         bot_app.add_handler(CallbackQueryHandler(button_handler))
+        bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, check_password))
         bot_app.run_polling(drop_pending_updates=True, stop_signals=None)
     except Exception as e:
         print("Telegram bot hata:", e)
