@@ -23,7 +23,7 @@ except:
     OCR_AKTIF = False
 
 app = Flask(__name__)
-app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v81"
+app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v82"
 
 SIFRE = "izmotor2026*"
 
@@ -274,9 +274,23 @@ HTML_PANEL = """
     <!-- 2. AKTİF ARAÇLAR -->
     <div id="araclarTab" class="tab-content {% if aktif_tab == 'araclar' %}active{% endif %}">
         <h3>Atölyedeki / Servisteki Aktif Araçlar</h3>
-        <div style="margin-bottom:15px;">
-            <a href="/?tab=servis" class="btn-action" style="text-align:center; text-decoration:none; display:block; background:linear-gradient(135deg, #0284c7, #0369a1); color:#fff; padding:11px;">⚡ Yeni Form / Aktif Araçtan Hızlı İşlem Başlat</a>
+        
+        <!-- HIZLI YENİ ARAÇ EKLEME FORMU (Tıkla Açılır) -->
+        <div class="card" style="border: 2px dashed #0d9488; margin-bottom: 20px;">
+            <h3 style="color:#2dd4bf; cursor:pointer;" onclick="hizliFormToggle()">➕ Servise Gelen Yeni Araç / Müşteri Kaydet (Tıkla)</h3>
+            <div id="hizliAracFormDiv" style="display:none; margin-top:12px;">
+                <form action="/hizli_arac_ekle" method="POST" onsubmit="showLoading()">
+                    <label>Motosiklet Plaka</label><input type="text" name="plaka" placeholder="Örn: 34 ABC 123" required>
+                    <label>Müşteri Ad Soyad</label><input type="text" name="musteri_ad" placeholder="Örn: Ahmet Yılmaz" required>
+                    <label>Müşteri Telefon</label><input type="text" name="musteri_tel" placeholder="Örn: 905320000000" required>
+                    <label>Marka / Model</label><input type="text" name="model" placeholder="Örn: Honda Dio 110" required>
+                    <label>Kilometre (KM)</label><input type="text" name="km" placeholder="Örn: 12500" required>
+                    <label>İlk Not / Şikayet</label><input type="text" name="notlar" placeholder="Örn: Motor çalışmıyor, bakım yapılacak">
+                    <button type="submit" class="btn-action" style="background: linear-gradient(135deg, #0d9488, #115e59); color:#fff;">KAYDET VE AKTİF ARAÇLARA EKLE</button>
+                </form>
+            </div>
         </div>
+
         {% if aktif_araclar %}
             {% for ts in aktif_araclar %}
             <div class="card" style="border-left: 4px solid {% if ts[11] == 'Borçlu / Veresiye' %}#f87171{% else %}#4ade80{% endif %};">
@@ -307,7 +321,6 @@ HTML_PANEL = """
                 </form>
 
                 <div style="margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap;">
-                    <a href="/?tab=servis&secilen_plaka={{ ts[1] }}" class="btn-action" style="background:#0d9488; color:#fff; padding:6px 10px; font-size:11px; width:auto; margin:0;" onclick="araciSecVeFormaGit('{{ ts[1] }}', '{{ ts[2] }}', '{{ ts[3] }}', '{{ ts[4] }}', '{{ ts[5] }}')">⚡ Bu Araca Yeni İşlem Aç</a>
                     <a href="https://wa.me/{{ ts[3] }}?text=Sayin%20{{ ts[2] }},%20Iz%20Motorsiklet%20servis%20ucretiniz%20{{ "%.2f"|format(ts[9]|float) }}%20TL." target="_blank" class="whatsapp-btn">💬 WhatsApp</a>
                     <a href="/pdf_indir/{{ ts[0] }}" class="pdf-btn">📄 PDF İndir</a>
                     <a href="/duzenle/{{ ts[0] }}" class="edit-btn">✏️ Düzenle</a>
@@ -409,6 +422,10 @@ function switchTab(tabId, btn) {
     btn.classList.add('active');
 }
 function showLoading() { document.getElementById('loadingOverlay').style.display = 'flex'; }
+function hizliFormToggle() {
+    var div = document.getElementById('hizliAracFormDiv');
+    div.style.display = (div.style.display === 'none' || div.style.display === '') ? 'block' : 'none';
+}
 function aracBilgileriniDoldur() {
     var select = document.getElementById('kayitliAracSec');
     var opt = select.options[select.selectedIndex];
@@ -419,21 +436,6 @@ function aracBilgileriniDoldur() {
         document.getElementById('model').value = opt.getAttribute('data-model') || '';
         document.getElementById('km').value = opt.getAttribute('data-km') || '';
     }
-}
-function araciSecVeFormaGit(plaka, ad, tel, model, km) {
-    var select = document.getElementById('kayitliAracSec');
-    for (var i = 0; i < select.options.length; i++) {
-        if (select.options[i].value === plaka) {
-            select.selectedIndex = i;
-            break;
-        }
-    }
-    document.getElementById('plaka').value = plaka;
-    document.getElementById('musteri_ad').value = ad;
-    document.getElementById('musteri_tel').value = tel;
-    document.getElementById('model').value = model;
-    document.getElementById('km').value = km;
-    switchTab('servisTab', document.querySelectorAll('.tab-btn')[0]);
 }
 function islemEkle(isim) {
     var satirlar = document.querySelectorAll('.parca-satir');
@@ -643,6 +645,27 @@ def index():
     cursor.close()
     conn.close()
     return render_template_string(HTML_PANEL, kayitlar=kayitlar, sorgu_plaka=sorgu_plaka, stoklar=stoklar, randevular=randevular, aktif_araclar=aktif_araclar, tum_araclar=tum_araclar, toplam_ciro=toplam_ciro, aktif_tab=aktif_tab, okunan_plaka=okunan_plaka)
+
+@app.route('/hizli_arac_ekle', methods=['POST'])
+def hizli_arac_ekle():
+    if not session.get('giris'): return redirect(url_for('index'))
+    plaka = request.form.get('plaka', '').strip().upper()
+    musteri_ad = request.form.get('musteri_ad')
+    musteri_tel = request.form.get('musteri_tel')
+    model = request.form.get('model')
+    km = request.form.get('km')
+    notlar = request.form.get('notlar', 'Yeni Servis Kaydı')
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO servisler (plaka, musteri_ad, musteri_tel, model, km, tarih, detaylar, notlar, toplam_tutar, durum, odeme_durumu, pdf_dosya) 
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    """, (plaka, musteri_ad, musteri_tel, model, km, datetime.date.today().strftime("%d.%m.%Y"), "Yeni Servis Kabul", notlar, 0.0, 'Bekliyor', 'Borçlu / Veresiye', ''))
+    conn.commit()
+    cursor.close()
+    conn.close()
+    return redirect(url_for('index', tab='araclar'))
 
 @app.route('/plaka_oku', methods=['POST'])
 def plaka_oku():
