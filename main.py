@@ -23,7 +23,7 @@ except:
     OCR_AKTIF = False
 
 app = Flask(__name__)
-app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v79"
+app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v80"
 
 SIFRE = "izmotor2026*"
 
@@ -280,7 +280,7 @@ HTML_PANEL = """
                 <b>Plaka:</b> <span style="color:var(--accent); font-size:14px;">{{ ts[1] }}</span> | <b>Müşteri:</b> {{ ts[2] }} ({{ ts[3] }})<br>
                 <b>Model / KM:</b> {{ ts[4] }} - {{ ts[5] }} KM | <b>Tarih:</b> {{ ts[6] }}<br>
                 <b>Yapılanlar:</b> {{ ts[7] }} | <b>Notlar:</b> {{ ts[8] or '-' }}<br>
-                <b>Tutar:</b> <span style="color:var(--accent); font-weight:800;">{{ "%.2f"|format(ts[9]) }} TL</span><br>
+                <b>Tutar:</b> <span style="color:var(--accent); font-weight:800;">{{ "%.2f"|format(ts[9]|float) }} TL</span><br>
                 
                 <form action="/durum_guncelle" method="POST" style="margin-top: 10px; display:flex; gap:8px;" onsubmit="showLoading()">
                     <input type="hidden" name="servis_id" value="{{ ts[0] }}">
@@ -304,7 +304,7 @@ HTML_PANEL = """
                 </form>
 
                 <div style="margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap;">
-                    <a href="https://wa.me/{{ ts[3] }}?text=Sayin%20{{ ts[2] }},%20Iz%20Motorsiklet%20servis%20ucretiniz%20{{ "%.2f"|format(ts[9]) }}%20TL." target="_blank" class="whatsapp-btn">💬 WhatsApp</a>
+                    <a href="https://wa.me/{{ ts[3] }}?text=Sayin%20{{ ts[2] }},%20Iz%20Motorsiklet%20servis%20ucretiniz%20{{ "%.2f"|format(ts[9]|float) }}%20TL." target="_blank" class="whatsapp-btn">💬 WhatsApp</a>
                     <a href="/pdf_indir/{{ ts[0] }}" class="pdf-btn">📄 PDF İndir</a>
                     <a href="/duzenle/{{ ts[0] }}" class="edit-btn">✏️ Düzenle</a>
                     <a href="/sil/{{ ts[0] }}" class="delete-btn" onclick="return confirm('Bu kaydı silmek istediğine emin misin?')">🗑️ Sil</a>
@@ -332,7 +332,7 @@ HTML_PANEL = """
                 <b>Plaka:</b> <span style="color:var(--accent);">{{ k[1] }}</span> | <b>Tarih:</b> {{ k[6] }}<br>
                 <b>Müşteri:</b> {{ k[2] }} ({{ k[3] }})<br>
                 <b>İşlemler:</b> {{ k[7] }} | <b>Notlar:</b> {{ k[8] or '-' }}<br>
-                <b>Toplam Tutar:</b> <span style="color:var(--accent);">{{ "%.2f"|format(k[9]) }} TL</span> | <b>Ödeme:</b> <span style="color:{% if k[11] == 'Ödendi' %}#4ade80{% else %}#f87171{% endif %}; font-weight:800;">{{ k[11] }}</span>
+                <b>Toplam Tutar:</b> <span style="color:var(--accent);">{{ "%.2f"|format(k[9]|float) }} TL</span> | <b>Ödeme:</b> <span style="color:{% if k[11] == 'Ödendi' %}#4ade80{% else %}#f87171{% endif %}; font-weight:800;">{{ k[11] }}</span>
                 <div style="margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap;">
                     <a href="/pdf_indir/{{ k[0] }}" class="pdf-btn">📄 Formu İndir</a>
                     <a href="/duzenle/{{ k[0] }}" class="edit-btn">✏️ Düzenle</a>
@@ -527,12 +527,12 @@ def pdf_olustur(filename, veri, logo_yolu):
     for i in range(10):
         if i < len(islemler):
             isim, adet, tutar = islemler[i]
-            toplam_tutar += tutar
+            toplam_tutar += float(tutar or 0)
             hizmet_data.append([
                 Paragraph(str(i+1), style_normal),
                 Paragraph(str(isim), style_normal),
                 Paragraph(str(adet), style_normal),
-                Paragraph(f"{tutar:.2f} TL", style_normal)
+                Paragraph(f"{float(tutar or 0):.2f} TL", style_normal)
             ])
         else:
             hizmet_data.append([
@@ -615,7 +615,11 @@ def index():
     randevular = cursor.fetchall()
     cursor.execute("SELECT SUM(toplam_tutar) FROM servisler")
     res = cursor.fetchone()
-    toplam_ciro = res[0] if res and res[0] else 0.0
+    
+    try:
+        toplam_ciro = float(res[0]) if res and res[0] is not None else 0.0
+    except:
+        toplam_ciro = 0.0
 
     cursor.close()
     conn.close()
@@ -809,7 +813,7 @@ def pdf_indir(servis_id):
     if pdf_dosya and os.path.exists(pdf_dosya):
         return send_file(pdf_dosya, as_attachment=True)
     else:
-        islemler = [("Genel Bakım", 1.0, toplam_tutar)]
+        islemler = [("Genel Bakım", 1.0, float(toplam_tutar or 0))]
         yeni_pdf = f"servis_formu_{plaka}_{int(time.time())}.pdf"
         pdf_olustur(yeni_pdf, {'musteri_ad': ad, 'musteri_tel': tel, 'plaka': plaka, 'model': model, 'km': km, 'tarih': tarih, 'islemler': islemler, 'notlar': notlar}, None)
         return send_file(yeni_pdf, as_attachment=True)
@@ -884,7 +888,10 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         res = cursor.fetchone()
         cursor.close()
         conn.close()
-        ciro = res[0] if res and res[0] else 0.0
+        try:
+            ciro = float(res[0]) if res and res[0] is not None else 0.0
+        except:
+            ciro = 0.0
         adet = res[1] if res and res[1] else 0
         await query.edit_message_text(f"📊 **Günlük Özet ({bugun}):**\n- Giren Araç: {adet}\n- Toplam Ciro: `{ciro:.2f} TL`", reply_markup=ana_menu_markup, parse_mode="Markdown")
 
@@ -896,7 +903,12 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         cursor.close()
         conn.close()
         msg = "📦 **Stok ve Fiyat Durumu:**\n\n"
-        for s in stoklar: msg += f"- {s[0]}: {s[1]} adet ({s[2]:.2f} TL)\n"
+        for s in stoklar:
+            try:
+                fiy = float(s[2] or 0)
+            except:
+                fiy = 0.0
+            msg += f"- {s[0]}: {s[1]} adet ({fiy:.2f} TL)\n"
         await query.edit_message_text(msg or "Stok boş.", reply_markup=ana_menu_markup, parse_mode="Markdown")
 
     elif data == "randevular":
@@ -939,7 +951,11 @@ async def telegram_plaka_sorgu(update: Update, context: ContextTypes.DEFAULT_TYP
             
         msg = f"🔍 **Plaka Sorgu Sonucu ({sorgu}):**\n\n"
         for s in sonuclar:
-            msg += f"🏍️ **Plaka:** {s[0]}\n👤 **Müşteri:** {s[1]} ({s[2]})\n📅 **Tarih:** {s[3]}\n🔧 **İşlem:** {s[4]}\n📝 **Not:** {s[5] or '-'}\n💰 **Tutar:** {s[6]:.2f} TL\n📌 **Durum:** {s[7]}\n-------------------\n"
+            try:
+                tutar_val = float(s[6] or 0)
+            except:
+                tutar_val = 0.0
+            msg += f"🏍️ **Plaka:** {s[0]}\n👤 **Müşteri:** {s[1]} ({s[2]})\n📅 **Tarih:** {s[3]}\n🔧 **İşlem:** {s[4]}\n📝 **Not:** {s[5] or '-'}\n💰 **Tutar:** {tutar_val:.2f} TL\n📌 **Durum:** {s[7]}\n-------------------\n"
         await update.message.reply_text(msg, parse_mode="Markdown")
 
 def run_telegram_bot():
@@ -955,14 +971,11 @@ def run_telegram_bot():
         print("Telegram bot hata:", e)
 
 if __name__ == '__main__':
-    # Kesin kilit mekanizması (Port tabanlı kilit ile çakışmaları tamamen önler)
     lock_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
         lock_socket.bind(("127.0.0.1", 49152))
-        # Başarıyla kilit alındıysa botu sadece bu process başlatır
         threading.Thread(target=run_telegram_bot, daemon=True).start()
     except socket.error:
-        # Zaten başka bir process çalışıyor, botu başlatma
         pass
 
     port = int(os.environ.get("PORT", 10000))
