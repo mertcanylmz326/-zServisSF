@@ -117,7 +117,7 @@ HTML_LOGIN = """
 </head>
 <body>
 <div class="login-box">
-    <h2>🏍IZ MOTORSIKLET🛵</h2>
+    <h2 font-size:18px;>🏍IZ MOTORSIKLET🛵</h2>
     <p style="color:#94a3b8; font-size:8px; margin-bottom:19px;">Tam Donanımlı Garaj Paneli</p>
     {% if error %}<div class="error">{{ error }}</div>{% endif %}
     <form method="POST">
