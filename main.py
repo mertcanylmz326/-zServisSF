@@ -4,8 +4,8 @@ import time
 import threading
 import psycopg2
 from flask import Flask, render_template_string, request, send_file, session, redirect, url_for
-from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+from telegram import Update, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
 from reportlab.lib.styles import ParagraphStyle
@@ -14,7 +14,7 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
 app = Flask(__name__)
-app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v65"
+app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v66"
 
 SIFRE = "izmotor2026*"
 
@@ -298,7 +298,6 @@ HTML_PANEL = """
 
                 <label style="margin-top:15px;">Yapılan İşlemler / Parçalar</label>
                 <div id="parcaListesiContainer">
-                    <!-- 5 Adet Başlangıç Satırı -->
                     {% for i in range(5) %}
                     <div class="parca-satir">
                         <input type="text" name="islem_ad[]" placeholder="İşlem veya Parça Adı" {% if i == 0 %}required{% endif %} style="margin:0; flex:2;">
@@ -865,11 +864,9 @@ def pdf_indir(servis_id):
         
     plaka, ad, tel, model, km, tarih, detaylar_str, toplam_tutar, pdf_dosya = res
     
-    # Eğer sunucuda dosya kayıtlıysa ve duruyorsa onu gönder, yoksa anında yeniden oluştur!
     if pdf_dosya and os.path.exists(pdf_dosya):
         return send_file(pdf_dosya, as_attachment=True)
     else:
-        # Detay stringini parçalara ayır
         islemler = []
         if detaylar_str:
             parcalar = detaylar_str.split(',')
@@ -878,6 +875,7 @@ def pdf_indir(servis_id):
                     try:
                         isim_kismi = p.rsplit('(', 1)[0].strip()
                         tutar_kismi = p.rsplit('(', 1)[1].replace('TL', '').replace(')', '').strip()
+                        islemler.append((isim_kismesmi, float(tutar_kismi))) if 'tutar_kismi' in locals() else None
                         islemler.append((isim_kismi, float(tutar_kismi)))
                     except:
                         islemler.append((p.strip(), 0.0))
@@ -895,68 +893,21 @@ def cikis():
     session.pop('giris', None)
     return redirect(url_for('index'))
 
-# --- TELEGRAM BOTU ---
+# --- TELEGRAM BOTU (İNTERAKTİF BUTONLU SİSTEM) ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
-        ["🛠️ Servis Formu Oluştur", "📅 Randevu Ekle"],
-        ["🔍 Plaka Sorgula", "📦 Stok Listesi"],
-        ["📊 Günlük Özet", "🏍️ Aktif Araçlar"]
+        [InlineKeyboardButton("🏍️ Aktif Araçlar", callback_data="aktif_araclar"), InlineKeyboardButton("📊 Günlük Özet", callback_data="gunluk_ozet")],
+        [InlineKeyboardButton("📦 Stok Durumu", callback_data="stok_listesi"), InlineKeyboardButton("📅 Randevular", callback_data="randevular")]
     ]
-    await update.message.reply_text("Selam kanka! İz Motorsiklet Grafiti Garaj Botuna hoş geldin:\nPlaka geçmişi için: `/plaka 34` yazabilirsin.", reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True))
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text("⚡ **İz Motorsiklet Garaj Asistanına Hoş Geldin!**\nAşağıdaki butonları kullanarak atölyeyi cepten yönetebilirsin:", reply_markup=reply_markup, parse_mode="Markdown")
 
-async def telegram_plaka_sorgu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text
-    if text.startswith("/plaka"):
-        parcalar = text.split(maxsplit=1)
-        if len(parcalar) < 2:
-            await update.message.reply_text("Kanka plaka yazmadın! Örnek: `/plaka 34RAP`", parse_mode="Markdown")
-            return
-        sorgu = parcalar[1].strip()
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT plaka, musteri_ad, musteri_tel, tarih, detaylar, toplam_tutar, odeme_durumu FROM servisler WHERE plaka ILIKE %s ORDER BY id DESC", ('%' + sorgu + '%',))
-        sonuclar = cursor.fetchall()
-        cursor.close()
-        conn.close()
-        
-        if not sonuclar:
-            await update.message.reply_text(f"🔍 `{sorgu}` plakasına ait geçmiş kayıt bulunamadı.", parse_mode="Markdown")
-            return
-            
-        msg = f"🔍 **Plaka Sorgu Sonucu ({sorgu}):**\n\n"
-        for s in sonuclar:
-            msg += f"🏍️ **Plaka:** {s[0]}\n👤 **Müşteri:** {s[1]} ({s[2]})\n📅 **Tarih:** {s[3]}\n🔧 **İşlem:** {s[4]}\n💰 **Tutar:** {s[5]:.2f} TL\n📌 **Durum:** {s[6]}\n-------------------\n"
-        await update.message.reply_text(msg, parse_mode="Markdown")
+async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    data = query.data
 
-async def telegram_mesaj(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text
-    if text.startswith("/plaka"):
-        await telegram_plaka_sorgu(update, context)
-        return
-        
-    if text == "📊 Günlük Özet":
-        bugun = datetime.date.today().strftime("%d.%m.%Y")
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT SUM(toplam_tutar), COUNT(id) FROM servisler WHERE tarih = %s", (bugun,))
-        res = cursor.fetchone()
-        cursor.close()
-        conn.close()
-        ciro = res[0] if res and res[0] else 0.0
-        adet = res[1] if res and res[1] else 0
-        await update.message.reply_text(f"📊 **Günlük Özet ({bugun}):**\n- Giren Araç: {adet}\n- Toplam Ciro: `{ciro:.2f} TL`", parse_mode="Markdown")
-    elif text == "📦 Stok Listesi":
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT parca_adi, adet, fiyat FROM stok")
-        stoklar = cursor.fetchall()
-        cursor.close()
-        conn.close()
-        msg = "📦 **Stok ve Fiyat Durumu:**\n\n"
-        for s in stoklar:
-            msg += f"- {s[0]}: {s[1]} adet ({s[2]:.2f} TL)\n"
-        await update.message.reply_text(msg or "Stok boş.", parse_mode="Markdown")
-    elif target_text := text == "🏍️ Aktif Araçlar":
+    if data == "aktif_araclar":
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute("SELECT plaka, musteri_ad, model, odeme_durumu FROM servisler WHERE odeme_durumu != 'Ödendi' ORDER BY id DESC")
@@ -966,9 +917,43 @@ async def telegram_mesaj(update: Update, context: ContextTypes.DEFAULT_TYPE):
         msg = "🏍️ **Atölyedeki Aktif Araçlar:**\n\n"
         for a in araclar:
             msg += f"- Plaka: {a[0]} | {a[1]} ({a[2]}) | Durum: {a[3]}\n"
-        await update.message.reply_text(msg or "Aktif araç yok.", parse_mode="Markdown")
-    else:
-        await update.message.reply_text("Kanka menüden seçim yapabilir ya da `/plaka 34` yazarak araç sorgulayabilirsin.")
+        await query.edit_message_text(msg or "Atölyede aktif araç yok.", parse_mode="Markdown")
+
+    elif data == "gunluk_ozet":
+        bugun = datetime.date.today().strftime("%d.%m.%Y")
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT SUM(toplam_tutar), COUNT(id) FROM servisler WHERE tarih = %s", (bugun,))
+        res = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        ciro = res[0] if res and res[0] else 0.0
+        adet = res[1] if res and res[1] else 0
+        await query.edit_message_text(f"📊 **Günlük Özet ({bugun}):**\n- Giren Araç: {adet}\n- Toplam Ciro: `{ciro:.2f} TL`", parse_mode="Markdown")
+
+    elif data == "stok_listesi":
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT parca_adi, adet, fiyat FROM stok")
+        stoklar = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        msg = "📦 **Stok ve Fiyat Durumu:**\n\n"
+        for s in stoklar:
+            msg += f"- {s[0]}: {s[1]} adet ({s[2]:.2f} TL)\n"
+        await query.edit_message_text(msg or "Stok boş.", parse_mode="Markdown")
+
+    elif data == "randevular":
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT musteri_ad, tel, tarih_saat FROM randevular ORDER BY id DESC")
+        randevular = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        msg = "📅 **Aktif Randevular:**\n\n"
+        for r in randevular:
+            msg += f"- {r[0]} ({r[1]}): {r[2]}\n"
+        await query.edit_message_text(msg or "Randevu bulunmuyor.", parse_mode="Markdown")
 
 def run_telegram_bot():
     TOKEN = os.getenv("BOT_TOKEN")
@@ -977,8 +962,7 @@ def run_telegram_bot():
     try:
         bot_app = Application.builder().token(TOKEN).drop_pending_updates(True).build()
         bot_app.add_handler(CommandHandler("start", start))
-        bot_app.add_handler(CommandHandler("plaka", telegram_plaka_sorgu))
-        bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, telegram_mesaj))
+        bot_app.add_handler(CallbackQueryHandler(button_handler))
         bot_app.run_polling(stop_signals=None)
     except Exception as e:
         print("Telegram bot hata:", e)
