@@ -1,12 +1,10 @@
 import os
 import datetime
 import time
-import threading
 import re
-import socket
 import psycopg2
 from flask import Flask, render_template_string, request, send_file, session, redirect, url_for
-from telegram import Update, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
@@ -23,9 +21,13 @@ except:
     OCR_AKTIF = False
 
 app = Flask(__name__)
-app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v102"
+app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v103"
 
 SIFRE = "izmotor2026*"
+TOKEN = "9017126535:AAEBZYsO6g2IVU0OhhdadGlaH_ntFGhkYxk"
+
+# Render üzerindeki canlı URL'imiz
+WEBHOOK_URL = os.getenv("RENDER_EXTERNAL_URL", "https://izservissf-bot.onrender.com")
 
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres.viewtgvofqdoqgodbbne:izmotor20261@aws-1-eu-central-1.pooler.supabase.com:6543/postgres")
 
@@ -103,29 +105,19 @@ HTML_LOGIN = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Iz Motorsıklet - Giriş</title>
+    <title>İz Motorsiklet - Giriş</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Inter:wght@400;700;900&display=swap');
         body { font-family: 'Inter', sans-serif; background-color: #06080f; background-image: radial-gradient(rgba(250, 204, 21, 0.08) 1px, transparent 1px); display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; color: #f8fafc; overflow: hidden; }
-        
         .login-box { background: rgba(13, 17, 28, 0.95); border: 1px solid rgba(250, 204, 21, 0.4); padding: 40px; border-radius: 20px; width: 100%; max-width: 350px; text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.8); animation: revUp 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
-        
-        @keyframes revUp {
-            0% { transform: scale(0.8) translateY(30px); opacity: 0; }
-            100% { transform: scale(1) translateY(0); opacity: 1; }
-        }
-
-        .engine-transition {
-            animation: motorGazla 0.5s ease-in-out forwards !important;
-        }
-
+        @keyframes revUp { 0% { transform: scale(0.8) translateY(30px); opacity: 0; } 100% { transform: scale(1) translateY(0); opacity: 1; } }
+        .engine-transition { animation: motorGazla 0.5s ease-in-out forwards !important; }
         @keyframes motorGazla {
             0% { transform: scale(1) translateX(0); filter: brightness(1); }
             30% { transform: scale(1.05) translateX(-10px); filter: brightness(1.2); }
             60% { transform: scale(0.95) translateX(15px); filter: brightness(1.4); }
             100% { transform: scale(1.2) translateX(100vw); opacity: 0; filter: brightness(2); }
         }
-
         h2 { font-family: 'Permanent Marker', cursive; color: #facc15; font-size: 26px; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 2px; text-shadow: 0 0 10px rgba(250,204,21,0.5); }
         input { width: 100%; padding: 14px; margin-bottom: 20px; background: #030712; border: 1px solid #334155; border-radius: 10px; color: #fff; text-align: center; font-size: 16px; outline: none; }
         input:focus { border-color: #facc15; box-shadow: 0 0 10px rgba(250,204,21,0.3); }
@@ -136,7 +128,7 @@ HTML_LOGIN = """
 </head>
 <body>
 <div class="login-box" id="loginBox">
-    <h2>IZ MOTORSIKLET</h2>
+    <h2>İZ MOTORSİKLET</h2>
     <p style="color:#94a3b8; font-size:13px; margin-bottom:20px;">Tam Donanımlı Garaj Paneli</p>
     {% if error %}<div class="error">{{ error }}</div>{% endif %}
     <form method="POST" onsubmit="motorCalistir(event)">
@@ -144,19 +136,14 @@ HTML_LOGIN = """
         <button type="submit" id="girisBtn">🏍️ Vınla & Giriş Yap</button>
     </form>
 </div>
-
 <script>
 function motorCalistir(event) {
     event.preventDefault();
     var box = document.getElementById('loginBox');
     var btn = document.getElementById('girisBtn');
-    
     btn.innerHTML = "⚡ VÖÖÖRT! Gaz Kesici...";
     box.classList.add('engine-transition');
-    
-    setTimeout(function() {
-        event.target.submit();
-    }, 450);
+    setTimeout(function() { event.target.submit(); }, 450);
 }
 </script>
 </body>
@@ -169,13 +156,12 @@ HTML_PANEL = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Iz Motorsıklet - Garaj Paneli</title>
+    <title>İz Motorsiklet - Garaj Paneli</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Inter:wght@400;600;800;900&display=swap');
         :root { --bg-main: #04060b; --card-bg: rgba(13, 18, 30, 0.95); --accent: #facc15; --text-main: #f8fafc; --text-muted: #94a3b8; --border-color: #1e293b; }
         body { font-family: 'Inter', sans-serif; background-color: var(--bg-main); color: var(--text-main); margin: 0; padding: 12px; }
         .container { max-width: 900px; margin: 0 auto; }
-        
         .sticky-header { position: sticky; top: 0; z-index: 1000; background: rgba(4, 6, 11, 0.98); backdrop-filter: blur(10px); padding: 10px 0 15px 0; border-bottom: 1px solid rgba(250, 204, 21, 0.15); margin-bottom: 15px; }
         .header-box { display: flex; justify-content: space-between; align-items: center; background: var(--card-bg); border: 1px solid var(--border-color); padding: 14px 20px; border-radius: 16px; margin-bottom: 12px; box-shadow: 0 8px 25px rgba(0,0,0,0.5); }
         .brand-title { display: flex; align-items: center; gap: 12px; }
@@ -183,82 +169,65 @@ HTML_PANEL = """
         .graffiti-text { font-family: 'Permanent Marker', cursive; color: #facc15; font-size: 22px; text-transform: uppercase; margin: 0; letter-spacing: 1px; text-shadow: 0 0 15px rgba(250,204,21,0.4); }
         .logout { color: #f87171; text-decoration: none; font-weight: 700; font-size: 11px; background: rgba(248,113,113,0.12); border: 1px solid rgba(248,113,113,0.3); padding: 6px 12px; border-radius: 8px; transition: all 0.2s; }
         .logout:hover { background: rgba(248,113,113,0.25); }
-
         .nav-tabs { display: flex; gap: 8px; overflow-x: auto; padding: 4px 2px; scrollbar-width: none; }
         .nav-tabs::-webkit-scrollbar { display: none; }
         .tab-btn { background: #0b1120; color: var(--text-muted); border: 1px solid var(--border-color); padding: 10px 16px; border-radius: 12px; cursor: pointer; font-weight: 700; font-size: 12px; white-space: nowrap; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; transition: all 0.25s ease; box-shadow: 0 4px 6px rgba(0,0,0,0.2); }
         .tab-btn:hover { border-color: #475569; color: #fff; transform: translateY(-1px); }
         .tab-btn.active { background: linear-gradient(135deg, #facc15 0%, #ca8a04 100%); color: #030712; border-color: #facc15; font-weight: 900; box-shadow: 0 0 15px rgba(250, 204, 21, 0.4); transform: translateY(-1px); }
-
         .tab-content { display: none; animation: fadeIn 0.3s ease; }
         .tab-content.active { display: block; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
-
         .stat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 15px; }
         @media(min-width: 600px) { .stat-grid { grid-template-columns: repeat(4, 1fr); } }
         .stat-box { background: var(--card-bg); border: 1px solid var(--border-color); border-left: 4px solid var(--accent); padding: 14px; border-radius: 14px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
         .stat-box h4 { margin: 0; color: var(--accent); font-size: 17px; font-weight: 900; }
         .stat-box p { margin: 4px 0 0 0; color: var(--text-muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
-        
         .card { background: var(--card-bg); border: 1px solid var(--border-color); padding: 16px; border-radius: 16px; margin-bottom: 14px; font-size: 13px; box-shadow: 0 6px 20px rgba(0,0,0,0.4); }
         h3 { color: var(--accent); margin-top: 0; font-size: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; font-weight: 800; }
-        
         input, select, textarea { width: 100%; padding: 12px; margin-bottom: 12px; background: #030712; border: 1px solid var(--border-color); border-radius: 10px; color: #fff; box-sizing: border-box; font-size: 13px; outline: none; transition: border-color 0.2s; }
         input:focus, select:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 8px rgba(250,204,21,0.2); }
         label { display: block; font-weight: 700; margin-bottom: 5px; font-size: 11px; color: #cbd5e1; text-transform: uppercase; letter-spacing: 0.5px; }
-        
         .btn-action { background: linear-gradient(135deg, var(--accent), #ca8a04); color: #030712; border: none; padding: 13px; border-radius: 10px; width: 100%; font-size: 14px; font-weight: 900; cursor: pointer; text-transform: uppercase; margin-top: 5px; box-shadow: 0 4px 15px rgba(250,204,21,0.3); transition: transform 0.1s; }
         .btn-action:active { transform: scale(0.98); }
-        
         .whatsapp-btn { background: #25d366; color: #fff; padding: 8px 12px; border-radius: 8px; text-decoration: none; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 5px; margin-top: 6px; }
         .pdf-btn { background: #0284c7; color: #fff; padding: 8px 12px; border-radius: 8px; text-decoration: none; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 5px; margin-top: 6px; }
         .edit-btn { background: #d97706; color: #fff; padding: 8px 12px; border-radius: 8px; text-decoration: none; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 5px; margin-top: 6px; border: none; cursor: pointer; }
         .delete-btn { background: #ef4444; color: #fff; padding: 8px 12px; border-radius: 8px; text-decoration: none; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 5px; margin-top: 6px; border: none; cursor: pointer; }
-        
         .status-badge { display: inline-block; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 900; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
         .badge-serviste { background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid #3b82f6; }
         .badge-parca { background: rgba(234, 179, 8, 0.2); color: #facc15; border: 1px solid #eab308; }
         .badge-teslim { background: rgba(34, 197, 94, 0.2); color: #4ade80; border: 1px solid #22c55e; }
-
         .status-group { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
         .status-pill { background: #0f172a; border: 1px solid #334155; color: #cbd5e1; padding: 8px 12px; border-radius: 8px; font-size: 11px; cursor: pointer; font-weight: 700; text-decoration: none; display: inline-block; transition: all 0.2s; }
-        
         .status-pill.active-status { background: var(--accent) !important; color: #030712 !important; border-color: var(--accent) !important; font-weight: 900 !important; box-shadow: 0 0 12px rgba(250, 204, 21, 0.4); }
         .status-pill.active-payment-borclu { background: #ef4444 !important; color: #fff !important; border-color: #ef4444 !important; font-weight: 900 !important; box-shadow: 0 0 12px rgba(239, 68, 68, 0.5); }
         .status-pill.active-payment-odendi { background: #22c55e !important; color: #fff !important; border-color: #22c55e !important; font-weight: 900 !important; box-shadow: 0 0 12px rgba(34, 197, 94, 0.5); }
-
         .quick-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
         .chip { background: #0f172a; border: 1px solid #334155; color: #f8fafc; padding: 7px 12px; border-radius: 8px; font-size: 11px; cursor: pointer; font-weight: 700; transition: border-color 0.2s; }
         .chip:hover { border-color: var(--accent); color: var(--accent); }
-        
         .parca-satir { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; background: rgba(3, 7, 18, 0.6); padding: 8px; border-radius: 10px; border: 1px solid var(--border-color); }
-        
         .piyasa-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
         .piyasa-table th, .piyasa-table td { padding: 10px; text-align: left; border-bottom: 1px solid var(--border-color); }
         .piyasa-table th { color: var(--accent); font-weight: 800; background: rgba(250,204,21,0.05); }
-
         #loadingOverlay { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(3,7,18,0.92); z-index:9999; justify-content: center; align-items: center; flex-direction: column; color: var(--accent); font-weight: 800; font-size: 16px; }
         .spinner { border: 4px solid #1e293b; border-top: 4px solid var(--accent); border-radius: 50%; width: 45px; height: 45px; animation: spin 0.8s linear infinite; margin-bottom: 15px; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
-
 <div id="loadingOverlay">
     <div class="spinner"></div>
     İşlem Yapılıyor, Lütfen Bekleyin...
 </div>
-
 <div class="container">
     <div class="sticky-header">
         <div class="header-box">
             <div class="brand-title">
-                <div class="brand-icon">🏍️</div>
-                <h1 class="graffiti-text">IZ MOTORSIKLET</h1>
+                <div class="brand-icon">⚡🏍️</div>
+                <h1 class="graffiti-text">İZ MOTORSİKLET</h1>
             </div>
             <a href="/cikis" class="logout">Çıkış Yap</a>
         </div>
-
         <div class="nav-tabs">
             <button class="tab-btn {% if aktif_tab == 'servis' %}active{% endif %}" onclick="switchTab('servisTab', this)">🛠️ Servis Formu</button>
             <button class="tab-btn {% if aktif_tab == 'araclar' %}active{% endif %}" onclick="switchTab('araclarTab', this)">🏍️ Aktif Araçlar</button>
@@ -269,7 +238,6 @@ HTML_PANEL = """
             <button class="tab-btn {% if aktif_tab == 'randevu' %}active{% endif %}" onclick="switchTab('randevuTab', this)">📅 Randevular</button>
         </div>
     </div>
-
     <div class="stat-grid">
         <div class="stat-box"><h4>{{ "%.2f"|format(toplam_ciro) }} TL</h4><p>Toplam Ciro</p></div>
         <div class="stat-box"><h4>{{ aktif_araclar|length }}</h4><p>Aktif Araç</p></div>
@@ -277,7 +245,7 @@ HTML_PANEL = """
         <div class="stat-box"><h4>{{ stoklar|length }}</h4><p>Stok Çeşit</p></div>
     </div>
 
-    <!-- 1. SERVİS FORMU & OCR -->
+    <!-- 1. SERVİS FORMU -->
     <div id="servisTab" class="tab-content {% if aktif_tab == 'servis' %}active{% endif %}">
         <div class="card" style="border: 2px dashed var(--accent);">
             <h3>📷 Kameradan / Fotoğraftan Plaka Oku (OCR)</h3>
@@ -292,7 +260,6 @@ HTML_PANEL = """
             </div>
             {% endif %}
         </div>
-
         <div class="card">
             <h3>⚡ Yeni Servis Formu Oluştur</h3>
             <div style="margin-bottom: 12px;">
@@ -306,7 +273,6 @@ HTML_PANEL = """
                     {% endfor %}
                 </select>
             </div>
-
             <form action="/olustur" method="POST" enctype="multipart/form-data" onsubmit="showLoading()">
                 <label>Dükkan Logosu (Zorunlu)</label><input type="file" name="logo" accept="image/*" required>
                 <label>Müşteri Ad Soyad</label><input type="text" id="musteri_ad" name="musteri_ad" placeholder="Örn: Ahmet Yılmaz" required>
@@ -314,21 +280,18 @@ HTML_PANEL = """
                 <label>Motosiklet Plaka</label><input type="text" id="plaka" name="plaka" placeholder="Örn: 34 ABC 123" value="{{ okunan_plaka or '' }}" required>
                 <label>Marka / Model</label><input type="text" id="model" name="model" placeholder="Örn: Honda Dio" required>
                 <label>Kilometre (KM)</label><input type="text" id="km" name="km" placeholder="Örn: 15000" required>
-                
                 <label>Ödeme Durumu</label>
                 <select name="odeme_durumu">
                     <option value="Borçlu / Veresiye" selected>🔴 Borçlu / Veresiye</option>
                     <option value="Parça Bekliyor">🟡 Parça Bekliyor</option>
                     <option value="Ödendi">🟢 Ödendi (Arşive Gider)</option>
                 </select>
-
                 <label style="margin-top: 15px;">Stoktan Hızlı Parça Seç (Tıkla ve Ekle):</label>
                 <div class="quick-chips">
                     {% for st in stoklar %}
                     <div class="chip" onclick="islemEkle('{{ st[1] }}')">📦 {{ st[1] }} (Stok: {{ st[2] }})</div>
                     {% endfor %}
                 </div>
-
                 <label style="margin-top:15px;">Yapılan İşlemler, Parçalar ve Yağ/İşçilik Detayları</label>
                 <div id="parcaListesiContainer">
                     {% for i in range(3) %}
@@ -338,7 +301,6 @@ HTML_PANEL = """
                         <input type="number" step="0.01" name="fiyat[]" placeholder="Tutar (TL)" style="margin:0; flex:1;" {% if i == 0 %}required{% endif %}>
                     </div>
                     {% endfor %}
-                    <!-- ÖZEL İŞÇİLİK SATIRI -->
                     <div class="parca-satir" style="border: 1px dashed var(--accent);">
                         <input type="text" name="islem_ad[]" value="İşçilik" style="margin:0; flex:2; color:var(--accent); font-weight:700;">
                         <input type="text" name="adet[]" value="1" style="margin:0; flex:1;" placeholder="Adet/Süre">
@@ -346,10 +308,8 @@ HTML_PANEL = """
                     </div>
                 </div>
                 <button type="button" class="btn-action" style="background:#0f172a; color:var(--accent); border:1px solid var(--accent);" onclick="yeniSatirEkle()">➕ Daha Fazla Satır Ekle</button>
-                
                 <label style="margin-top:20px;">Notlar ve Tespitler (Açıklama)</label>
                 <textarea name="notlar" rows="3" placeholder="Motor hakkında özel notlar, arıza tespitleri vb. yazabilirsiniz..."></textarea>
-
                 <button type="submit" class="btn-action" style="margin-top:20px;">Formu Oluştur & Kaydet (PDF)</button>
             </form>
         </div>
@@ -358,7 +318,6 @@ HTML_PANEL = """
     <!-- 2. AKTİF ARAÇLAR -->
     <div id="araclarTab" class="tab-content {% if aktif_tab == 'araclar' %}active{% endif %}">
         <h3>Atölyedeki / Servisteki Aktif Araçlar</h3>
-        
         <div class="card" style="border: 2px dashed #0d9488; margin-bottom: 20px;">
             <h3 style="color:#2dd4bf; cursor:pointer;" onclick="hizliFormToggle()">➕ Servise Gelen Yeni Araç / Müşteri Kaydet (Tıkla)</h3>
             <div id="hizliAracFormDiv" style="display:none; margin-top:12px;">
@@ -373,7 +332,6 @@ HTML_PANEL = """
                 </form>
             </div>
         </div>
-
         {% if aktif_araclar %}
             {% for ts in aktif_araclar %}
             <div class="card" style="border-left: 4px solid {% if ts.odeme_durumu == 'Borçlu / Veresiye' %}#f87171{% else %}#4ade80{% endif %};">
@@ -381,7 +339,6 @@ HTML_PANEL = """
                 <b>Model / KM:</b> {{ ts.model }} - {{ ts.km }} KM | <b>Tarih:</b> {{ ts.tarih }}<br>
                 <b>Yapılanlar:</b> {{ ts.detaylar }} | <b>Notlar:</b> {{ ts.notlar or '-' }}<br>
                 <b>Tutar:</b> <span style="color:var(--accent); font-weight:800;">{{ "%.2f"|format(ts.toplam_tutar|float) }} TL</span> | <b>Ödeme:</b> <span style="color:{% if ts.odeme_durumu == 'Ödendi' %}#4ade80{% else %}#f87171{% endif %}; font-weight:800;">{{ ts.odeme_durumu }}</span><br><br>
-                
                 <div>
                     <span style="font-size:10px; color:#94a3b8; display:block; margin-bottom:3px;">MEVCUT DURUM BİLDİRİMİ:</span>
                     {% if ts.durum == 'Parça Bekliyor' %}
@@ -392,7 +349,6 @@ HTML_PANEL = """
                         <div class="status-badge badge-serviste">🛠️ Serviste</div>
                     {% endif %}
                 </div>
-
                 <div style="margin-top: 5px;">
                     <label style="font-size:9px; color:#94a3b8; margin-bottom:2px;">ÇALIŞMA DURUMU</label>
                     <div class="status-group">
@@ -400,14 +356,12 @@ HTML_PANEL = """
                         <a href="/durum_degistir/{{ ts.id }}?durum=Parça Bekliyor&tab=araclar" onclick="showLoading()" class="status-pill {% if ts.durum == 'Parça Bekliyor' %}active-status{% endif %}">🟡 Parça Bekliyor</a>
                         <a href="/durum_degistir/{{ ts.id }}?durum=Teslime Hazır&tab=araclar" onclick="showLoading()" class="status-pill {% if ts.durum == 'Teslime Hazır' %}active-status{% endif %}">⚡ Teslime Hazır</a>
                     </div>
-
                     <label style="font-size:9px; color:#94a3b8; margin-top:6px; margin-bottom:2px;">ÖDEME DURUMU</label>
                     <div class="status-group">
                         <a href="/durum_degistir/{{ ts.id }}?odeme=Borçlu / Veresiye&tab=araclar" onclick="showLoading()" class="status-pill {% if ts.odeme_durumu == 'Borçlu / Veresiye' %}active-payment-borclu{% endif %}">🔴 Borçlu / Veresiye</a>
                         <a href="/durum_degistir/{{ ts.id }}?odeme=Ödendi&tab=araclar" onclick="showLoading()" class="status-pill {% if ts.odeme_durumu == 'Ödendi' %}active-payment-odendi{% endif %}">🟢 Ödendi</a>
                     </div>
                 </div>
-
                 <div style="margin-top: 10px; display: flex; gap: 6px; flex-wrap: wrap;">
                     <a href="https://wa.me/{{ ts.musteri_tel }}?text=Sayin%20{{ ts.musteri_ad }},%20Iz%20Motorsiklet%20servis%20ucretiniz%20{{ "%.2f"|format(ts.toplam_tutar|float) }}%20TL." target="_blank" class="whatsapp-btn">💬 WhatsApp</a>
                     <a href="/pdf_indir/{{ ts.id }}" class="pdf-btn">📄 PDF İndir</a>
@@ -431,14 +385,12 @@ HTML_PANEL = """
                 <b>Müşteri:</b> {{ b.musteri_ad }} ({{ b.musteri_tel }})<br>
                 <b>İşlemler:</b> {{ b.detaylar }} | <b>Notlar:</b> {{ b.notlar or '-' }}<br>
                 <b>Toplam Borç:</b> <span style="color:#ef4444; font-size:14px; font-weight:800;">{{ "%.2f"|format(b.toplam_tutar|float) }} TL</span>
-                
                 <div style="margin-top: 8px;">
                     <label style="font-size:9px; color:#94a3b8; margin-bottom:2px;">ÖDEME DURUMUNU GÜNCELLE</label>
                     <div class="status-group">
                         <a href="/durum_degistir/{{ b.id }}?odeme=Ödendi&tab=borclar" onclick="showLoading()" class="status-pill active-payment-borclu">Tahsil Et (Ödendi Yap)🟢</a>
                     </div>
                 </div>
-
                 <div style="margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap;">
                     <a href="https://wa.me/{{ b.musteri_tel }}?text=Sayin%20{{ b.musteri_ad }},%20Iz%20Motorsiklet%20servis%20borc%20bakiyeniz%20{{ "%.2f"|format(b.toplam_tutar|float) }}%20TL'dir." target="_blank" class="whatsapp-btn">💬 Borç Hatırlat</a>
                     <a href="/pdf_indir/{{ b.id }}" class="pdf-btn">📄 Formu İndir</a>
@@ -508,78 +460,33 @@ HTML_PANEL = """
         {% endfor %}
     </div>
 
-    <!-- 6. PİYASA PARÇA FİYAT ENTEGRASYONU VE ARAMA -->
+    <!-- 6. PİYASA PARÇA TAKİBİ -->
     <div id="piyasaTab" class="tab-content {% if aktif_tab == 'piyasa' %}active{% endif %}">
         <div class="card" style="border-top: 4px solid #38bdf8;">
             <h3 style="color:#38bdf8;">🔍 Yapay Zeka ile Parça & Tedarikçi Fiyat Arama</h3>
-            <p style="color:var(--text-muted); font-size:12px; margin-bottom:12px;">
-                Aratmak istediğin motosiklet parçasını yaz (Örn: <i>Dio V Kayışı</i>, <i>Balata</i>, <i>Buji</i>, <i>Yağ</i>), sistem Türkiye piyasasındaki firmalara göre fiyatları döküversin kanka!
-            </p>
-            
+            <p style="color:var(--text-muted); font-size:12px; margin-bottom:12px;">Aratmak istediğin motosiklet parçasını yaz, sistem Türkiye piyasasındaki firmalara göre fiyatları döküversin kanka!</p>
             <div style="display: flex; gap: 8px; margin-bottom: 15px;">
                 <input type="text" id="parcaAramaInput" placeholder="Parça veya Model adı yazın (Örn: Dio Kayış)..." style="margin:0; flex:2;">
                 <button type="button" class="btn-action" style="margin:0; flex:1; background: linear-gradient(135deg, #38bdf8, #0284c7); color:#fff;" onclick="parcaAramaYap()">PİYASADA ARA</button>
             </div>
-
             <div id="aramaSonucKutusu" style="display:none; background: rgba(3,7,18,0.8); border:1px solid #38bdf8; padding:12px; border-radius:10px; margin-bottom:15px; font-size:12px;">
                 <b style="color:#38bdf8;">🔎 Arama Sonuçları:</b>
                 <div id="aramaSonucIcerik" style="margin-top:8px; color:#f8fafc;"></div>
             </div>
-
             <h3 style="color:#38bdf8; margin-top:20px;">📈 Popüler Parçalar ve Toptancı Fiyat Analizi</h3>
             <div style="overflow-x: auto;">
                 <table class="piyasa-table">
                     <thead>
-                        <tr>
-                            <th>Parça / Ürün Adı</th>
-                            <th>Uyumlu Modeller</th>
-                            <th>Ort. Piyasa Fiyatı</th>
-                            <th>Durum / Tavsiye</th>
-                        </tr>
+                        <tr><th>Parça / Ürün Adı</th><th>Uyumlu Modeller</th><th>Ort. Piyasa Fiyatı</th><th>Durum / Tavsiye</th></tr>
                     </thead>
                     <tbody>
-                        <tr>
-                            <td><b>Honda Dio Orijinal V Kayışı</b></td>
-                            <td>Honda Dio 110</td>
-                            <td><span style="color:#facc15; font-weight:800;">450.00 TL - 550.00 TL</span></td>
-                            <td><span style="color:#4ade80;">Piyasa Dengeli</span></td>
-                        </tr>
-                        <tr>
-                            <td><b>NGK Buji (CR6HSA)</b></td>
-                            <td>Scooter / Cub / Commuter</td>
-                            <td><span style="color:#facc15; font-weight:800;">120.00 TL - 160.00 TL</span></td>
-                            <td><span style="color:#4ade80;">Piyasa Dengeli</span></td>
-                        </tr>
-                        <tr>
-                            <td><b>Ön Fren Balatası (Organik)</b></td>
-                            <td>Hero Dash 125 / Honda Dio</td>
-                            <td><span style="color:#facc15; font-weight:800;">220.00 TL - 320.00 TL</span></td>
-                            <td><span style="color:#f87171;">Yükselişte ↗</span></td>
-                        </tr>
-                        <tr>
-                            <td><b>Motul 10W40 4T Scooter Yağı (1L)</b></td>
-                            <td>Genel Scooter / Vario</td>
-                            <td><span style="color:#facc15; font-weight:800;">380.00 TL - 450.00 TL</span></td>
-                            <td><span style="color:#4ade80;">Piyasa Dengeli</span></td>
-                        </tr>
-                        <tr>
-                            <td><b>Varyatör Baget Seti (14gr)</b></td>
-                            <td>Honda Dio 110 / Activa</td>
-                            <td><span style="color:#facc15; font-weight:800;">280.00 TL - 350.00 TL</span></td>
-                            <td><span style="color:#4ade80;">Piyasa Dengeli</span></td>
-                        </tr>
-                        <tr>
-                            <td><b>Hava Filtresi Süngeri / Elemanı</b></td>
-                            <td>Hero Dash / Honda Dio</td>
-                            <td><span style="color:#facc15; font-weight:800;">90.00 TL - 150.00 TL</span></td>
-                            <td><span style="color:#4ade80;">Piyasa Dengeli</span></td>
-                        </tr>
-                        <tr>
-                            <td><b>Arka Debriyaj Balata Komple</b></td>
-                            <td>110cc - 125cc Scooter</td>
-                            <td><span style="color:#facc15; font-weight:800;">850.00 TL - 1.150.00 TL</span></td>
-                            <td><span style="color:#f87171;">Yükselişte ↗</span></td>
-                        </tr>
+                        <tr><td><b>Honda Dio Orijinal V Kayışı</b></td><td>Honda Dio 110</td><td><span style="color:#facc15; font-weight:800;">450.00 TL - 550.00 TL</span></td><td><span style="color:#4ade80;">Piyasa Dengeli</span></td></tr>
+                        <tr><td><b>NGK Buji (CR6HSA)</b></td><td>Scooter / Cub / Commuter</td><td><span style="color:#facc15; font-weight:800;">120.00 TL - 160.00 TL</span></td><td><span style="color:#4ade80;">Piyasa Dengeli</span></td></tr>
+                        <tr><td><b>Ön Fren Balatası (Organik)</b></td><td>Hero Dash 125 / Honda Dio</td><td><span style="color:#facc15; font-weight:800;">220.00 TL - 320.00 TL</span></td><td><span style="color:#f87171;">Yükselişte ↗</span></td></tr>
+                        <tr><td><b>Motul 10W40 4T Scooter Yağı (1L)</b></td><td>Genel Scooter / Vario</td><td><span style="color:#facc15; font-weight:800;">380.00 TL - 450.00 TL</span></td><td><span style="color:#4ade80;">Piyasa Dengeli</span></td></tr>
+                        <tr><td><b>Varyatör Baget Seti (14gr)</b></td><td>Honda Dio 110 / Activa</td><td><span style="color:#facc15; font-weight:800;">280.00 TL - 350.00 TL</span></td><td><span style="color:#4ade80;">Piyasa Dengeli</span></td></tr>
+                        <tr><td><b>Hava Filtresi Süngeri / Elemanı</b></td><td>Hero Dash / Honda Dio</td><td><span style="color:#facc15; font-weight:800;">90.00 TL - 150.00 TL</span></td><td><span style="color:#4ade80;">Piyasa Dengeli</span></td></tr>
+                        <tr><td><b>Arka Debriyaj Balata Komple</b></td><td>110cc - 125cc Scooter</td><td><span style="color:#facc15; font-weight:800;">850.00 TL - 1.150.00 TL</span></td><td><span style="color:#f87171;">Yükselişte ↗</span></td></tr>
                     </tbody>
                 </table>
             </div>
@@ -639,11 +546,7 @@ function islemEkle(isim) {
     for (var i = 0; i < satirlar.length; i++) {
         var inputAd = satirlar[i].querySelector('input[name="islem_ad[]"]');
         var inputAdet = satirlar[i].querySelector('input[name="adet[]"]');
-        if (!inputAd.value) { 
-            inputAd.value = isim; 
-            inputAdet.value = "1";
-            return; 
-        }
+        if (!inputAd.value) { inputAd.value = isim; inputAdet.value = "1"; return; }
     }
 }
 function yeniSatirEkle() {
@@ -651,24 +554,17 @@ function yeniSatirEkle() {
     var div = document.createElement('div');
     div.className = 'parca-satir';
     div.innerHTML = '<input type="text" name="islem_ad[]" placeholder="Parça veya Yağ Adı" style="margin:0; flex:2;">' +
-                    '<input type="text" name="adet[]" placeholder="Adet / Litre (Örn: 0.8 L)" value="1" style="margin:0; flex:1;">' +
+                    '<input type="text" name="adet[]" placeholder="Adet / Litre" value="1" style="margin:0; flex:1;">' +
                     '<input type="number" step="0.01" name="fiyat[]" placeholder="Tutar (TL)" style="margin:0; flex:1;">';
     container.appendChild(div);
 }
-
 function parcaAramaYap() {
     var query = document.getElementById('parcaAramaInput').value.trim().toLowerCase();
     var sonucKutusu = document.getElementById('aramaSonucKutusu');
     var sonucIcerik = document.getElementById('aramaSonucIcerik');
-    
-    if(!query) {
-        alert("Lütfen aratmak için bir parça adı yaz kanka!");
-        return;
-    }
-    
+    if(!query) { alert("Lütfen aratmak için bir parça adı yaz kanka!"); return; }
     sonucKutusu.style.display = 'block';
     sonucIcerik.innerHTML = '🔄 Türkiye piyasası taranıyor, tedarikçi fiyatları çekiliyor...';
-    
     setTimeout(function() {
         var veritabaniSimulasyon = [
             { ad: "Honda Dio Orijinal V Kayışı", firma1: "Feyizoğlu Motor: 480 TL", firma2: "MotosikletOnline: 520 TL", firma3: "Trendyol Yetkili Bayi: 450 TL" },
@@ -676,18 +572,13 @@ function parcaAramaYap() {
             { ad: "Ön Fren Balatası", firma1: "Motovento: 240 TL", firma2: "Feyizoğlu: 280 TL", firma3: "Trendyol: 310 TL" },
             { ad: "Motul 10W40 Scooter Yağı 1L", firma1: "Hepsiburada Yetkili: 390 TL", firma2: "Trendyol Moto: 410 TL", firma3: "Feyizoğlu: 440 TL" }
         ];
-        
         var bulunanlar = veritabaniSimulasyon.filter(function(item) {
             return item.ad.toLowerCase().includes(query) || query.split(' ').some(word => item.ad.toLowerCase().includes(word));
         });
-        
         if(bulunanlar.length > 0) {
             var html = '<ul style="margin:0; padding-left:15px;">';
             bulunanlar.forEach(function(b) {
-                html += '<li style="margin-bottom:8px;"><b>' + b.ad + '</b><br>' +
-                        '🔹 ' + b.firma1 + '<br>' +
-                        '🔹 ' + b.firma2 + '<br>' +
-                        '🔹 ' + b.firma3 + '</li>';
+                html += '<li style="margin-bottom:8px;"><b>' + b.ad + '</b><br>🔹 ' + b.firma1 + '<br>🔹 ' + b.firma2 + '<br>🔹 ' + b.firma3 + '</li>';
             });
             html += '</ul>';
             sonucIcerik.innerHTML = html;
@@ -744,7 +635,6 @@ HTML_DUZENLE = """
 def pdf_olustur(filename, veri, logo_yolu):
     doc = SimpleDocTemplate(filename, pagesize=A4, rightMargin=20, leftMargin=20, topMargin=20, bottomMargin=20)
     story = []
-    
     style_normal = ParagraphStyle('Norm', fontName=FONT_NAME, fontSize=9, leading=12, textColor=colors.HexColor("#111111"))
     style_bold = ParagraphStyle('Bold', fontName=FONT_BOLD, fontSize=9, leading=12, textColor=colors.HexColor("#111111"))
     style_title = ParagraphStyle('Tit', fontName=FONT_BOLD, fontSize=13, leading=16, textColor=colors.HexColor("#1A1A1A"), alignment=1, spaceAfter=8)
@@ -757,11 +647,9 @@ def pdf_olustur(filename, veri, logo_yolu):
 
     story.append(Paragraph("MÜŞTERİ SERVİS FORMU", style_title))
     story.append(Spacer(1, 4))
-
     tarih_str = veri.get('tarih', datetime.date.today().strftime('%d.%m.%Y'))
     mus_bilgi = Paragraph(f"<b>MÜŞTERİ BİLGİLERİ</b><br/><br/><b>Adı Soyadı:</b> {veri.get('musteri_ad', '')}<br/><b>Telefon:</b> {veri.get('musteri_tel', '')}<br/><b>Tarih:</b> {tarih_str}", style_normal)
     arac_bilgi = Paragraph(f"<b>ARAÇ BİLGİLERİ</b><br/><br/><b>Plaka:</b> {veri.get('plaka', '')}<br/><b>Marka / Model:</b> {veri.get('model', '')}<br/><b>Kilometre:</b> {veri.get('km', '')}", style_normal)
-
     info_table = Table([[mus_bilgi, arac_bilgi]], colWidths=[275, 275])
     info_table.setStyle(TableStyle([
         ('BOX', (0,0), (-1,-1), 1, colors.HexColor("#CBD5E1")),
@@ -779,10 +667,8 @@ def pdf_olustur(filename, veri, logo_yolu):
         Paragraph("<b>Adet / Litre (Miktar)</b>", style_bold), 
         Paragraph("<b>Tutar (TL)</b>", style_bold)
     ]]
-
     islemler = veri.get('islemler', [])
     toplam_tutar = 0.0
-
     for i in range(10):
         if i < len(islemler):
             isim, adet, tutar = islemler[i]
@@ -800,9 +686,7 @@ def pdf_olustur(filename, veri, logo_yolu):
                 Paragraph("", style_normal),
                 Paragraph("", style_normal)
             ])
-
     hizmet_data.append(["", Paragraph("<b>GENEL TOPLAM</b>", style_bold), "", Paragraph(f"<b>{toplam_tutar:.2f} TL</b>", style_bold)])
-
     t_hizmet = Table(hizmet_data, colWidths=[30, 330, 90, 100])
     t_hizmet.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#E2E8F0")),
@@ -813,7 +697,6 @@ def pdf_olustur(filename, veri, logo_yolu):
     ]))
     story.append(t_hizmet)
     story.append(Spacer(1, 10))
-
     notlar_metni = veri.get('notlar', '')
     notlar_data = [
         [Paragraph("<b>Notlar ve Tespitler</b>", style_bold)],
@@ -827,7 +710,6 @@ def pdf_olustur(filename, veri, logo_yolu):
     ]))
     story.append(t_notlar)
     story.append(Spacer(1, 15))
-
     imza_data = [
         [Paragraph("<b>Servis Yetkilisi</b>", style_bold)],
         [Paragraph("<br/><br/>İbrahim Yıldırım / Yusuf Yılgın<br/>Kaşe / İmza", style_normal)]
@@ -839,7 +721,6 @@ def pdf_olustur(filename, veri, logo_yolu):
         ('PADDING', (0,0), (-1,-1), 6),
     ]))
     story.append(t_imza)
-
     doc.build(story)
 
 def dict_factory(cursor, row):
@@ -933,7 +814,6 @@ def plaka_oku():
                 img = img.convert('L')
                 text = pytesseract.image_to_string(img, config='--psm 11')
                 temiz_metin = "".join([c for c in text if c.isalnum()]).upper()
-                
                 match = re.search(r'(0[1-9]|[1-7][0-9]|8[01])[A-Z]{1,3}\d{2,4}', temiz_metin)
                 if match:
                     bulunan_plaka = match.group(0)
@@ -964,10 +844,8 @@ def olustur():
         isim = islem_listesi[i].strip()
         if isim:
             adet_Str = adet_listesi[i].strip() if i < len(adet_listesi) else "1"
-            try: 
-                tutar = float(fiyat_listesi[i])
-            except: 
-                tutar = 0.0
+            try: tutar = float(fiyat_listesi[i])
+            except: tutar = 0.0
             
             islemler.append((isim, adet_Str, tutar))
             toplam_fiyat += tutar
@@ -977,16 +855,13 @@ def olustur():
                 stok_kayit = cursor.fetchone()
                 if stok_kayit:
                     stok_id, mevcut_adet = stok_kayit
-                    try:
-                        dusulecek = float(re.findall(r'\d+', adet_Str)[0]) if re.findall(r'\d+', adet_Str) else 1.0
-                    except:
-                        dusulecek = 1.0
+                    try: dusulecek = float(re.findall(r'\d+', adet_Str)[0]) if re.findall(r'\d+', adet_Str) else 1.0
+                    except: dusulecek = 1.0
                     yeni_adet = max(0, int(mevcut_adet - dusulecek))
                     cursor.execute("UPDATE stok SET adet = %s WHERE id = %s", (yeni_adet, stok_id))
 
     if not islemler: islemler = [("Genel Bakım", "1", 0.0)]
     detaylar_str = ", ".join([f"{item[0]} ({item[1]} Miktar - {item[2]:.2f} TL)" for item in islemler])
-
     logo_file = request.files.get('logo')
     logo_path = f"temp_logo_{plaka}.jpg" if logo_file and logo_file.filename != '' else None
     if logo_file and logo_path: logo_file.save(logo_path)
@@ -1014,22 +889,14 @@ def duzenle(kayit_id):
         model = request.form.get('model')
         detaylar = request.form.get('detaylar')
         notlar = request.form.get('notlar')
-        try:
-            tutar = float(request.form.get('toplam_tutar', 0))
-        except:
-            tutar = 0.0
+        try: tutar = float(request.form.get('toplam_tutar', 0))
+        except: tutar = 0.0
         odeme = request.form.get('odeme_durumu')
-        
-        cursor.execute("""
-            UPDATE servisler 
-            SET musteri_ad=%s, musteri_tel=%s, plaka=%s, model=%s, detaylar=%s, notlar=%s, toplam_tutar=%s, odeme_durumu=%s 
-            WHERE id=%s
-        """, (ad, tel, plaka, model, detaylar, notlar, tutar, odeme, kayit_id))
+        cursor.execute("UPDATE servisler SET musteri_ad=%s, musteri_tel=%s, plaka=%s, model=%s, detaylar=%s, notlar=%s, toplam_tutar=%s, odeme_durumu=%s WHERE id=%s", (ad, tel, plaka, model, detaylar, notlar, tutar, odeme, kayit_id))
         conn.commit()
         cursor.close()
         conn.close()
         return redirect(url_for('index', tab='araclar'))
-        
     cursor.execute("SELECT id, plaka, musteri_ad, musteri_tel, model, km, tarih, detaylar, notlar, toplam_tutar, durum, odeme_durumu, pdf_dosya FROM servisler WHERE id = %s", (kayit_id,))
     row = cursor.fetchone()
     kayit = dict_factory(cursor, row) if row else {}
@@ -1054,13 +921,10 @@ def durum_degistir(servis_id):
     yeni_durum = request.args.get('durum')
     yeni_odeme = request.args.get('odeme')
     hedef_tab = request.args.get('tab', 'araclar')
-    
     conn = get_db_connection()
     cursor = conn.cursor()
-    if yeni_durum:
-        cursor.execute("UPDATE servisler SET durum = %s WHERE id = %s", (yeni_durum, servis_id))
-    if yeni_odeme:
-        cursor.execute("UPDATE servisler SET odeme_durumu = %s WHERE id = %s", (yeni_odeme, servis_id))
+    if yeni_durum: cursor.execute("UPDATE servisler SET durum = %s WHERE id = %s", (yeni_durum, servis_id))
+    if yeni_odeme: cursor.execute("UPDATE servisler SET odeme_durumu = %s WHERE id = %s", (yeni_odeme, servis_id))
     conn.commit()
     cursor.close()
     conn.close()
@@ -1145,10 +1009,23 @@ def cikis():
     session.pop('giris', None)
     return redirect(url_for('index'))
 
-# --- TELEGRAM BOTU ---
+# --- TELEGRAM BOTU WEBHOOK MİMARİSİ ---
 user_sessions = {}
+bot_app = None
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def setup_telegram_bot():
+    global bot_app
+    if bot_app is None:
+        bot_app = Application.builder().token(TOKEN).build()
+        bot_app.add_handler(CommandHandler("start", start_cmd))
+        bot_app.add_handler(CommandHandler("plaka", telegram_plaka_sorgu))
+        bot_app.add_handler(CallbackQueryHandler(button_handler))
+        bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, check_password))
+        await bot_app.initialize()
+        # Webhook adresini Telegram'a kaydediyoruz
+        await bot_app.bot.set_webhook(url=f"{WEBHOOK_URL}/webhook")
+
+async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     user_sessions[user_id] = False
     await update.message.reply_text("🔒 **İZ MOTORSİKLET GARAJ ASİSTANI**\n\nBu bot güvenlidir. Lütfen dükkan **Şifresini** yazın:")
@@ -1157,7 +1034,6 @@ async def check_password(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     text = update.message.text
     if user_sessions.get(user_id) is True: return
-
     if text == SIFRE:
         user_sessions[user_id] = True
         keyboard = [
@@ -1210,10 +1086,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         res = cursor.fetchone()
         cursor.close()
         conn.close()
-        try:
-            ciro = float(res[0]) if res and res[0] is not None else 0.0
-        except:
-            ciro = 0.0
+        try: ciro = float(res[0]) if res and res[0] is not None else 0.0
+        except: ciro = 0.0
         adet = res[1] if res and res[1] else 0
         await query.edit_message_text(f"📊 **Günlük Özet ({bugun}):**\n- Giren Araç: {adet}\n- Toplam Ciro: `{ciro:.2f} TL`", reply_markup=ana_menu_markup, parse_mode="Markdown")
 
@@ -1226,10 +1100,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         conn.close()
         msg = "📦 **Stok ve Fiyat Durumu:**\n\n"
         for s in stoklar:
-            try:
-                fiy = float(s[2] or 0)
-            except:
-                fiy = 0.0
+            try: fiy = float(s[2] or 0)
+            except: fiy = 0.0
             msg += f"- {s[0]}: {s[1]} adet ({fiy:.2f} TL)\n"
         await query.edit_message_text(msg or "Stok boş.", reply_markup=ana_menu_markup, parse_mode="Markdown")
 
@@ -1252,7 +1124,6 @@ async def telegram_plaka_sorgu(update: Update, context: ContextTypes.DEFAULT_TYP
     if user_sessions.get(user_id) is not True:
         await update.message.reply_text("🔒 Lütfen önce `/start` yazıp şifre ile giriş yapın.")
         return
-
     text = update.message.text
     if text.startswith("/plaka"):
         parcalar = text.split(maxsplit=1)
@@ -1266,43 +1137,34 @@ async def telegram_plaka_sorgu(update: Update, context: ContextTypes.DEFAULT_TYP
         sonuclar = cursor.fetchall()
         cursor.close()
         conn.close()
-        
         if not sonuclar:
             await update.message.reply_text(f"🔍 `{sorgu}` plakasına ait geçmiş kayıt bulunamadı.", parse_mode="Markdown")
             return
-            
         msg = f"🔍 **Plaka Sorgu Sonucu ({sorgu}):**\n\n"
         for s in sonuclar:
-            try:
-                tutar_val = float(s[6] or 0)
-            except:
-                tutar_val = 0.0
+            try: tutar_val = float(s[6] or 0)
+            except: tutar_val = 0.0
             msg += f"🏍️ **Plaka:** {s[0]}\n👤 **Müşteri:** {s[1]} ({s[2]})\n📅 **Tarih:** {s[3]}\n🔧 **İşlem:** {s[4]}\n📝 **Not:** {s[5] or '-'}\n💰 **Tutar:** {tutar_val:.2f} TL\n📌 **Durum:** {s[7]}\n-------------------\n"
         await update.message.reply_text(msg, parse_mode="Markdown")
 
-def run_telegram_bot():
-    TOKEN = "9017126535:AAEBZYsO6g2IVU0OhhdadGlaH_ntFGhkYxk"
-    try:
-        bot_app = Application.builder().token(TOKEN).concurrent_updates(True).build()
-        bot_app.add_handler(CommandHandler("start", start))
-        bot_app.add_handler(CommandHandler("plaka", telegram_plaka_sorgu))
-        bot_app.add_handler(CallbackQueryHandler(button_handler))
-        bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, check_password))
+@app.route('/webhook', methods=['POST'])
+def telegram_webhook():
+    import asyncio
+    if request.headers.get('content-type') == 'application/json':
+        json_data = request.get_json(force=True)
+        update = Update.de_json(json_data, bot_app.bot)
         
-        import asyncio
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-        bot_app.run_polling(drop_pending_updates=True, stop_signals=None)
-    except Exception as e:
-        print("Telegram bot çalışma uyarısı/hatası:", e)
+        loop.run_until_complete(bot_app.process_update(update))
+        return 'OK', 200
+    return 'Forbidden', 403
 
 if __name__ == '__main__':
-    lock_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    try:
-        lock_socket.bind(("127.0.0.1", 49163))
-        threading.Thread(target=run_telegram_bot, daemon=True).start()
-    except socket.error:
-        print("Telegram bot zaten aktif.")
+    import asyncio
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.run_until_complete(setup_telegram_bot())
 
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
