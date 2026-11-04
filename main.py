@@ -22,7 +22,7 @@ except:
     OCR_AKTIF = False
 
 app = Flask(__name__)
-app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v77"
+app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v78"
 
 SIFRE = "izmotor2026*"
 
@@ -954,8 +954,19 @@ def run_telegram_bot():
         print("Telegram bot hata:", e)
 
 if __name__ == '__main__':
-    # Flask birden fazla worker ile başlatıldığında bot thread'inin çakışmasını engellemek için kontrol
-    if os.environ.get("WERKZEUG_RUN_MAIN") == "true" or not app.debug:
+    # Dosya kilidi (lock) mekanizması ile botun sadece tek bir instance üzerinde çalışması sağlanır
+    lock_file = "bot.lock"
+    can_run_bot = False
+    try:
+        if not os.path.exists(lock_file):
+            with open(lock_file, "w") as f:
+                f.write(str(os.getpid()))
+            can_run_bot = True
+    except:
+        can_run_bot = True
+
+    if can_run_bot:
         threading.Thread(target=run_telegram_bot, daemon=True).start()
+
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
