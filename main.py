@@ -21,7 +21,7 @@ except:
     OCR_AKTIF = False
 
 app = Flask(__name__)
-app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v104"
+app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v105"
 
 SIFRE = "izmotor2026*"
 TOKEN = "9017126535:AAEBZYsO6g2IVU0OhhdadGlaH_ntFGhkYxk"
@@ -579,12 +579,15 @@ function parcaAramaYap() {
     setTimeout(function() {
         var veritabaniSimulasyon = [
             { ad: "Honda Dio Orijinal V Kayışı", firma1: "Feyizoğlu Motor: 480 TL", firma2: "MotosikletOnline: 520 TL", firma3: "Trendyol Yetkili Bayi: 450 TL" },
+            { ad: "Honda PCX 125 Orijinal V Kayışı", firma1: "Feyizoğlu Motor: 850 TL", firma2: "MotosikletOnline: 890 TL", firma3: "Trendyol Yetkili Bayi: 820 TL" },
             { ad: "NGK Buji CR6HSA", firma1: "Feyizoğlu Motor: 120 TL", firma2: "N11 MotoPazarı: 135 TL", firma3: "Trendyol: 150 TL" },
             { ad: "Ön Fren Balatası", firma1: "Motovento: 240 TL", firma2: "Feyizoğlu: 280 TL", firma3: "Trendyol: 310 TL" },
             { ad: "Motul 10W40 Scooter Yağı 1L", firma1: "Hepsiburada Yetkili: 390 TL", firma2: "Trendyol Moto: 410 TL", firma3: "Feyizoğlu: 440 TL" }
         ];
+        var arananKelimeler = query.split(' ');
         var bulunanlar = veritabaniSimulasyon.filter(function(item) {
-            return item.ad.toLowerCase().includes(query) || query.split(' ').some(word => item.ad.toLowerCase().includes(word));
+            var itemAd = item.ad.toLowerCase();
+            return arananKelimeler.every(word => itemAd.includes(word));
         });
         if(bulunanlar.length > 0) {
             var html = '<ul style="margin:0; padding-left:15px;">';
@@ -594,7 +597,7 @@ function parcaAramaYap() {
             html += '</ul>';
             sonucIcerik.innerHTML = html;
         } else {
-            sonucIcerik.innerHTML = '⚠️ <b>"' + query + '"</b> için doğrudan eşleşen özel toptancı kaydı bulunamadı ancak genel piyasa ortalaması 300 TL - 750 TL aralığındadır.';
+            sonucIcerik.innerHTML = '⚠️ <b>"' + query + '"</b> için doğrudan eşleşen özel toptancı kaydı bulunamadı ancak genel piyasa ortalaması 300 TL - 950 TL aralığındadır.';
         }
     }, 600);
 }
