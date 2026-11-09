@@ -21,7 +21,7 @@ except:
     OCR_AKTIF = False
 
 app = Flask(__name__)
-app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v105"
+app.secret_key = "iz_motor_gizli_anahtar_erp_postgres_v106"
 
 SIFRE = "izmotor2026*"
 TOKEN = "9017126535:AAEBZYsO6g2IVU0OhhdadGlaH_ntFGhkYxk"
@@ -107,21 +107,9 @@ HTML_LOGIN = """
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Inter:wght@400;700;900&display=swap');
         body { font-family: 'Inter', sans-serif; background-color: #06080f; background-image: radial-gradient(rgba(250, 204, 21, 0.08) 1px, transparent 1px); display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; color: #f8fafc; overflow: hidden; }
-        
         .login-box { background: rgba(13, 17, 28, 0.95); border: 1px solid rgba(250, 204, 21, 0.4); padding: 40px; border-radius: 20px; width: 100%; max-width: 350px; text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.8); animation: revUp 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; transition: all 0.6s cubic-bezier(0.77, 0, 0.175, 1); }
-        
-        @keyframes revUp {
-            0% { transform: scale(0.8) translateY(30px); opacity: 0; }
-            100% { transform: scale(1) translateY(0); opacity: 1; }
-        }
-
-        /* Motosiklet Gaz Verme / Fırlama Efekti */
-        .engine-transition {
-            transform: scale(1.15) translateX(120vw) rotate(15deg) !important;
-            opacity: 0;
-            filter: blur(8px) brightness(2.5);
-        }
-
+        @keyframes revUp { 0% { transform: scale(0.8) translateY(30px); opacity: 0; } 100% { transform: scale(1) translateY(0); opacity: 1; } }
+        .engine-transition { transform: scale(1.15) translateX(120vw) rotate(15deg) !important; opacity: 0; filter: blur(8px) brightness(2.5); }
         h2 { font-family: 'Permanent Marker', cursive; color: #facc15; font-size: 26px; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 2px; text-shadow: 0 0 10px rgba(250,204,21,0.5); }
         input { width: 100%; padding: 14px; margin-bottom: 20px; background: #030712; border: 1px solid #334155; border-radius: 10px; color: #fff; text-align: center; font-size: 16px; outline: none; }
         input:focus { border-color: #facc15; box-shadow: 0 0 10px rgba(250,204,21,0.3); }
@@ -140,21 +128,14 @@ HTML_LOGIN = """
         <button type="submit" id="girisBtn">🏍️ Giriş Yap</button>
     </form>
 </div>
-
 <script>
 function motorCalistir(event) {
-    event.preventDefault(); // Sayfanın anında yenilenmesini durduruyoruz
+    event.preventDefault();
     var box = document.getElementById('loginBox');
     var btn = document.getElementById('girisBtn');
-    
-    // Buton yazısını ve titreşimi tetikle
     btn.innerHTML = "⚡ VÖÖÖRT! Gaz Kesici...";
     box.classList.add('engine-transition');
-    
-    // Animasyon süresiyle tam senkronize bir şekilde formu gönder (700 milisaniye)
-    setTimeout(function() {
-        document.getElementById('loginForm').submit();
-    }, 650);
+    setTimeout(function() { document.getElementById('loginForm').submit(); }, 650);
 }
 </script>
 </body>
@@ -304,6 +285,8 @@ HTML_PANEL = """
                     {% endfor %}
                 </div>
                 <label style="margin-top:15px;">Yapılan İşlemler, Parçalar ve Yağ/İşçilik Detayları</label>
+                
+                <!-- Üst Kısım: Sadece Parçalar / Dinamik Satırlar -->
                 <div id="parcaListesiContainer">
                     {% for i in range(3) %}
                     <div class="parca-satir">
@@ -312,13 +295,17 @@ HTML_PANEL = """
                         <input type="number" step="0.01" name="fiyat[]" placeholder="Tutar (TL)" style="margin:0; flex:1;" {% if i == 0 %}required{% endif %}>
                     </div>
                     {% endfor %}
-                    <div class="parca-satir" style="border: 1px dashed var(--accent);">
-                        <input type="text" name="islem_ad[]" value="İşçilik" style="margin:0; flex:2; color:var(--accent); font-weight:700;">
-                        <input type="text" name="adet[]" value="1" style="margin:0; flex:1;" placeholder="Adet/Süre">
-                        <input type="number" step="0.01" name="fiyat[]" placeholder="İşçilik Ücreti (TL)" style="margin:0; flex:1;">
-                    </div>
                 </div>
-                <button type="button" class="btn-action" style="background:#0f172a; color:var(--accent); border:1px solid var(--accent);" onclick="yeniSatirEkle()">➕ Daha Fazla Satır Ekle</button>
+
+                <button type="button" class="btn-action" style="background:#0f172a; color:var(--accent); border:1px solid var(--accent); margin-bottom: 12px;" onclick="yeniSatirEkle()">➕ Daha Fazla Satır Ekle</button>
+
+                <!-- Alt Kısım: Her Zaman En Altta Sabit Duran İşçilik Satırı -->
+                <div class="parca-satir" style="border: 2px dashed var(--accent); background: rgba(250,204,21,0.03);">
+                    <input type="text" name="islem_ad[]" value="İşçilik" style="margin:0; flex:2; color:var(--accent); font-weight:900;" readonly>
+                    <input type="text" name="adet[]" value="1" style="margin:0; flex:1;" placeholder="Adet/Süre">
+                    <input type="number" step="0.01" name="fiyat[]" placeholder="İşçilik Ücreti (TL)" style="margin:0; flex:1;">
+                </div>
+
                 <label style="margin-top:20px;">Notlar ve Tespitler (Açıklama)</label>
                 <textarea name="notlar" rows="3" placeholder="Motor hakkında özel notlar, arıza tespitleri vb. yazabilirsiniz..."></textarea>
                 <button type="submit" class="btn-action" style="margin-top:20px;">Formu Oluştur & Kaydet (PDF)</button>
@@ -553,7 +540,7 @@ function aracBilgileriniDoldur() {
     }
 }
 function islemEkle(isim) {
-    var satirlar = document.querySelectorAll('.parca-satir');
+    var satirlar = document.querySelectorAll('#parcaListesiContainer .parca-satir');
     for (var i = 0; i < satirlar.length; i++) {
         var inputAd = satirlar[i].querySelector('input[name="islem_ad[]"]');
         var inputAdet = satirlar[i].querySelector('input[name="adet[]"]');
@@ -861,8 +848,13 @@ def olustur():
             try: tutar = float(fiyat_listesi[i])
             except: tutar = 0.0
             
-            islemler.append((isim, adet_Str, tutar))
-            toplam_fiyat += tutar
+            # Boş veya 0 TL olan ek işçilikleri atlamamak için kontrol ama tutar/isim doluysa al
+            if tutar > 0 or isim.lower() == "işçilik":
+                islemler.append((isim, adet_Str, tutar))
+                toplam_fiyat += tutar
+            elif isim and isim.lower() != "işçilik":
+                islemler.append((isim, adet_Str, tutar))
+                toplam_fiyat += tutar
             
             if "işçilik" not in isim.lower() and "emek" not in isim.lower():
                 cursor.execute("SELECT id, adet FROM stok WHERE parca_adi ILIKE %s", (isim,))
